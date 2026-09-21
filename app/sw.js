@@ -15,7 +15,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `telecare-app-${VERSION}`;
 
 // Kerangka aplikasi. Urutan skrip mengikuti app/index.html.
@@ -27,7 +27,8 @@ const SHELL = [
   'js/core.js',
   'js/data.js',
   'js/rtc-config.js',
-  'js/firebase.js',
+  'js/supabase-init.js',
+  'js/supabase.js',
   'js/ble.js',
   'js/engine.js',
   'js/push-config.js',
@@ -49,14 +50,7 @@ const SHELL = [
 
 // Host yang selalu dilewatkan ke jaringan, tanpa cache sama sekali.
 const LEWATI_HOST = [
-  'firebaseio.com',            // Realtime Database (long-poll & websocket)
-  'firebasedatabase.app',
-  'identitytoolkit.googleapis.com',
-  'securetoken.googleapis.com',
-  'firebaseinstallations.googleapis.com',
-  'firebaseremoteconfig.googleapis.com',
-  'fcmregistrations.googleapis.com',
-  'firebaselogging-pa.googleapis.com',
+  'supabase.co',                // Database, Auth, Realtime, Edge Functions
   'google-analytics.com',
   'googletagmanager.com',
   'accounts.google.com',

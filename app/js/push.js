@@ -161,7 +161,7 @@
     async request() {
       if (!Push.supported()) throw new Error('Peramban ini tidak mendukung notifikasi.');
       const p = await Notification.requestPermission();
-      if (p === 'granted') Push.daftarFcm().catch(() => {});
+      if (p === 'granted') Push.daftarWebPush().catch(() => {});
       return p;
     },
 
@@ -243,59 +243,62 @@
       if (Push._lepas) { Push._lepas(); Push._lepas = null; }
     },
 
-    /* ---------------- FCM ---------------- */
-    fcmSiap() {
-      return !!(cfg().vapidKey && window.firebase && firebase.messaging);
+    /* ---------------- Web Push (standar browser, bukan FCM) ---------------- */
+
+    /** Ubah kunci publik VAPID (base64url) jadi format byte yang diminta PushManager. */
+    _urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
     },
 
-    /** Memuat SDK messaging hanya bila memang dipakai. */
-    muatSdk() {
-      if (!cfg().vapidKey) return Promise.resolve(false);
-      if (window.firebase && firebase.messaging) return Promise.resolve(true);
-      return new Promise((resolve) => {
-        const s = document.createElement('script');
-        s.src = 'https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging-compat.js';
-        s.onload = () => resolve(true);
-        s.onerror = () => { console.warn('[TeleCare] SDK messaging gagal dimuat.'); resolve(false); };
-        document.head.appendChild(s);
-      });
+    webPushSiap() {
+      return !!(cfg().vapidKey && 'PushManager' in window);
     },
 
     /**
-     * Mendaftarkan perangkat ke FCM dan mengembalikan tokennya.
-     * Mengembalikan null bila VAPID key belum diisi — keadaan bawaan
-     * proyek ini, dan bukan galat.
+     * Mendaftarkan perangkat lewat Web Push API standar, lalu menyimpan
+     * langganannya (endpoint + kunci) ke tabel push_subscriptions di
+     * Supabase — supaya Edge Function tahu ke mana harus mengirim.
+     * Mengembalikan null bila VAPID key belum diisi — bukan galat.
      */
-    async daftarFcm() {
-      if (!cfg().vapidKey) return null;
+    async daftarWebPush() {
+      if (!Push.webPushSiap()) return null;
       if (Push.permission() !== 'granted') return null;
-      if (!(await Push.muatSdk())) return null;
-      if (!(window.firebase && firebase.messaging)) return null;
+      if (!TC.FB) return null;
       try {
         const reg = await Push.registrasi();
-        const messaging = firebase.messaging();
-        const token = await messaging.getToken({
-          vapidKey: cfg().vapidKey,
-          serviceWorkerRegistration: reg || undefined
-        });
-        if (!token) return null;
-        Push.token = token;
+        if (!reg) return null;
 
-        // Pesan yang datang saat aplikasi sedang dibuka tidak ditampilkan
-        // otomatis oleh peramban, jadi ditangani sendiri di sini.
-        messaging.onMessage((payload) => {
-          const n = (payload && payload.notification) || {};
-          const d = (payload && payload.data) || {};
-          Push.show(n.title || d.title || 'TeleCare', {
-            body: n.body || d.body || '',
-            tag: d.tag || 'telecare-fcm'
-          }).catch(() => {});
-          TC.Store.notify(n.title || 'Pesan masuk', n.body || d.body || '', 'info');
-        });
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: Push._urlBase64ToUint8Array(cfg().vapidKey)
+          });
+        }
 
-        return token;
+        await TC.FB.ensureAuth();
+        if (!TC.FB.sb || !TC.FB.uid) return null;
+
+        const json = sub.toJSON();
+        const { error } = await TC.FB.sb.from('push_subscriptions').upsert({
+          user_id: TC.FB.uid,
+          endpoint: json.endpoint,
+          p256dh: json.keys.p256dh,
+          auth_key: json.keys.auth,
+          role: (TC.Store && TC.Store.role) ? TC.Store.role() : null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        if (error) throw error;
+
+        Push.subscription = sub;
+        return sub;
       } catch (e) {
-        console.warn('[TeleCare] pendaftaran FCM gagal:', e.message);
+        console.warn('[TeleCare] pendaftaran push gagal:', e.message);
         return null;
       }
     },
@@ -307,7 +310,7 @@
         didukung: Push.supported(),
         izin: p,
         vapidDiisi: !!cfg().vapidKey,
-        token: Push.token || null,
+        subscription: Push.subscription || null,
         ringkasan: !Push.supported()
           ? 'Peramban ini tidak mendukung notifikasi.'
           : p === 'denied'
