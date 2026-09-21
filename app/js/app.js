@@ -292,7 +292,7 @@
     if (TC.Push && Store.user() && Store.is('pasien')) {
       TC.Push.mulaiPantau();
       // Token FCM diperbarui bila izin sudah pernah diberikan sebelumnya.
-      if (TC.Push.permission() === 'granted') TC.Push.daftarFcm().catch(() => {});
+      if (TC.Push.permission() === 'granted') TC.Push.daftarWebPush().catch(() => {});
     }
 
     if (TC.Ring) {
@@ -337,9 +337,10 @@
     }
 
     if (TC.Push && TC.Push.permission() === 'granted') {
-      TC.Push.daftarFcm().then((t) => {
-        if (t && TC.Ring.simpanToken) TC.Ring.simpanToken(t, 'dokter');
-      }).catch(() => {});
+      // Penyimpanan token sisi dokter (dulu lewat Ring.simpanToken ke RTDB)
+      // sudah tidak diperlukan lagi — tabel push_subscriptions sudah
+      // menangani ini secara generik untuk semua peran, termasuk dokter.
+      TC.Push.daftarWebPush().catch(() => {});
     }
 
     TC.Ring.dengarkan({
