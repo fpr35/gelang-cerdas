@@ -2,24 +2,20 @@
    TeleCare App — ring.js
    Panggilan masuk: dokter berdering ketika pasien memanggil.
 
-   KENAPA LEWAT REALTIME DATABASE, BUKAN FCM
-   FCM baru diperlukan bila pesan harus sampai ketika aplikasi
-   benar-benar tertutup, dan itu menuntut VAPID key serta pengirim
-   di sisi server. Selama aplikasi terbuka — termasuk di tab latar
-   belakang atau PWA yang terpasang — Realtime Database sudah
-   mengantarkan panggilan seketika lewat `child_added`, tanpa
-   prasyarat apa pun. Jalur FCM ditambahkan sebagai pelengkap,
-   bukan pengganti; lihat app/js/push.js dan functions/.
+   ARSITEKTUR (Supabase):
+   - "Dokter sedang jaga" ditandai lewat Realtime PRESENCE pada
+     kanal `duty:{doctorId}` — begitu koneksi dokter putus (tab
+     ditutup, sinyal hilang), status itu otomatis hilang tanpa
+     perlu kode pembersih manual.
+   - Kotak masuk panggilan memakai tabel `inbox` (Postgres),
+     didengarkan lewat `postgres_changes` — setara `child_added`
+     di Realtime Database dulu.
 
-   KENAPA KOTAK MASUK DIKUNCI PER FIREBASE UID
+   KENAPA KOTAK MASUK DIKUNCI PER USER ID
    Entri panggilan memuat `consultId`, dan siapa pun yang memegang
-   consultId dapat bergabung ke percakapan itu. Kalau kotak masuk
-   dikunci per `doctorId`, aturan database tidak punya cara
-   memverifikasi bahwa pembacanya benar-benar dokter tersebut —
-   peran hanya tersimpan di localStorage. Dengan mengunci per
-   `auth.uid`, aturan dapat memaksa `auth.uid == $uid`, sehingga
-   consultId tetap rahasia. Papan jaga `duty/{doctorId}` hanya
-   memuat uid yang bersifat buram dan tidak memberi hak apa pun.
+   consultId dapat bergabung ke percakapan itu. Dengan mengunci
+   baris `inbox` per `to_uid` lewat RLS (`auth.uid() = to_uid`),
+   cuma pemilik akun itu yang bisa membacanya.
    ============================================================ */
 (function (TC) {
   'use strict';
@@ -31,21 +27,16 @@
   // Entri yang lebih tua dari ini diabaikan: sisa sesi lama yang belum
   // terbersihkan tidak boleh membuat perangkat berdering saat dibuka.
   const KEDALUWARSA_MS = 60000;
-  // Selang pembaruan penanda waktu papan jaga.
-  const DENYUT_MS = 60000;
-  // Papan jaga yang tidak diperbarui selama ini dianggap ditinggalkan.
-  const JAGA_BASI_MS = 3 * DENYUT_MS;
+
+  /** Menunggu sesi & SDK Supabase siap, lalu kembalikan client-nya. */
+  async function sbReady() {
+    await FB.ensureAuth();
+    return FB.sb;
+  }
 
   /* ============================================================
      1. NADA DERING
-     ============================================================
-     Dibangkitkan Web Audio, tanpa berkas aset — mengikuti pola
-     proyek ini yang membangun aset lewat kode.
-
-     Peramban melarang audio berbunyi sebelum pengguna berinteraksi
-     dengan halaman. Kalau itu terjadi, `diblokir` menjadi true dan
-     pemanggilan tetap terlihat lewat notifikasi sistem dan overlay —
-     bukan gagal diam-diam.
+     (tidak berubah sama sekali dari versi sebelumnya)
      ============================================================ */
   const nada = {
     ctx: null,
@@ -60,7 +51,6 @@
       return nada.ctx;
     },
 
-    /** Satu ketukan dering: dua nada berpadu, dengan selubung agar tidak "klik". */
     _ketuk(mulaiDetik) {
       const ctx = nada.ctx;
       if (!ctx) return;
@@ -101,7 +91,6 @@
       if (ctx.state !== 'running') {
         nada.diblokir = true;
         console.info('[TeleCare] nada dering diblokir peramban sampai ada interaksi.');
-        // Getaran masih mungkin walau audio diblokir.
         if (navigator.vibrate) { try { navigator.vibrate([420, 180, 420]); } catch (e) {} }
         return false;
       }
@@ -118,10 +107,6 @@
       if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) { /* abaikan */ } }
     },
 
-    /**
-     * Membuka kunci audio pada interaksi pertama pengguna, supaya dering
-     * berikutnya sudah boleh berbunyi. Dipasang sekali saat aplikasi dimuat.
-     */
     siapkanIzin() {
       const buka = () => {
         const ctx = nada._ctxBaru();
@@ -140,137 +125,121 @@
     nada,
     TIMEOUT_MS,
 
-    tersedia() { return !!(FB && FB.db); },
+    tersedia() { return !!FB; },
 
     /* ---------------- sisi dokter ---------------- */
 
-    _dutyRef: null,
-    _denyut: null,
+    _dutyChannel: null,
 
-    /**
-     * Mendaftarkan diri sebagai dokter yang sedang menerima panggilan.
-     *
-     * Dua lapis perlindungan terhadap entri usang, sebab entri usang membuat
-     * pasien mendering perangkat yang sudah tidak ada lalu menunggu sampai
-     * kedaluwarsa tanpa penjelasan:
-     *   1. `onDisconnect` menghapus entri ketika sambungan putus dengan tertib.
-     *   2. `at` diperbarui berkala, sehingga entri yang ditinggalkan proses
-     *      yang mati mendadak masih dapat dikenali basi oleh `cekJaga`.
-     */
+    /** Mendaftarkan diri sebagai dokter yang sedang menerima panggilan. */
     async mulaiJaga(doctorId, nama) {
       if (!Ring.tersedia() || !doctorId) return false;
-      const user = await FB.ensureAuth();
-      const r = FB.ref('duty/' + doctorId);
-      if (!r) return false;
-      await r.set({ uid: user.uid, name: String(nama || 'Dokter').slice(0, 80), at: Date.now() });
-      try { r.onDisconnect().remove(); } catch (e) { /* abaikan */ }
-      Ring._dutyRef = r;
-
-      if (Ring._denyut) clearInterval(Ring._denyut);
-      Ring._denyut = setInterval(() => {
-        r.child('at').set(Date.now()).catch(() => {});
-      }, DENYUT_MS);
-      return true;
+      try {
+        const user = await FB.ensureAuth();
+        const sb = await sbReady();
+        const ch = sb.channel('duty:' + doctorId, {
+          config: { presence: { key: user.id } }
+        });
+        await new Promise((resolve) => {
+          ch.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await ch.track({ uid: user.id, name: String(nama || 'Dokter').slice(0, 80), at: Date.now() });
+              resolve();
+            }
+          });
+        });
+        Ring._dutyChannel = ch;
+        return true;
+      } catch (e) {
+        console.warn('[TeleCare] gagal mendaftar jaga:', e.message);
+        return false;
+      }
     },
 
     async berhentiJaga() {
-      const r = Ring._dutyRef;
-      Ring._dutyRef = null;
-      if (Ring._denyut) { clearInterval(Ring._denyut); Ring._denyut = null; }
-      if (!r) return;
-      try { await r.onDisconnect().cancel(); } catch (e) { /* abaikan */ }
-      await r.remove().catch(() => {});
+      const ch = Ring._dutyChannel;
+      Ring._dutyChannel = null;
+      if (!ch) return;
+      try { await ch.untrack(); } catch (e) { /* abaikan */ }
+      if (FB.sb) FB.sb.removeChannel(ch);
     },
 
     /**
      * Mendengarkan panggilan masuk untuk pengguna ini.
-     * @param {object} on { onMasuk(ring), onBatal(ringId) }
+     * @param {object} on { onMasuk(ring), onBatal(ringId, status) }
      * @returns {Function} pemutus langganan
      */
     dengarkan(on) {
       on = on || {};
       if (!Ring.tersedia()) return () => {};
-      let lepas = null;
-      let berhenti = false;
+      let ch = null;
+      let stopped = false;
 
-      FB.ensureAuth().then((user) => {
-        if (berhenti) return;
-        const r = FB.ref('inbox/' + user.uid);
-        if (!r) return;
-        const q = r.limitToLast(5);
+      FB.ensureAuth().then(async (user) => {
+        if (stopped) return;
+        const sb = await sbReady();
 
-        const masuk = (snap) => {
-          const v = snap.val();
-          if (!v) return;
-          // Hanya panggilan yang masih berdering dan masih segar.
-          if (v.status && v.status !== 'ringing') return;
-          if (!v.at || Date.now() - v.at > KEDALUWARSA_MS) {
-            snap.ref.remove().catch(() => {});
-            return;
-          }
-          if (on.onMasuk) on.onMasuk(Object.assign({ ringId: snap.key, ref: snap.ref }, v));
-        };
-
-        const berubah = (snap) => {
-          const v = snap.val() || {};
-          // Pasien membatalkan, atau entri sudah dijawab di perangkat lain.
-          if (v.status && v.status !== 'ringing' && on.onBatal) on.onBatal(snap.key, v.status);
-        };
-
-        const hilang = (snap) => { if (on.onBatal) on.onBatal(snap.key, 'removed'); };
-
-        const h1 = q.on('child_added', masuk, (e) =>
-          console.warn('[TeleCare] kotak masuk panggilan tidak terbaca:', e.message));
-        const h2 = q.on('child_changed', berubah);
-        const h3 = q.on('child_removed', hilang);
-
-        lepas = () => {
-          q.off('child_added', h1);
-          q.off('child_changed', h2);
-          q.off('child_removed', h3);
-        };
+        ch = sb.channel('inbox:' + user.id)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'inbox',
+            filter: 'to_uid=eq.' + user.id
+          }, (payload) => {
+            const v = payload.new;
+            if (v.status && v.status !== 'ringing') return;
+            const at = new Date(v.at).getTime();
+            if (!at || Date.now() - at > KEDALUWARSA_MS) {
+              sb.from('inbox').delete().eq('id', v.id).then(() => {});
+              return;
+            }
+            if (on.onMasuk) {
+              on.onMasuk({
+                ringId: v.id, from: v.from_uid, fromName: v.from_name,
+                consultId: v.consult_id, mode: v.mode, at, status: v.status
+              });
+            }
+          })
+          .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'inbox',
+            filter: 'to_uid=eq.' + user.id
+          }, (payload) => {
+            const v = payload.new;
+            if (v.status && v.status !== 'ringing' && on.onBatal) on.onBatal(v.id, v.status);
+          })
+          .on('postgres_changes', {
+            event: 'DELETE', schema: 'public', table: 'inbox',
+            filter: 'to_uid=eq.' + user.id
+          }, (payload) => {
+            if (on.onBatal) on.onBatal(payload.old.id, 'removed');
+          })
+          .subscribe();
       }).catch((e) => console.warn('[TeleCare] gagal mendengarkan panggilan:', e.message));
 
-      return () => { berhenti = true; if (lepas) lepas(); };
+      return () => { stopped = true; if (ch && FB.sb) FB.sb.removeChannel(ch); };
     },
 
     /** Menerima panggilan: tandai diterima lalu gabung ke percakapannya. */
     async terima(ring) {
       nada.berhenti();
-      if (!ring || !ring.ref) return null;
-      await ring.ref.update({ status: 'accepted', answeredAt: Date.now() }).catch(() => {});
-      if (ring.consultId && TC.Chat) {
-        await TC.Chat.join(ring.consultId).catch(() => {});
-      }
-      // Entri dihapus setelah beberapa saat agar pemanggil sempat membaca
-      // statusnya lebih dulu.
-      setTimeout(() => { ring.ref.remove().catch(() => {}); }, 4000);
+      if (!ring) return null;
+      try {
+        const sb = await sbReady();
+        await sb.from('inbox')
+          .update({ status: 'accepted', answered_at: new Date().toISOString() })
+          .eq('id', ring.ringId);
+        if (ring.consultId && TC.Chat) await TC.Chat.join(ring.consultId).catch(() => {});
+        setTimeout(() => { sb.from('inbox').delete().eq('id', ring.ringId).then(() => {}); }, 4000);
+      } catch (e) { /* abaikan */ }
       return ring.consultId || null;
     },
 
     async tolak(ring) {
       nada.berhenti();
-      if (!ring || !ring.ref) return;
-      await ring.ref.update({ status: 'declined', answeredAt: Date.now() }).catch(() => {});
-      setTimeout(() => { ring.ref.remove().catch(() => {}); }, 4000);
-    },
-
-    /**
-     * Menyimpan token FCM perangkat ini. Ditaruh di `push/{uid}` yang hanya
-     * dapat dibaca pemiliknya — token push tidak layak diumbar, sedangkan
-     * Cloud Function tetap dapat membacanya lewat Admin SDK.
-     */
-    async simpanToken(token, peran) {
-      if (!Ring.tersedia() || !token) return false;
-      const user = await FB.ensureAuth();
-      const r = FB.ref('push/' + user.uid);
-      if (!r) return false;
-      await r.set({
-        token: String(token).slice(0, 4096),
-        role: String(peran || 'pasien').slice(0, 20),
-        at: Date.now()
-      }).catch(() => {});
-      return true;
+      if (!ring) return;
+      try {
+        const sb = await sbReady();
+        await sb.from('inbox').update({ status: 'declined', answered_at: new Date().toISOString() }).eq('id', ring.ringId);
+        setTimeout(() => { sb.from('inbox').delete().eq('id', ring.ringId).then(() => {}); }, 4000);
+      } catch (e) { /* abaikan */ }
     },
 
     /* ---------------- sisi pasien ---------------- */
@@ -279,19 +248,21 @@
     async cekJaga(doctorId) {
       if (!Ring.tersedia() || !doctorId) return null;
       try {
-        await FB.ensureAuth();
-        const r = FB.ref('duty/' + doctorId);
-        if (!r) return null;
-        const s = await r.get();
-        const v = s.exists() ? s.val() : null;
-        if (!v || !v.uid) return null;
-        // Entri yang denyutnya berhenti berarti perangkatnya mati mendadak;
-        // memanggilnya hanya membuat pasien menunggu sia-sia.
-        if (!v.at || Date.now() - v.at > JAGA_BASI_MS) {
-          r.remove().catch(() => {});
-          return null;
-        }
-        return v;
+        const sb = await sbReady();
+        return await new Promise((resolve) => {
+          const ch = sb.channel('duty:' + doctorId, {
+            config: { presence: { key: 'cek-' + Math.random().toString(36).slice(2) } }
+          });
+          const habis = setTimeout(() => { sb.removeChannel(ch); resolve(null); }, 4000);
+          ch.on('presence', { event: 'sync' }, () => {
+            const state = ch.presenceState();
+            const entri = Object.values(state).flat().find((e) => e.uid);
+            clearTimeout(habis);
+            sb.removeChannel(ch);
+            resolve(entri ? { uid: entri.uid, name: entri.name } : null);
+          });
+          ch.subscribe();
+        });
       } catch (e) {
         return null;
       }
@@ -309,21 +280,25 @@
       if (!jaga) return null;
 
       const user = await FB.ensureAuth();
+      const sb = await sbReady();
       const ringId = TC.secureId('r');
-      const ref = FB.ref('inbox/' + jaga.uid + '/' + ringId);
-      if (!ref) return null;
 
-      await ref.set({
-        from: user.uid,
-        fromName: String(o.fromName || 'Pasien').slice(0, 80),
-        consultId: o.consultId,
+      const { error } = await sb.from('inbox').insert({
+        id: ringId,
+        to_uid: jaga.uid,
+        from_uid: user.id,
+        from_name: String(o.fromName || 'Pasien').slice(0, 80),
+        consult_id: o.consultId,
         mode: o.mode || 'video',
-        at: Date.now(),
         status: 'ringing'
       });
+      if (error) {
+        console.warn('[TeleCare] gagal memanggil:', error.message);
+        return null;
+      }
 
       let habis = null;
-      let lepas = null;
+      let ch = null;
 
       const handle = {
         ringId,
@@ -332,18 +307,25 @@
 
         /** @param {Function} cb dipanggil dengan 'accepted' | 'declined' | 'missed' */
         pantau(cb) {
-          const h = ref.on('value', (s) => {
-            const v = s.val();
-            // Entri hilang sebelum dijawab: anggap tidak dijawab.
-            if (!v) { cb('missed'); return; }
-            if (v.status && v.status !== 'ringing') cb(v.status);
+          sbReady().then((sbc) => {
+            ch = sbc.channel('ring:' + ringId)
+              .on('postgres_changes', {
+                event: 'UPDATE', schema: 'public', table: 'inbox', filter: 'id=eq.' + ringId
+              }, (payload) => {
+                const v = payload.new;
+                if (v.status && v.status !== 'ringing') cb(v.status);
+              })
+              .on('postgres_changes', {
+                event: 'DELETE', schema: 'public', table: 'inbox', filter: 'id=eq.' + ringId
+              }, () => cb('missed'))
+              .subscribe();
           });
-          lepas = () => ref.off('value', h);
 
-          habis = setTimeout(() => {
-            ref.update({ status: 'missed' }).catch(() => {});
+          habis = setTimeout(async () => {
+            const sbc = await sbReady();
+            await sbc.from('inbox').update({ status: 'missed' }).eq('id', ringId).catch(() => {});
             cb('missed');
-            setTimeout(() => ref.remove().catch(() => {}), 2000);
+            setTimeout(() => sbc.from('inbox').delete().eq('id', ringId).catch(() => {}), 2000);
           }, TIMEOUT_MS);
 
           return handle;
@@ -351,13 +333,14 @@
 
         selesai() {
           if (habis) { clearTimeout(habis); habis = null; }
-          if (lepas) { lepas(); lepas = null; }
+          if (ch && FB.sb) { FB.sb.removeChannel(ch); ch = null; }
         },
 
         async batalkan() {
           handle.selesai();
-          await ref.update({ status: 'canceled' }).catch(() => {});
-          setTimeout(() => ref.remove().catch(() => {}), 2000);
+          const sbc = await sbReady();
+          await sbc.from('inbox').update({ status: 'canceled' }).eq('id', ringId).catch(() => {});
+          setTimeout(() => sbc.from('inbox').delete().eq('id', ringId).catch(() => {}), 2000);
         }
       };
 
