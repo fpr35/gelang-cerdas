@@ -189,6 +189,28 @@
         if (stopped) return;
         const sb = await sbReady();
 
+        // Tangkap panggilan yang SUDAH masuk SEBELUM app ini dibuka —
+        // misalnya app baru dibuka lewat klik notifikasi. Listener di
+        // bawah cuma menangkap yang BARU terjadi setelah baris ini,
+        // jadi baris lama perlu dicek manual sekali dulu di sini.
+        try {
+          const { data: existing } = await sb.from('inbox')
+            .select('*').eq('to_uid', user.id).eq('status', 'ringing');
+          (existing || []).forEach((v) => {
+            const at = new Date(v.at).getTime();
+            if (!at || Date.now() - at > KEDALUWARSA_MS) {
+              sb.from('inbox').delete().eq('id', v.id).then(() => {});
+              return;
+            }
+            if (on.onMasuk) {
+              on.onMasuk({
+                ringId: v.id, from: v.from_uid, fromName: v.from_name,
+                consultId: v.consult_id, mode: v.mode, at, status: v.status
+              });
+            }
+          });
+        } catch (e) { /* abaikan */ }
+
         ch = sb.channel('inbox:' + user.id)
           .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'inbox',
@@ -362,9 +384,11 @@
 
           habis = setTimeout(async () => {
             const sbc = await sbReady();
-            await sbc.from('inbox').update({ status: 'missed' }).eq('id', ringId).catch(() => {});
+            try { await sbc.from('inbox').update({ status: 'missed' }).eq('id', ringId); } catch (e) {}
             cb('missed');
-            setTimeout(() => sbc.from('inbox').delete().eq('id', ringId).catch(() => {}), 2000);
+            setTimeout(async () => {
+              try { await sbc.from('inbox').delete().eq('id', ringId); } catch (e) {}
+            }, 2000);
           }, TIMEOUT_MS);
 
           return handle;
@@ -378,8 +402,10 @@
         async batalkan() {
           handle.selesai();
           const sbc = await sbReady();
-          await sbc.from('inbox').update({ status: 'canceled' }).eq('id', ringId).catch(() => {});
-          setTimeout(() => sbc.from('inbox').delete().eq('id', ringId).catch(() => {}), 2000);
+          try { await sbc.from('inbox').update({ status: 'canceled' }).eq('id', ringId); } catch (e) {}
+          setTimeout(async () => {
+            try { await sbc.from('inbox').delete().eq('id', ringId); } catch (e) {}
+          }, 2000);
         }
       };
 
