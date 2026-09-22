@@ -556,7 +556,9 @@
       // beda dari "siapa yang secara teknis mengirim offer WebRTC lebih
       // dulu" (itu ditentukan sendiri di bawah, berdasarkan siapa yang
       // baru datang & melihat orang lain sudah menunggu).
+      let offerSent = false;
       let pengirimOffer = false;
+      let peranDilaporkan = false;
       const offs = [];
 
       pc.onicecandidate = (ev) => {
@@ -585,29 +587,52 @@
         catch (e) { /* kandidat usang, abaikan */ }
       });
 
+      /**
+       * Dipanggil BERULANG KALI (bukan cuma sekali) setiap ada perubahan
+       * presence — supaya tidak ada celah waktu di mana kedua sisi
+       * kebetulan sama-sama menyimpulkan "sendirian" dan tidak ada yang
+       * pernah mengirim offer sama sekali.
+       */
+      function cobaSinyal() {
+        const state = ch.presenceState();
+        const others = Object.keys(state).filter((k) => k !== myPeerId);
+
+        if (!peranDilaporkan) {
+          peranDilaporkan = true;
+          // "caller" = sayalah yang memulai/mendering panggilan ini
+          // (dipakai views-care.js untuk memanggil deringkanDokter()).
+          if (on.onRole) on.onRole(others.length ? 'callee' : 'caller');
+        }
+
+        if (!others.length || offerSent || pc.currentRemoteDescription) return;
+
+        // Kalau KEDUANYA baru saling "melihat" di waktu yang hampir
+        // bersamaan, keduanya akan sampai ke titik ini. Supaya cuma SATU
+        // yang benar-benar mengirim offer (bukan dua-duanya, atau tidak
+        // ada sama sekali), dipakai aturan pasti: id yang lebih kecil
+        // (perbandingan teks) yang mengirim, siapa pun itu.
+        const lawan = others[0];
+        if (myPeerId < lawan) {
+          offerSent = true;
+          pengirimOffer = true;
+          (async () => {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ch.send({ type: 'broadcast', event: 'offer', payload: { from: myPeerId, sdp: offer.sdp, type: offer.type } });
+          })();
+        }
+        // Kalau bukan giliran saya (id saya lebih besar), tidak melakukan
+        // apa-apa — nanti tetap menerima offer dari lawan lewat listener
+        // 'offer' di atas.
+      }
+
+      ch.on('presence', { event: 'sync' }, cobaSinyal);
+
       await new Promise((resolve) => {
         ch.subscribe(async (status) => {
           if (status !== 'SUBSCRIBED') return;
           await ch.track({ joinedAt: Date.now() });
-
-          const state = ch.presenceState();
-          const others = Object.keys(state).filter((k) => k !== myPeerId);
-          const akuDuluan = !others.length;
-
-          // "caller" di sini artinya: sayalah yang memulai/mendering
-          // panggilan ini (biasanya pasien) — INI yang dipakai views-care.js
-          // untuk memutuskan memanggil deringkanDokter().
-          if (on.onRole) on.onRole(akuDuluan ? 'caller' : 'callee');
-
-          if (!akuDuluan) {
-            // Sudah ada yang menunggu di ruangan — kirim offer SEKARANG,
-            // karena sudah pasti ada yang mendengar (bukan dikirim ke
-            // ruangan kosong yang pesannya akan hilang percuma).
-            pengirimOffer = true;
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            ch.send({ type: 'broadcast', event: 'offer', payload: { from: myPeerId, sdp: offer.sdp, type: offer.type } });
-          }
+          cobaSinyal(); // coba langsung, jaga-jaga lawan sudah ada saat ini juga
           resolve();
         });
       });
