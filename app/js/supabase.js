@@ -586,6 +586,10 @@
         try { await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); }
         catch (e) { /* kandidat usang, abaikan */ }
       });
+      
+      ch.on('broadcast', { event: 'bye' }, () => {
+        if (on.onState) on.onState('peer-left');
+      });
 
       /**
        * Dipanggil BERULANG KALI (bukan cuma sekali) setiap ada perubahan
@@ -693,11 +697,16 @@
         } catch (e) { return false; }
       },
       hangup(removeRoom) {
+        // Beri tahu lawan bicara SECARA EKSPLISIT bahwa panggilan diakhiri
+        // dari sisi ini — supaya layarnya langsung tertutup, bukan menunggu
+        // WebRTC "menebak" lewat gejala koneksi terputus (bisa lama/tidak pasti).
+        if (channel) {
+          try { channel.send({ type: 'broadcast', event: 'bye', payload: {} }); } catch (e) {}
+        }
         offs.forEach((f) => { try { f(); } catch (e) {} });
         try { pc.getSenders().forEach((s) => s.track && s.track.stop()); } catch (e) {}
         try { local.getTracks().forEach((t) => t.stop()); } catch (e) {}
         try { pc.close(); } catch (e) {}
-        // removeRoom diabaikan — tidak ada data persisten di pendekatan broadcast
       }
     };
   }

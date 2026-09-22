@@ -813,7 +813,11 @@
             }
           },
           onState(st) {
-            if (st === 'connected') {
+            if (st === 'peer-left') {
+              setState('Peserta lain mengakhiri panggilan.');
+              toast('Panggilan diakhiri oleh peserta lain.');
+              setTimeout(() => { cleanup(false); Router.navigate('/chat/' + params.id, true); }, 800);
+            } else if (st === 'connected') {
               setState('Tersambung');
               laporkanJalur();
             } else if (st === 'disconnected') {
