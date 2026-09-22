@@ -551,8 +551,12 @@
       const myPeerId = FB.uid + ':' + Math.random().toString(36).slice(2, 8);
       const ch = FB.sb.channel('call:' + roomId, { config: { presence: { key: myPeerId }, broadcast: { self: false } } });
 
-      let isCaller = false;
-      let offerSent = false;
+      // Dipisah sengaja: "akuDuluan" adalah peran PRODUK (siapa yang
+      // memulai/mendering panggilan — selalu pasien yang masuk duluan),
+      // beda dari "siapa yang secara teknis mengirim offer WebRTC lebih
+      // dulu" (itu ditentukan sendiri di bawah, berdasarkan siapa yang
+      // baru datang & melihat orang lain sudah menunggu).
+      let pengirimOffer = false;
       const offs = [];
 
       pc.onicecandidate = (ev) => {
@@ -561,25 +565,8 @@
         }
       };
 
-      ch.on('presence', { event: 'sync' }, async () => {
-        const state = ch.presenceState();
-        const others = Object.keys(state).filter((k) => k !== myPeerId);
-        if (others.length && !offerSent) {
-          offerSent = true;
-          isCaller = true;
-          if (on.onRole) on.onRole('caller');
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          ch.send({ type: 'broadcast', event: 'offer', payload: { from: myPeerId, sdp: offer.sdp, type: offer.type } });
-        } else if (!others.length && !offerSent) {
-          if (on.onRole) on.onRole('waiting');
-        }
-      });
-
       ch.on('broadcast', { event: 'offer' }, async ({ payload }) => {
         if (payload.from === myPeerId || pc.currentRemoteDescription) return;
-        isCaller = false;
-        if (on.onRole) on.onRole('callee');
         await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp }));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -587,7 +574,7 @@
       });
 
       ch.on('broadcast', { event: 'answer' }, async ({ payload }) => {
-        if (!isCaller || pc.currentRemoteDescription) return;
+        if (!pengirimOffer || pc.currentRemoteDescription) return;
         try { await pc.setRemoteDescription(new RTCSessionDescription({ type: payload.type, sdp: payload.sdp })); }
         catch (e) { console.warn('[TeleCare] answer ditolak:', e.message); }
       });
@@ -600,7 +587,28 @@
 
       await new Promise((resolve) => {
         ch.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') { await ch.track({ joinedAt: Date.now() }); resolve(); }
+          if (status !== 'SUBSCRIBED') return;
+          await ch.track({ joinedAt: Date.now() });
+
+          const state = ch.presenceState();
+          const others = Object.keys(state).filter((k) => k !== myPeerId);
+          const akuDuluan = !others.length;
+
+          // "caller" di sini artinya: sayalah yang memulai/mendering
+          // panggilan ini (biasanya pasien) — INI yang dipakai views-care.js
+          // untuk memutuskan memanggil deringkanDokter().
+          if (on.onRole) on.onRole(akuDuluan ? 'caller' : 'callee');
+
+          if (!akuDuluan) {
+            // Sudah ada yang menunggu di ruangan — kirim offer SEKARANG,
+            // karena sudah pasti ada yang mendengar (bukan dikirim ke
+            // ruangan kosong yang pesannya akan hilang percuma).
+            pengirimOffer = true;
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ch.send({ type: 'broadcast', event: 'offer', payload: { from: myPeerId, sdp: offer.sdp, type: offer.type } });
+          }
+          resolve();
         });
       });
 
