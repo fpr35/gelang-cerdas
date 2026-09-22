@@ -253,15 +253,27 @@
           const ch = sb.channel('duty:' + doctorId, {
             config: { presence: { key: 'cek-' + Math.random().toString(36).slice(2) } }
           });
-          const habis = setTimeout(() => { sb.removeChannel(ch); resolve(null); }, 4000);
-          ch.on('presence', { event: 'sync' }, () => {
+          let selesai = false;
+
+          const baca = () => {
             const state = ch.presenceState();
-            const entri = Object.values(state).flat().find((e) => e.uid);
-            clearTimeout(habis);
-            sb.removeChannel(ch);
-            resolve(entri ? { uid: entri.uid, name: entri.name } : null);
+            const entri = Object.values(state).flat().find((e) => e && e.uid);
+            return entri ? { uid: entri.uid, name: entri.name } : null;
+          };
+          const tutup = (val) => { if (!selesai) { selesai = true; resolve(val); } };
+
+          // Kasus channel BARU: event "sync" akan terpicu normal.
+          ch.on('presence', { event: 'sync' }, () => tutup(baca()));
+
+          // Kasus channel DAUR ULANG (topik sama sudah lama tersambung, seperti
+          // punya dokter sendiri): "sync" mungkin tidak terpicu lagi, jadi baca
+          // langsung begitu status SUBSCRIBED, dengan sedikit jeda untuk
+          // memastikan datanya benar-benar sudah terisi.
+          ch.subscribe((status) => {
+            if (status === 'SUBSCRIBED') setTimeout(() => tutup(baca()), 300);
           });
-          ch.subscribe();
+
+          setTimeout(() => tutup(null), 4000);
         });
       } catch (e) {
         return null;
