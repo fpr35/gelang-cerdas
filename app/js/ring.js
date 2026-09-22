@@ -249,6 +249,18 @@
       if (!Ring.tersedia() || !doctorId) return null;
       try {
         const sb = await sbReady();
+
+        // Kalau tab/klien ini sendiri kebetulan sudah punya channel dengan
+        // topik sama (misal dokter mengecek status jaganya sendiri), Supabase
+        // mengembalikan channel yang sama itu — baca langsung, jangan subscribe ulang.
+        const topikPenuh = 'realtime:duty:' + doctorId;
+        const sudahAda = (sb.getChannels() || []).find((c) => c.topic === topikPenuh);
+        if (sudahAda) {
+          const state = sudahAda.presenceState();
+          const entri = Object.values(state).flat().find((e) => e && e.uid);
+          return entri ? { uid: entri.uid, name: entri.name } : null;
+        }
+
         return await new Promise((resolve) => {
           const ch = sb.channel('duty:' + doctorId, {
             config: { presence: { key: 'cek-' + Math.random().toString(36).slice(2) } }
