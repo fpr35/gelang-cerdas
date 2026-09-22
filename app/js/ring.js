@@ -132,11 +132,21 @@
     _dutyChannel: null,
 
     /** Mendaftarkan diri sebagai dokter yang sedang menerima panggilan. */
-    async mulaiJaga(doctorId, nama) {
+      async mulaiJaga(doctorId, nama) {
       if (!Ring.tersedia() || !doctorId) return false;
       try {
         const user = await FB.ensureAuth();
         const sb = await sbReady();
+
+        // Catat permanen: "dokter katalog X = akun Supabase ini" — dipakai
+        // Ring.panggil() nanti walau dokternya sedang tidak online sama sekali.
+        await sb.from('doctor_directory').upsert({
+          catalog_id: doctorId,
+          user_id: user.id,
+          name: String(nama || 'Dokter').slice(0, 80),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'catalog_id' });
+
         const ch = sb.channel('duty:' + doctorId, {
           config: { presence: { key: user.id } }
         });
@@ -299,9 +309,14 @@
      * @param {object} o { doctorId, consultId, mode, fromName }
      * @returns {Promise<object|null>} { ringId, doctorUid, pantau, batalkan }
      */
-    async panggil(o) {
-      const jaga = await Ring.cekJaga(o.doctorId);
-      if (!jaga) return null;
+      async panggil(o) {
+      const sb0 = await sbReady();
+      // Cek "buku alamat" permanen dulu — INI yang menentukan bisa/tidaknya
+      // memanggil, bukan status online saat ini juga. Dokter yang appnya
+      // sedang tertutup total TETAP bisa dipanggil, selama dia pernah
+      // online minimal sekali (supaya UID-nya sempat tercatat).
+      const { data: dir } = await sb0.from('doctor_directory').select('*').eq('catalog_id', o.doctorId).maybeSingle();
+      if (!dir) return null; // dokter ini belum pernah online sama sekali
 
       const user = await FB.ensureAuth();
       const sb = await sbReady();
@@ -309,7 +324,7 @@
 
       const { error } = await sb.from('inbox').insert({
         id: ringId,
-        to_uid: jaga.uid,
+        to_uid: dir.user_id,
         from_uid: user.id,
         from_name: String(o.fromName || 'Pasien').slice(0, 80),
         consult_id: o.consultId,
@@ -326,8 +341,8 @@
 
       const handle = {
         ringId,
-        doctorUid: jaga.uid,
-        doctorName: jaga.name,
+        doctorUid: dir.user_id,
+        doctorName: dir.name,
 
         /** @param {Function} cb dipanggil dengan 'accepted' | 'declined' | 'missed' */
         pantau(cb) {
