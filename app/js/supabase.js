@@ -326,9 +326,14 @@
     subscribe(consultId, onMessage) {
       let ch = null;
       let stopped = false;
+      // Nama topik dibuat UNIK setiap kali dipanggil (bukan cuma
+      // "messages:{id}" polos) — supaya tidak pernah "mendaur ulang"
+      // channel lama yang mungkin masih dalam proses ditutup dari
+      // percobaan sebelumnya (itu yang bikin realtime diam-diam mati).
+      const topik = 'messages:' + consultId + ':' + Date.now() + '-' + Math.random().toString(36).slice(2);
       Chat.join(consultId).then(() => {
         if (stopped) return;
-        ch = FB.sb.channel('messages:' + consultId)
+        ch = FB.sb.channel(topik)
           .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'messages',
             filter: 'consult_id=eq.' + consultId
