@@ -857,9 +857,22 @@
       if (!(TC.FB && TC.FB.ready)) return;
       try {
         const user = await TC.FB.ensureAuth();
-        const { data: rows } = await TC.FB.sb.from('consult_members').select('consult_id').eq('user_id', user.id);
-        const ids = (rows || []).map((r) => r.consult_id);
-        for (const id of ids) {
+        const idsSet = new Set();
+
+        // Jalur 1: percakapan yang saya sudah resmi jadi anggotanya
+        // (biasanya sisi Pasien, atau sisi Dokter yang pernah ikut call).
+        const { data: viaMember } = await TC.FB.sb.from('consult_members').select('consult_id').eq('user_id', user.id);
+        (viaMember || []).forEach((r) => idsSet.add(r.consult_id));
+
+        // Jalur 2: percakapan yang ditujukan ke SAYA sebagai dokter,
+        // walau saya belum resmi jadi anggota (kasus: chat murni tanpa call).
+        const u = TC.Store.user();
+        if (u && u.doctorId) {
+          const { data: viaDoctor } = await TC.FB.sb.from('consults').select('id').eq('doctor_id', u.doctorId);
+          (viaDoctor || []).forEach((r) => idsSet.add(r.id));
+        }
+
+        for (const id of idsSet) {
           if (record(id)) continue;
           const c = await adopt(id);
           if (!c) continue;
