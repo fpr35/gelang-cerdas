@@ -294,6 +294,10 @@
       // Token FCM diperbarui bila izin sudah pernah diberikan sebelumnya.
       if (TC.Push.permission() === 'granted') TC.Push.daftarWebPush().catch(() => {});
     }
+    
+    if (TC.Consult && TC.Consult.syncFromServer && Store.user()) {
+      TC.Consult.syncFromServer().then(() => Router.render());
+    }
 
     if (TC.Ring) {
       // Membuka kunci audio pada interaksi pertama, supaya dering berikutnya

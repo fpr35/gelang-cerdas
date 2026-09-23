@@ -326,12 +326,21 @@
     subscribe(consultId, onMessage) {
       let ch = null;
       let stopped = false;
-      // Nama topik dibuat UNIK setiap kali dipanggil (bukan cuma
-      // "messages:{id}" polos) — supaya tidak pernah "mendaur ulang"
-      // channel lama yang mungkin masih dalam proses ditutup dari
-      // percobaan sebelumnya (itu yang bikin realtime diam-diam mati).
       const topik = 'messages:' + consultId + ':' + Date.now() + '-' + Math.random().toString(36).slice(2);
-      Chat.join(consultId).then(() => {
+      Chat.join(consultId).then(async () => {
+        if (stopped) return;
+
+        // Kejar riwayat yang sudah ada dulu, SEKALI SAJA — postgres_changes
+        // cuma menyiarkan yang benar-benar baru SETELAH baris ini, beda
+        // dengan child_added Firebase yang otomatis ikut mengirim riwayat.
+        try {
+          const { data: lama } = await FB.sb.from('messages').select('*')
+            .eq('consult_id', consultId).order('at', { ascending: true });
+          (lama || []).forEach((v) => {
+            onMessage({ key: v.id, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text, mid: v.mid });
+          });
+        } catch (e) { /* abaikan, tetap lanjut dengar yang baru */ }
+
         if (stopped) return;
         ch = FB.sb.channel(topik)
           .on('postgres_changes', {

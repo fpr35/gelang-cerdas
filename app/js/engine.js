@@ -727,8 +727,17 @@
      *   Sengaja tidak dikirim ke Realtime Database: aturan di sana menolak
      *   kunci di luar skema meta.
      */
-    function start(doctorId, mode, patientId) {
+      function start(doctorId, mode, patientId) {
       const doc = D.doctor(doctorId);
+
+      // Lanjutkan percakapan aktif yang sudah ada dengan dokter ini,
+      // daripada selalu membuat sesi baru setiap kali "Mulai Chat" diklik.
+      const existing = Store.state.consults.find((c) =>
+        c.doctorId === doctorId && c.status === 'active' &&
+        (patientId ? c.patientId === patientId : true)
+      );
+      if (existing) return existing;
+
       // ID konsultasi sekaligus menjadi ID ruang panggilan dan dibagikan lewat
       // tautan undangan, sehingga ikut menentukan hak akses — pakai pembangkit
       // kriptografis, bukan uid() yang berbasis Math.random.
@@ -839,7 +848,32 @@
         .map((x) => x.c);
     }
 
-    return { start, get: record, adopt, push, mirror, subscribe, replyTo, end, forPatient };
+    /**
+     * Menyamakan daftar konsultasi lokal dengan yang tercatat di server —
+     * supaya percakapan yang dimulai dari sisi lain (dokter atau pasien,
+     * lewat cara apa pun, bukan cuma lewat panggilan) ikut kelihatan.
+     */
+    async function syncFromServer() {
+      if (!(TC.FB && TC.FB.ready)) return;
+      try {
+        const user = await TC.FB.ensureAuth();
+        const { data: rows } = await TC.FB.sb.from('consult_members').select('consult_id').eq('user_id', user.id);
+        const ids = (rows || []).map((r) => r.consult_id);
+        for (const id of ids) {
+          if (record(id)) continue;
+          const c = await adopt(id);
+          if (!c) continue;
+          const { data: pesan } = await TC.FB.sb.from('messages').select('*').eq('consult_id', id).order('at', { ascending: true });
+          (pesan || []).forEach((v) => mirror(id, {
+            mid: v.mid, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text
+          }));
+        }
+      } catch (e) {
+        console.warn('[TeleCare] gagal sinkron daftar konsultasi:', e.message);
+      }
+    }
+
+    return { start, get: record, adopt, push, mirror, subscribe, replyTo, end, forPatient, syncFromServer };
   })();
 
   /* ============================================================
