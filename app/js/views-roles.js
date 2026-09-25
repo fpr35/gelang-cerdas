@@ -88,7 +88,7 @@
   /** Pesan galat Supabase yang bisa dipahami, termasuk migrasi yang belum dijalankan. */
   function pesanGalat(e, berkas) {
     if (TC.CareDB && TC.CareDB.belumDimigrasi(e)) {
-      return (berkas ? 'Tabel unit faskes' : 'Tabel hubungan dokter–pasien') +
+      return (berkas ? 'Tabel yang dibutuhkan' : 'Tabel hubungan dokter–pasien') +
         ' belum ada di server. Jalankan supabase/migrations/' +
         (berkas || '20260926_care_links.sql') + ' di Supabase SQL Editor.';
     }
@@ -247,14 +247,14 @@
       ? muatUnit().then((d) => {
           if (!d.unit) return [];
           unitId = d.unit.id;
-          return d.anggota.map((a) => ({ patient_id: a.id, patient_name: a.nama, created_at: a.sejak }));
+          return d.anggota.map((a) => ({ patient_id: a.id, patient_name: a.nama, created_at: a.sejak, email: a.email }));
         })
       : TC.CareDB.pasienSaya();
 
     Promise.all([muatTautan, TC.ReadingsDB.daftar(pid, 200)]).then(([links, rows]) => {
       const link = links.find((l) => l.patient_id === pid);
       if (!link) {
-        toast(FASKES ? 'Orang ini bukan anggota unit Anda.' : 'Pasien ini tidak terhubung dengan Anda.', 'err');
+        toast(FASKES ? L.bukan : 'Pasien ini tidak terhubung dengan Anda.', 'err');
         Router.navigate(KEMBALI, true); return;
       }
       const hasil = TC.hasilDariBaris(rows);
@@ -264,7 +264,8 @@
       const x = (v) => (v == null ? '—' : v);
       const nama = link.patient_name;
 
-      TC.topbar(nama, { sub: (FASKES ? 'Anggota sejak ' : 'Terhubung ') + shortDate(new Date(link.created_at)) });
+      TC.topbar(nama, { sub: (FASKES ? L.sejak : 'Terhubung ') + shortDate(new Date(link.created_at)) +
+        (FASKES && GLOBAL && link.email ? ' · ' + link.email : '') });
       setView(`
         <div class="card" style="display:flex;gap:14px;align-items:center">
           <span class="avatar avatar--lg" style="background:${metaStatus(st).color}">${esc(initials(nama))}</span>
@@ -324,9 +325,9 @@
           <span class="push"></span><span class="chip" data-esc-count>${Store.escalationsFor(pid).length}</span></div>
         <div id="patEsk">${gambarEskalasi(pid)}</div>
 
-        <div class="grid2 mt2">
+        <div class="${FASKES && GLOBAL ? '' : 'grid2'} mt2">
           <button class="btn btn--ghost btn--block" data-esc>${icon('alert')} Tandai eskalasi</button>
-          <button class="btn btn--dangerSoft btn--block" data-putus>${icon('x')} ${FASKES ? 'Keluarkan dari unit' : 'Putuskan pasien'}</button>
+          <button class="btn btn--dangerSoft btn--block" data-putus ${FASKES && GLOBAL ? 'hidden' : ''}>${icon('x')} ${FASKES ? 'Keluarkan dari unit' : 'Putuskan pasien'}</button>
         </div>
 
         <div class="note note--i mt2">${icon('info')}
@@ -408,26 +409,52 @@
      layar-layar ini dihitung dari keanggotaan itu dan hasil ukur TeleBand
      anggota di tabel device_readings — tidak ada katalog contoh.
      ============================================================ */
-  const FILE_UNIT = '20260926_facilities.sql';
+  // Tanpa fitur unit (TC.FITUR.unit mati), admin memantau SEMUA pasien yang
+  // terdaftar di tabel patients — tidak ada kode unit maupun keanggotaan.
+  const GLOBAL = !TC.FITUR.unit;
+  const FILE_UNIT = GLOBAL ? '20260928_patients.sql' : '20260926_facilities.sql';
+  const UNIT_GLOBAL = { id: null, name: 'Semua pengguna TeleCare', kind: 'Dasbor admin', city: '', code: null };
+  const L = GLOBAL ? {
+    Anggota: 'Pengguna', anggota: 'pengguna', judulAnggota: 'Pengguna', triase: 'Status triase pengguna',
+    semua: 'Semua pengguna', kelola: 'Kelola', laporan: 'Laporan pengguna', sejak: 'Terdaftar ',
+    bukan: 'Pengguna ini tidak ditemukan.', perangkat: 'Perangkat Pengguna',
+    kosong: 'Belum ada pengguna. Pasien muncul di sini otomatis setelah masuk ke aplikasi.'
+  } : {
+    Anggota: 'Anggota', anggota: 'anggota', judulAnggota: 'Anggota Unit', triase: 'Status triase unit',
+    semua: 'Semua anggota', kelola: 'Kelola unit', laporan: 'Laporan unit', sejak: 'Anggota sejak ',
+    bukan: 'Orang ini bukan anggota unit Anda.', perangkat: 'Perangkat Unit',
+    kosong: 'Belum ada anggota. Bagikan kode unit di atas.'
+  };
   const JENIS_UNIT = ['Perusahaan', 'Pesantren', 'Sekolah Berasrama', 'Panti Jompo', 'Klinik', 'Lainnya'];
   const HARI = 86400000;
 
   /** Unit milik admin ini beserta anggota, nakes, dan hasil ukur anggota. */
   async function muatUnit() {
-    const unit = await TC.FacilityDB.milikSaya();
-    if (!unit) return { unit: null, anggota: [], nakes: [], rows: [] };
-    const semua = await TC.FacilityDB.anggota(unit.id);
-    const pasien = semua.filter((m) => m.role === 'pasien');
-    const nakes = semua.filter((m) => m.role === 'dokter');
-    let rows = [];
-    try { rows = await TC.ReadingsDB.daftarBanyak(pasien.map((m) => m.user_id), 2000); }
-    catch (e) { /* anggota tetap tampil, tanpa angka */ }
+    let unit, pasien, nakes = [], rows = [];
+    if (GLOBAL) {
+      unit = UNIT_GLOBAL;
+      pasien = (await TC.PatientsDB.semua()).map((p) => ({
+        user_id: p.user_id, member_name: p.name, created_at: p.created_at,
+        email: p.email, last_seen: p.last_seen, anonymous: p.anonymous
+      }));
+      try { rows = await TC.ReadingsDB.terbaru(2000); }
+      catch (e) { /* pengguna tetap tampil, tanpa angka */ }
+    } else {
+      unit = await TC.FacilityDB.milikSaya();
+      if (!unit) return { unit: null, anggota: [], nakes: [], rows: [] };
+      const semua = await TC.FacilityDB.anggota(unit.id);
+      pasien = semua.filter((m) => m.role === 'pasien');
+      nakes = semua.filter((m) => m.role === 'dokter');
+      try { rows = await TC.ReadingsDB.daftarBanyak(pasien.map((m) => m.user_id), 2000); }
+      catch (e) { /* anggota tetap tampil, tanpa angka */ }
+    }
     const perOrang = {};
     rows.forEach((r) => { (perOrang[r.user_id] = perOrang[r.user_id] || []).push(r); });
     const anggota = pasien.map((m) => {
       const hasil = TC.hasilDariBaris(perOrang[m.user_id] || []);
       const terakhir = hasil[0] || null;
-      return { id: m.user_id, nama: m.member_name, sejak: m.created_at,
+      return { id: m.user_id, nama: m.member_name, sejak: m.created_at, email: m.email || null,
+               aktif: m.last_seen || null, anonim: !!m.anonymous,
                terakhir, status: TC.statusHasil(terakhir), hasil };
     });
     return { unit, anggota, nakes, rows };
@@ -527,38 +554,38 @@
         </div>
 
         <div class="stat-row">
-          <div><b>${anggota.length}</b><span>Anggota</span></div>
+          <div><b>${anggota.length}</b><span>${L.Anggota}</span></div>
           ${TC.FITUR.peranDokter ? `<div><b>${nakes.length}</b><span>Nakes</span></div>` : ''}
           <div><b style="${perhatian.length ? 'color:var(--coral-500)' : ''}">${perhatian.length}</b><span>Perlu perhatian</span></div>
         </div>
 
-        ${kartuKodeUnit(unit)}
+        ${GLOBAL ? '' : kartuKodeUnit(unit)}
 
         <div class="card mt">
-          <div class="card__head">${icon('users')}<h3>Status triase unit</h3>
+          <div class="card__head">${icon('users')}<h3>${L.triase}</h3>
             <span class="push"></span><span class="chip">${anggota.length} orang</span></div>
           ${anggota.length ? triaseBar(hitung('ok'), hitung('warn'), hitung('crit')) +
-            (hitung('none') ? `<p class="tiny muted mt">${hitung('none')} anggota belum punya hasil ukur.</p>` : '')
-            : '<p class="small muted">Belum ada anggota. Bagikan kode unit di atas.</p>'}
-          <p class="tiny muted mt">Dari hasil ukur TeleBand terakhir tiap anggota.</p>
+            (hitung('none') ? `<p class="tiny muted mt">${hitung('none')} ${L.anggota} belum punya hasil ukur.</p>` : '')
+            : `<p class="small muted">${L.kosong}</p>`}
+          <p class="tiny muted mt">Dari hasil ukur TeleBand terakhir tiap ${L.anggota}.</p>
         </div>
 
         <div class="card mt">
           <div class="card__head">${icon('chart')}<h3>Hasil ukur 7 hari terakhir</h3>
             <span class="push"></span><span class="chip">${hari.reduce((a, h) => a + h.n, 0)} hasil</span></div>
           ${hari.some((h) => h.n) ? '<div class="chart-wrap"><canvas id="cFac" style="height:150px"></canvas></div>'
-            : '<p class="small muted">Belum ada pengukuran anggota dalam 7 hari terakhir.</p>'}
+            : `<p class="small muted">Belum ada pengukuran ${L.anggota} dalam 7 hari terakhir.</p>`}
         </div>
 
         <div class="section-title">${icon('alert')} Perlu tindak lanjut
-          <span class="push"></span><a class="link" href="#/faskes/anggota">Semua anggota</a></div>
+          <span class="push"></span><a class="link" href="#/faskes/anggota">${L.semua}</a></div>
         ${perhatian.length ? `<div class="list">${perhatian.map((a) => barisPasienNyata(a, '#/faskes/anggota/')).join('')}</div>`
           : `<div class="card"><p class="small muted tc" style="padding:16px">
-            Tidak ada anggota yang memerlukan tindak lanjut saat ini.</p></div>`}
+            Tidak ada ${L.anggota} yang memerlukan tindak lanjut saat ini.</p></div>`}
 
-        <div class="section-title">${icon('sparkle')} Kelola unit</div>
+        <div class="section-title">${icon('sparkle')} ${L.kelola}</div>
         <div class="quick">
-          <a href="#/faskes/anggota"><i style="background:#EDF9F2;color:#03804C">${icon('users')}</i>Anggota</a>
+          <a href="#/faskes/anggota"><i style="background:#EDF9F2;color:#03804C">${icon('users')}</i>${L.Anggota}</a>
           <a href="#/faskes/perangkat"><i style="background:#DCEEF9;color:#075A85">${icon('watch')}</i>Perangkat</a>
           ${TC.FITUR.peranDokter ? `<a href="#/faskes/nakes"><i style="background:#EEEBFD;color:#4A3BB8">${icon('stetho')}</i>Nakes</a>` : ''}
           <a href="#/notifikasi"><i style="background:#FFF1D6;color:#8A5D00">${icon('bell')}</i>Peringatan</a>
@@ -568,8 +595,8 @@
           <svg class="promo__deco" viewBox="0 0 200 200" fill="none" aria-hidden="true">
             <circle cx="100" cy="100" r="86" stroke="#fff" stroke-width="2"/>
             <circle cx="100" cy="100" r="58" stroke="#fff" stroke-width="2" stroke-dasharray="4 8"/></svg>
-          <h3>Laporan unit</h3>
-          <p>Rekap anggota beserta hasil ukur TeleBand terakhirnya dan jumlah pengukuran 30 hari,
+          <h3>${L.laporan}</h3>
+          <p>Rekap ${L.anggota} beserta hasil ukur TeleBand terakhirnya dan jumlah pengukuran 30 hari,
              dalam berkas CSV untuk pelaporan internal.</p>
           <button class="btn btn--soft btn--sm" data-report>${icon('doc')} Unduh laporan</button>
         </div>
@@ -578,7 +605,7 @@
       const cv = $('#cFac');
       if (cv) TC.barChart(cv, hari.map((h) => h.n), hari.map((h) => h.label), '#6C5CE7');
       $('[data-notif]').onclick = () => Router.navigate('/notifikasi');
-      pasangKodeUnit(unit);
+      if (!GLOBAL) pasangKodeUnit(unit);
       $('[data-report]').onclick = () => laporanUnit(unit, anggota);
     }).catch(galatUnit);
   }
@@ -589,12 +616,12 @@
     const kutip = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const tulis = (arr) => baris.push(arr.map(kutip).join(','));
     const batas30 = Date.now() - 30 * HARI;
-    tulis(['Laporan unit TeleCare']);
-    tulis(['Unit', unit.name, 'Jenis', unit.kind, 'Kota', unit.city]);
+    tulis([GLOBAL ? 'Laporan pengguna TeleCare' : 'Laporan unit TeleCare']);
+    if (!GLOBAL) tulis(['Unit', unit.name, 'Jenis', unit.kind, 'Kota', unit.city]);
     tulis(['Disusun', TC.fullDate(new Date()) + ' ' + hhmm(Date.now())]);
     tulis(['Sumber: hasil ukur TeleBand anggota di server. Tekanan darah & glukosa = estimasi eksperimental.']);
     tulis([]);
-    tulis(['Nama', 'Anggota sejak', 'Status', 'Hasil terakhir', 'Detak (bpm)', 'SpO2 (%)',
+    tulis(['Nama', GLOBAL ? 'Terdaftar' : 'Anggota sejak', 'Status', 'Hasil terakhir', 'Detak (bpm)', 'SpO2 (%)',
            'TD estimasi', 'Glukosa estimasi', 'Hasil ukur 30 hari', 'Penandaan eskalasi (perangkat ini)']);
     anggota.forEach((a) => {
       const r = a.terakhir;
@@ -610,29 +637,30 @@
     const blob = new Blob(['\ufeff' + baris.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const el = document.createElement('a');
     el.href = URL.createObjectURL(blob);
-    el.download = 'laporan-unit-' + kunciTanggal() + '.csv';
+    el.download = (GLOBAL ? 'laporan-pengguna-' : 'laporan-unit-') + kunciTanggal() + '.csv';
     el.click();
     setTimeout(() => URL.revokeObjectURL(el.href), 1000);
-    toast('Laporan tersusun · ' + anggota.length + ' anggota.');
+    toast('Laporan tersusun · ' + anggota.length + ' ' + L.anggota + '.');
   }
 
   function viewFacilityMembersNyata() {
-    TC.topbar('Anggota Unit', { sub: 'Memuat…', back: false });
-    setView(`<p class="small muted tc" style="padding:24px">Memuat anggota…</p>`);
+    TC.topbar(L.judulAnggota, { sub: 'Memuat…', back: false });
+    setView(`<p class="small muted tc" style="padding:24px">Memuat ${L.anggota}…</p>`);
     muatUnit().then((d) => {
       if (!d.unit) { Router.navigate('/faskes', true); return; }
-      TC.topbar('Anggota Unit', { sub: d.unit.name, back: false });
+      TC.topbar(L.judulAnggota, { sub: GLOBAL ? d.anggota.length + ' pasien terdaftar' : d.unit.name, back: false });
       setView(`
         <div class="searchbar">${icon('search')}
-          <input id="mq" type="search" placeholder="Cari nama anggota" aria-label="Cari anggota"></div>
+          <input id="mq" type="search" placeholder="Cari nama${GLOBAL ? ' atau email' : ''}" aria-label="Cari ${L.anggota}"></div>
         <div class="list mt" id="mList"></div>`);
       function draw(q) {
-        const list = d.anggota.filter((a) => !q || a.nama.toLowerCase().indexOf(q) !== -1)
+        const list = d.anggota.filter((a) => !q || (a.nama + ' ' + (a.email || '')).toLowerCase().indexOf(q) !== -1)
           .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
         $('#mList').innerHTML = list.length ? list.map((a) => barisPasienNyata(a, '#/faskes/anggota/')).join('')
           : `<div class="empty" style="background:var(--surface)">${icon('users')}
-             <b>${d.anggota.length ? 'Tidak ditemukan' : 'Belum ada anggota'}</b>
-             <p>${d.anggota.length ? 'Coba kata kunci lain.' : 'Bagikan kode unit dari layar Unit.'}</p></div>`;
+             <b>${d.anggota.length ? 'Tidak ditemukan' : 'Belum ada ' + L.anggota}</b>
+             <p>${d.anggota.length ? 'Coba kata kunci lain.' : GLOBAL
+               ? 'Pasien muncul di sini otomatis setelah masuk ke aplikasi.' : 'Bagikan kode unit dari layar Unit.'}</p></div>`;
       }
       draw('');
       $('#mq').oninput = (e) => draw(e.target.value.trim().toLowerCase());
@@ -640,11 +668,11 @@
   }
 
   function viewFacilityDevicesNyata() {
-    TC.topbar('Perangkat Unit', { sub: 'Memuat…', back: false });
+    TC.topbar(L.perangkat, { sub: 'Memuat…', back: false });
     setView(`<p class="small muted tc" style="padding:24px">Memuat perangkat…</p>`);
     muatUnit().then((d) => {
       if (!d.unit) { Router.navigate('/faskes', true); return; }
-      TC.topbar('Perangkat Unit', { sub: d.unit.name, back: false });
+      TC.topbar(L.perangkat, { sub: d.unit.name, back: false });
       const nama = {};
       d.anggota.forEach((a) => { nama[a.id] = a.nama; });
       // Inventaris disusun dari hasil ukur: setiap TeleBand (serial) yang
@@ -670,7 +698,7 @@
           <div><b>${daftar.reduce((a, x) => a + x.n7, 0)}</b><span>Hasil 7 hari</span></div>
         </div>
 
-        <div class="section-title">${icon('watch')} TeleBand anggota</div>
+        <div class="section-title">${icon('watch')} TeleBand ${L.anggota}</div>
         ${daftar.length ? `<div class="stack--sm stack">${daftar.map((x) => `
           <div class="dev-card${x.terakhir >= batas7 ? ' is-on' : ''}">
             <span class="dev-card__ico">${icon('watch')}</span>
@@ -685,11 +713,11 @@
             </span>
           </div>`).join('')}</div>`
           : `<div class="card"><p class="small muted tc" style="padding:16px">Belum ada TeleBand yang
-             mengirim hasil ukur anggota unit ini.</p></div>`}
+             mengirim hasil ukur ${GLOBAL ? 'pengguna' : 'anggota unit ini'}.</p></div>`}
 
         <div class="note note--i mt2">${icon('info')}
-          <div><b>Tercatat otomatis</b>Daftar ini disusun dari hasil ukur yang dikirim anggota —
-          setiap TeleBand yang dipakai anggota muncul di sini beserta waktu pemakaian terakhirnya.</div></div>
+          <div><b>Tercatat otomatis</b>Daftar ini disusun dari hasil ukur yang dikirim ${L.anggota} —
+          setiap TeleBand yang dipakai muncul di sini beserta waktu pemakaian terakhirnya.</div></div>
       `);
     }).catch(galatUnit);
   }

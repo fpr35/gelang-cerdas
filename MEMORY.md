@@ -233,6 +233,13 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
       mencoba ulang sekali bila 404, dan meneruskan pesan galat Google ke aplikasi. Perlu deploy ulang.
       Lalu 503 "high demand": fungsi kini mengulang model yang sama (jeda 1,5 dtk) lalu 2 model cadangan
       dari daftar (maks. 4 percobaan); tetap 503 → pesan "Gemini sedang sibuk" ke pengguna.
+32. **Admin memantau SEMUA pasien** (25 Sep, permintaan user: tanpa kode unit). Sakelar `TC.FITUR.unit=false`
+    (unit, kode unit, "Unit saya" disembunyikan). Migrasi `20260928_patients.sql`: tabel `patients`
+    (pasien mendaftarkan diri otomatis via `PatientsDB.daftarkan`, sekali per uid per hari, dari
+    FB.onStatus di app.js), policy `patients_select` (diri sendiri atau `saya_admin()`), dan
+    `device_readings_select_admin`. Dasbor admin (views-roles 2N, `GLOBAL`/`L`): Ringkasan, Pengguna
+    (cari nama/email), Perangkat, detail pengguna (tanpa tombol keluarkan), laporan CSV; hasil ukur
+    lewat `ReadingsDB.terbaru(2000)`. Urutan migrasi: device_readings → facilities → admins → patients.
 
 ---
 

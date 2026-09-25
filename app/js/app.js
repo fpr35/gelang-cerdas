@@ -72,7 +72,7 @@
     ['/profil',             V.profile,     { guard: 'auth', tab: 'profil' }],
     ['/profil/pribadi',     V.personal,    { guard: 'auth', tab: 'profil' }],
     ['/profil/dokter',      V.myDoctors,   { guard: 'auth', roles: ['pasien'], tab: 'profil', fitur: 'peranDokter' }],
-    ['/profil/unit',        V.myUnits,     { guard: 'auth', roles: ['pasien', 'dokter'], tab: 'profil' }],
+    ['/profil/unit',        V.myUnits,     { guard: 'auth', roles: ['pasien', 'dokter'], tab: 'profil', fitur: 'unit' }],
     ['/profil/tujuan',      V.goals,       { guard: 'auth', tab: 'profil' }],
     ['/profil/kalibrasi',   V.calibration, { guard: 'auth', tab: 'profil' }],
     ['/profil/pengaturan',  V.settings,    { guard: 'auth', tab: 'profil' }],
@@ -170,8 +170,8 @@
       { id: 'profil',    label: 'Profil',   icon: 'user',   href: '#/profil' }
     ],
     'admin-faskes': [
-      { id: 'f-home',      label: 'Unit',      icon: 'home',  href: '#/faskes' },
-      { id: 'f-anggota',   label: 'Anggota',   icon: 'users', href: '#/faskes/anggota' },
+      { id: 'f-home',      label: TC.FITUR.unit ? 'Unit' : 'Ringkasan',     icon: 'home',  href: '#/faskes' },
+      { id: 'f-anggota',   label: TC.FITUR.unit ? 'Anggota' : 'Pengguna',   icon: 'users', href: '#/faskes/anggota' },
       { id: 'f-perangkat', label: 'Perangkat', icon: 'watch', href: '#/faskes/perangkat' },
       { id: 'f-nakes',     label: 'Nakes',     icon: 'stetho', href: '#/faskes/nakes', fitur: 'peranDokter' },
       { id: 'profil',      label: 'Profil',    icon: 'user',  href: '#/profil' }
@@ -373,6 +373,20 @@
     // Sesi Supabase diketahui belakangan (asinkron). Bila ternyata tidak cocok
     // dengan sesi admin lokal, layar digambar ulang agar penjaga sesi bekerja.
     if (TC.FB) TC.FB.onStatus(() => { if (Store.user() && sesiTidakSah()) Router.render(); });
+
+    // Pasien mendaftarkan dirinya ke tabel `patients` supaya otomatis terlihat
+    // di dasbor admin (tanpa kode unit). Sekali per akun Supabase per hari;
+    // gagal (mis. migrasi belum dijalankan) diabaikan dan dicoba lagi nanti.
+    let terdaftar = null;
+    if (TC.FB && TC.PatientsDB) TC.FB.onStatus((fb) => {
+      const u = Store.user();
+      if (!fb.uid || !u || !Store.is('pasien')) return;
+      const kunci = fb.uid + ':' + new Date().toDateString() + ':' + (u.name || '');
+      if (kunci === terdaftar) return;
+      terdaftar = kunci;
+      TC.PatientsDB.daftarkan(Store.profile().nickname || u.name, u.email && !/@(tamu|google)\.local$/.test(u.email) ? u.email : null)
+        .catch(() => { terdaftar = null; });
+    });
 
     // Sesi pasien yang ternyata memakai akun admin (email sama, masuk lewat
     // Google) diakhiri: admin hanya boleh masuk lewat /masuk/admin. Dicek sekali

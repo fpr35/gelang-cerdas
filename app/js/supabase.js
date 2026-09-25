@@ -490,6 +490,16 @@
       return data || [];
     },
 
+    /** Hasil ukur terbaru dari semua pengguna yang boleh dibaca (admin: semuanya). */
+    async terbaru(batas) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('device_readings').select('*')
+        .order('received_at', { ascending: false })
+        .limit(batas || 2000);
+      if (error) throw error;
+      return data || [];
+    },
+
     /** Hasil milik pengguna tertentu (bawaan: diri sendiri), terbaru dulu. */
     async daftar(userId, batas) {
       const user = await FB.ensureAuth();
@@ -613,6 +623,34 @@
       }
       if (data && data.error) throw new Error(data.error);
       return data;
+    }
+  };
+
+  /* ============================================================
+     2f. DAFTAR PASIEN — tabel patients (20260928_patients.sql)
+     Pasien mendaftarkan dirinya otomatis saat masuk; admin membaca semuanya.
+     ============================================================ */
+  const PatientsDB = {
+    async daftarkan(nama, email) {
+      const user = await FB.ensureAuth();
+      const { error } = await FB.sb.from('patients').upsert({
+        user_id: user.id,
+        name: String(nama || 'Pasien').trim().slice(0, 80) || 'Pasien',
+        email: email ? String(email).slice(0, 120) : null,
+        anonymous: !!user.is_anonymous,
+        last_seen: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      if (error) throw error;
+      return true;
+    },
+
+    /** Semua pasien (hanya berhasil untuk admin), terakhir aktif lebih dulu. */
+    async semua(batas) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('patients').select('*')
+        .order('last_seen', { ascending: false }).limit(batas || 1000);
+      if (error) throw error;
+      return data || [];
     }
   };
 
@@ -1040,4 +1078,5 @@
   TC.CareDB = CareDB;
   TC.FacilityDB = FacilityDB;
   TC.DeteksiDB = DeteksiDB;
+  TC.PatientsDB = PatientsDB;
 })(window.TC);

@@ -112,7 +112,10 @@ window.TC = window.TC || {};
     // "Masuk sebagai Tamu" dan tautan ?demo= — tidak ada lagi akun tamu.
     akunTamu: false,
     // Baris "Ganti peran" di Profil.
-    gantiPeran: false
+    gantiPeran: false,
+    // Unit faskes berkode (pasien bergabung dengan kode unit). Mati = admin
+    // otomatis memantau SEMUA pasien (tabel patients, 20260928_patients.sql).
+    unit: false
   };
 
   /** Benar bila peran itu sedang disembunyikan (lihat FITUR.peranAdmin). */

@@ -54,7 +54,7 @@
         <a class="row" href="#/perangkat"><span class="row__ico">${icon('watch')}</span>
           <div><b>Status Perangkat</b><small>${conn} dari ${devs.length} perangkat tersambung</small></div>
           ${icon('chev', 'chev')}</a>
-        ${Store.is('pasien') || (TC.FITUR.peranDokter && Store.is('dokter')) ? `<a class="row" href="#/profil/unit"><span class="row__ico">${icon('building')}</span>
+        ${TC.FITUR.unit && (Store.is('pasien') || (TC.FITUR.peranDokter && Store.is('dokter'))) ? `<a class="row" href="#/profil/unit"><span class="row__ico">${icon('building')}</span>
           <div><b>Unit saya</b><small>${Store.is('dokter') ? 'Bergabung sebagai nakes' : 'Bergabung sebagai anggota'} unit faskes lewat kode unit</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
         ${PASIEN && TC.FITUR.peranDokter ? `<a class="row" href="#/profil/dokter"><span class="row__ico">${icon('stetho')}</span>

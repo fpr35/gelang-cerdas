@@ -117,6 +117,7 @@ Ubah ke `true` untuk memunculkannya kembali.
 | `peranDokter` | peran dokter (klinik, kode dokter, nakes unit) tidak ada |
 | `akunTamu` | tidak ada "Masuk sebagai Tamu" maupun tautan `?demo=` |
 | `gantiPeran` | baris "Ganti peran" di Profil tidak tampil |
+| `unit` | tanpa unit berkode: admin otomatis memantau **semua** pasien (migrasi `20260928_patients.sql`) |
 
 **Akun admin** (migrasi [supabase/migrations/20260927_admins.sql](supabase/migrations/20260927_admins.sql)):
 buat pengguna di Supabase Dashboard → Authentication → Users → *Add user* (centang Auto Confirm), lalu
