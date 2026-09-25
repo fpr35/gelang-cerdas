@@ -455,9 +455,10 @@
 
         ${TC.Devices.hasWebBluetooth() ? `
           <div class="note note--b mt2">${icon('bt')}
-            <div><b>Peramban ini mendukung Web Bluetooth</b>Anda dapat mencoba memindai perangkat
-            BLE sungguhan di sekitar.</div></div>
-          <button class="btn btn--soft btn--block mt" data-real>${icon('bt')} Pindai perangkat BLE nyata</button>` : `
+            <div><b>Perangkat kesehatan BLE lain (bukan TeleBand)</b>Untuk wearable pihak ketiga yang
+            memakai profil Bluetooth standar (Heart Rate, Pulse Oximeter, dll.). TeleBand memakai
+            tombol hijau di atas.</div></div>
+          <button class="btn btn--soft btn--block mt" data-real>${icon('bt')} Pindai perangkat BLE generik</button>` : `
           <div class="note note--i mt2">${icon('info')}
             <div><b>Pemindaian simulasi</b>Peramban ini tidak menyediakan Web Bluetooth,
             sehingga daftar di atas dibangkitkan untuk keperluan purwarupa.</div></div>`}
@@ -488,7 +489,10 @@
             toast('Perangkat nyata tersambung: ' + dev.name);
             Router.navigate('/perangkat', true);
           } catch (e) {
-            if (e && e.name === 'NotFoundError') toast('Tidak ada perangkat dipilih.', 'err');
+            if (e && e.name === 'TeleBandSalahJalur') {
+              toast(e.message, 'err');
+              Router.navigate('/teleband');
+            } else if (e && e.name === 'NotFoundError') toast('Tidak ada perangkat dipilih.', 'err');
             else toast('Pemindaian BLE dibatalkan atau tidak didukung.', 'err');
           }
         };

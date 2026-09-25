@@ -379,6 +379,14 @@
     async function realScan() {
       if (!TC.Ble || !TC.Ble.supported()) throw new Error('unsupported');
       const dev = await TC.Ble.requestDevice();
+      // Pemilih jalur generik menampilkan SEMUA perangkat, termasuk TeleBand.
+      // TeleBand tidak punya profil SIG standar, jadi lewat jalur ini ia
+      // tampak "tersambung" tetapi tidak pernah mengirim angka. Tolak di sini.
+      if (/^TeleCare-/i.test(dev.name || '')) {
+        const e = new Error('Ini TeleBand. Sambungkan lewat layar TeleBand, bukan pemindaian BLE generik.');
+        e.name = 'TeleBandSalahJalur';
+        throw e;
+      }
       return {
         id: uid('dev'),
         type: 'band',
@@ -1257,6 +1265,18 @@
     }
 
     async function onHasil(r, i) {
+      // Hasil yang baru saja selesai diukur juga mengisi Vitals — pengukuran
+      // singkat bisa selesai sebelum LIVE sempat stabil. Hasil lama dari
+      // antrean alat tidak dipakai: angka kemarin bukan "vital terkini".
+      const selesai = (r.epoch + r.durasi) * 1000;
+      if (r.waktuValid && Date.now() - selesai < 10 * 60000) {
+        const v = {};
+        if (r.bpm != null) v.hr = r.bpm;
+        if (r.spo2 != null) v.spo2 = r.spo2;
+        if (r.glukosa != null) v.glucose = r.glukosa;
+        if (r.sis != null && r.dia != null) { v.sys = r.sis; v.dia = r.dia; }
+        if (Object.keys(v).length) Vitals.ingest(v, 'teleband', { eksperimental: EKSPERIMENTAL });
+      }
       const ok = await Readings.terima(r, i || info);
       if (ok) ubahPerangkat({ lastSync: Date.now() });
       emit();
