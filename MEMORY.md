@@ -131,8 +131,22 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     hanya menyambung TeleBand. Stres dihapus dari landing page (gauge, kartu Urgensi, legenda tren,
     roadmap, segmen). Analisis pasien: kartu indeks stres, langkah, dan durasi tidur dihapus.
     `New folder/` (firmware dari teknisi) dan `*.zip` masuk `.gitignore`/`.vercelignore`.
-    Sengaja belum disentuh: judul "Wawasan AI" di beranda pasien dan detail pasien dokter masih
-    menyebut stres; daftar "Perangkat yang didukung" di hub masih memuat jenis simulasi.
+    Sisa stres (Wawasan AI, detail pasien dokter) dirapikan di butir 25.
+25. **Fokus TeleBand + perapian kartu** (25 Sep, permintaan user). Perangkat selain TeleBand
+    (TeleRing, TeleStrap, TeleCuff, TeleScale, TelePatch) diberi `tersembunyi: true` di data.js;
+    `D.DEVICE_TYPES` kini hanya yang tampil, katalog lengkap di `D.DEVICE_TYPES_SEMUA`,
+    `D.jenisTampil(type)` menyaring perangkat lama di penyimpanan. Artikel a4 (TeleRing) ikut
+    tersembunyi. Akun demo tak lagi memasang TeleRing. "Perangkat yang didukung" hanya TeleBand
+    fisik. Wawasan AI beranda kini dari HR/SpO₂, kartu indeks stres + kolom CSV stres di detail
+    pasien dihapus. Landing: tab TeleRing, bagian #banding dan #video (turntable memuat TeleRing)
+    diberi `hidden`; kotak TeleRing di diagram arsitektur diganti "Aplikasi TeleCare · Web
+    Bluetooth"; gambar hero memakai render-teleband. `css/style.css` perlu `[hidden]{display:none
+    !important}` karena `.prod-tabs` memakai inline-flex.
+    **Penyebab ruang kosong di kartu:** `.insight > *` / `.promo > *{position:relative}` menimpa
+    `position:absolute` milik hiasan (glow/deco) sehingga hiasan memakan 170px — kini `:not()`.
+    `.stat-row` dan `.vital-grid` (desktop) memakai `grid-auto-flow:column` agar kolom mengikuti
+    jumlah kotak. `simulateScan` tak lagi memakai indeks tetap (akan error bila jenis tinggal satu).
+    Belum disentuh: kartu EKG beranda demo (TeleBand simulasi punya cap `ecg`, alat fisik tidak).
 
 ---
 

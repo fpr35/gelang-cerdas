@@ -136,7 +136,7 @@
       });
       $('#docList').innerHTML = list.length ? list.map(docCard).join('') :
         `<div class="empty">${icon('search')}<b>Tidak ditemukan</b>
-         <p>Coba kata kunci lain, misalnya “jantung”, “stres”, atau “gizi”.</p></div>`;
+         <p>Coba kata kunci lain, misalnya “jantung”, “tidur”, atau “gizi”.</p></div>`;
       bindDocCards($('#docList'));
     };
   }

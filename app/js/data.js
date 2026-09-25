@@ -28,35 +28,37 @@
       battery: [0, 100], rateHz: 0, nyata: true
     },
     {
-      type: 'ring', name: 'TeleRing', icon: 'ring', prefix: 'TC-RING',
+      // Disembunyikan: aplikasi kini fokus ke TeleBand. Data tetap ada agar
+      // perangkat lama di penyimpanan pengguna masih dapat dibaca.
+      type: 'ring', tersembunyi: true, name: 'TeleRing', icon: 'ring', prefix: 'TC-RING',
       tagline: 'Cincin berdaya rendah',
       caps: ['hr', 'spo2', 'temp', 'sleep'],
       desc: 'PPG arteri jari yang stabil saat tidur, nyaris tak terasa dipakai.',
       battery: [60, 98], rateHz: 25
     },
     {
-      type: 'strap', name: 'TeleStrap', icon: 'ecg', prefix: 'TC-STRP',
+      type: 'strap', tersembunyi: true, name: 'TeleStrap', icon: 'ecg', prefix: 'TC-STRP',
       tagline: 'Sabuk dada EKG',
       caps: ['hr', 'ecg'],
       desc: 'EKG kontak dada untuk perekaman ritme berkualitas klinis saat aktivitas.',
       battery: [40, 90], rateHz: 250
     },
     {
-      type: 'cuff', name: 'TeleCuff', icon: 'cuff', prefix: 'TC-CUFF',
+      type: 'cuff', tersembunyi: true, name: 'TeleCuff', icon: 'cuff', prefix: 'TC-CUFF',
       tagline: 'Tensimeter lengan',
       caps: ['bp'],
       desc: 'Tensimeter osilometri sebagai acuan kalibrasi tekanan darah wearable.',
       battery: [50, 96], rateHz: 0
     },
     {
-      type: 'scale', name: 'TeleScale', icon: 'scale', prefix: 'TC-SCAL',
+      type: 'scale', tersembunyi: true, name: 'TeleScale', icon: 'scale', prefix: 'TC-SCAL',
       tagline: 'Timbangan komposisi tubuh',
       caps: ['weight', 'bodyfat'],
       desc: 'Bioimpedansi untuk berat badan, massa lemak, dan massa otot.',
       battery: [70, 100], rateHz: 0
     },
     {
-      type: 'patch', name: 'TelePatch', icon: 'patch', prefix: 'TC-PTCH',
+      type: 'patch', tersembunyi: true, name: 'TelePatch', icon: 'patch', prefix: 'TC-PTCH',
       tagline: 'Patch glukosa kontinu',
       caps: ['glucose', 'temp'],
       desc: 'Sensor interstisial untuk memperkirakan tren glukosa sepanjang hari.',
@@ -190,7 +192,7 @@
   /* ---------------- ARTIKEL EDUKASI ---------------- */
   const ARTICLES = [
     { id: 'a1', title: 'Membaca HRV: kenapa angkanya naik-turun setiap hari',
-      cat: 'Stres', read: 4, emoji: '🧠',
+      cat: 'Jantung', read: 4, emoji: '🧠',
       body: 'Variabilitas denyut jantung menggambarkan seberapa lentur sistem saraf otonom Anda menanggapi beban harian. Nilai yang turun beberapa hari berturut-turut lebih bermakna daripada satu angka rendah pada satu pagi.' },
     { id: 'a2', title: 'Tekanan darah dari pergelangan tangan: apa yang bisa dan tidak bisa',
       cat: 'Jantung', read: 5, emoji: '❤️',
@@ -198,7 +200,8 @@
     { id: 'a3', title: 'Urutan makan yang menurunkan lonjakan gula darah',
       cat: 'Gizi', read: 3, emoji: '🥗',
       body: 'Mendahulukan serat dan protein sebelum karbohidrat cenderung melandaikan kurva respons setelah makan. Uji sendiri lewat dua sesi dengan menu sama namun urutan berbeda.' },
-    { id: 'a4', title: 'Tidur dan pemulihan: membaca data TeleRing semalam',
+    // Disembunyikan: membahas TeleRing, yang tidak lagi ditampilkan.
+    { id: 'a4', tersembunyi: true, title: 'Tidur dan pemulihan: membaca data TeleRing semalam',
       cat: 'Tidur', read: 4, emoji: '🌙',
       body: 'Detak jantung istirahat terendah biasanya muncul pada sepertiga awal tidur. Bila titik terendah itu bergeser makin larut, umumnya ada beban yang belum reda — kafein sore, olahraga larut, atau stres.' }
   ];
@@ -211,7 +214,7 @@
     { k: ['pusing', 'sakit kepala', 'kepala'], spec: '*', r:
       'Baik. Sakit kepalanya lebih terasa di satu sisi atau menyeluruh? Saya juga melihat tekanan darah Anda dari perangkat — mari kita bandingkan dengan pola beberapa hari terakhir sebelum menyimpulkan.' },
     { k: ['tidur', 'insomnia', 'begadang', 'ngantuk'], spec: '*', r:
-      'Pola tidur yang terganggu sering berjalan bersama stres. Dari data TeleRing, detak jantung istirahat Anda cenderung belum turun di awal tidur. Sudah berapa lama keluhan ini berlangsung, dan jam berapa biasanya Anda mulai berbaring?' },
+      'Pola tidur yang terganggu sering berjalan bersama stres. Dari data perangkat, detak jantung istirahat Anda cenderung belum turun di awal tidur. Sudah berapa lama keluhan ini berlangsung, dan jam berapa biasanya Anda mulai berbaring?' },
     { k: ['stres', 'cemas', 'panik', 'tertekan'], spec: '*', r:
       'Saya memahami kondisinya. Mari kita pilah dulu: apakah kecemasan muncul pada situasi tertentu, atau terasa hampir sepanjang hari? Indeks stres Anda memang naik pada rentang sore, dan itu petunjuk yang berguna.' },
     { k: ['gula', 'diabetes', 'glukosa', 'manis'], spec: '*', r:
@@ -296,22 +299,22 @@
       note: 'Takikardia saat istirahat, tekanan darah naik tiga hari berturut-turut.', device: 'TeleBand' },
     { id: 'p2', name: 'Ahmad Fauzi', age: 17, sex: 'L', unit: 'Kamar 12 · Santri', fac: 'f2',
       hr: 72, spo2: 98, temp: 36.6, sys: 114, dia: 74, stress: 24, status: 'ok',
-      note: 'Seluruh parameter dalam rentang normal.', device: 'TeleRing' },
+      note: 'Seluruh parameter dalam rentang normal.', device: 'TeleBand' },
     { id: 'p3', name: 'Siti Rahmawati', age: 41, sex: 'P', unit: 'Unit A · Administrasi', fac: 'f1',
       hr: 94, spo2: 97, temp: 36.9, sys: 132, dia: 86, stress: 61, status: 'warn',
       note: 'Indeks stres tinggi pada rentang sore selama lima hari.', device: 'TeleBand' },
     { id: 'p4', name: 'Bagas Pratama', age: 16, sex: 'L', unit: 'Kelas XI · Asrama Barat', fac: 'f3',
       hr: 68, spo2: 99, temp: 36.4, sys: 110, dia: 70, stress: 19, status: 'ok',
-      note: 'Pola tidur membaik sejak pekan lalu.', device: 'TeleRing' },
+      note: 'Pola tidur membaik sejak pekan lalu.', device: 'TeleBand' },
     { id: 'p5', name: 'Ibu Kartini', age: 79, sex: 'P', unit: 'Wisma Melati · Kamar 3', fac: 'f4',
       hr: 58, spo2: 93, temp: 36.2, sys: 152, dia: 88, stress: 44, status: 'crit',
       note: 'Saturasi oksigen turun pada malam hari, bradikardia ringan.', device: 'TeleBand' },
     { id: 'p6', name: 'Rizky Aditya', age: 18, sex: 'L', unit: 'Kamar 7 · Santri', fac: 'f2',
       hr: 78, spo2: 98, temp: 36.7, sys: 118, dia: 76, stress: 31, status: 'ok',
-      note: 'Normal. Sinkronisasi terakhir 2 jam lalu.', device: 'TeleRing' },
+      note: 'Normal. Sinkronisasi terakhir 2 jam lalu.', device: 'TeleBand' },
     { id: 'p7', name: 'Pak Slamet', age: 71, sex: 'L', unit: 'Wisma Anggrek · Kamar 1', fac: 'f4',
       hr: 88, spo2: 95, temp: 36.8, sys: 141, dia: 85, stress: 52, status: 'warn',
-      note: 'Tekanan darah pagi konsisten di atas 140.', device: 'TeleCuff' },
+      note: 'Tekanan darah pagi konsisten di atas 140.', device: 'TeleBand' },
     { id: 'p8', name: 'Dewi Anggraini', age: 29, sex: 'P', unit: 'Unit B · Logistik', fac: 'f1',
       hr: 82, spo2: 98, temp: 36.5, sys: 121, dia: 79, stress: 38, status: 'ok',
       note: 'Stabil, tidak ada eskalasi.', device: 'TeleBand' }
@@ -323,9 +326,19 @@
     crit: { t: 'Kritis',   c: 'r', color: '#E2543F' }
   };
 
+  // Aplikasi kini fokus ke TeleBand. Perangkat lain (TeleRing, TeleStrap, ...)
+  // dan artikel yang membahasnya ditandai `tersembunyi`: tidak dihapus, hanya
+  // tidak ikut daftar yang ditampilkan. Katalog lengkap tetap tersedia lewat
+  // DEVICE_TYPES_SEMUA, dan deviceType() tetap mengenali semua jenis agar
+  // perangkat lama di penyimpanan pengguna masih dapat dibaca.
+  const tampil = (x) => !x.tersembunyi;
+
   TC.DATA = {
-    DEVICE_TYPES, CAP_LABEL, SPECIALTIES, DOCTORS, FOODS, FOOD_COMBOS,
-    MEAL_KINDS, GOALS, ARTICLES, REPLY_RULES, REPLY_FALLBACK, QUICK_REPLIES,
+    DEVICE_TYPES: DEVICE_TYPES.filter(tampil),
+    DEVICE_TYPES_SEMUA: DEVICE_TYPES,
+    ARTICLES: ARTICLES.filter(tampil),
+    CAP_LABEL, SPECIALTIES, DOCTORS, FOODS, FOOD_COMBOS,
+    MEAL_KINDS, GOALS, REPLY_RULES, REPLY_FALLBACK, QUICK_REPLIES,
     QUICK_REPLIES_DOC,
     ROLES, FACILITIES, PATIENTS, STATUS_META,
     role: (id) => ROLES.find((r) => r.id === id) || ROLES[0],
@@ -335,6 +348,8 @@
     spec: (id) => SPECIALTIES.find((s) => s.id === id) || { name: id, emoji: '🩺', color: '#EDF9F2', fg: '#03804C' },
     food: (n) => FOODS.find((f) => f.n === n) || null,
     goal: (id) => GOALS.find((g) => g.id === id) || GOALS[0],
-    deviceType: (t) => DEVICE_TYPES.find((d) => d.type === t) || DEVICE_TYPES[0]
+    deviceType: (t) => DEVICE_TYPES.find((d) => d.type === t) || DEVICE_TYPES[0],
+    /** false untuk perangkat tersimpan yang jenisnya disembunyikan. */
+    jenisTampil: (t) => !(DEVICE_TYPES.find((d) => d.type === t) || {}).tersembunyi
   };
 })(window.TC);

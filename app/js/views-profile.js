@@ -14,7 +14,8 @@
   function viewProfile() {
     const u = Store.user();
     const p = Store.profile();
-    const devs = Store.state.devices;
+    // Perangkat lama berjenis tersembunyi (mis. TeleRing) tidak ditampilkan.
+    const devs = Store.state.devices.filter((d) => D.jenisTampil(d.type));
     const conn = devs.filter((d) => d.connected).length;
 
     TC.topbar('Profil Pengguna', { back: false });
@@ -265,7 +266,8 @@
 
   /* ---------------- 4. HUB PERANGKAT ---------------- */
   function viewDevices() {
-    const devs = Store.state.devices;
+    // Perangkat lama berjenis tersembunyi (mis. TeleRing) tidak ditampilkan.
+    const devs = Store.state.devices.filter((d) => D.jenisTampil(d.type));
     const active = Store.activeDevice();
     const pending = Store.state.pendingSamples;
 
@@ -352,12 +354,12 @@
         }).join('')}
       </div>` : `
         <div class="empty">${icon('bt')}<b>Belum ada perangkat</b>
-        <p>Pindai untuk menemukan TeleBand, TeleRing, dan perangkat TeleCare lain di sekitar Anda.</p>
+        <p>Pindai untuk menemukan TeleBand di sekitar Anda.</p>
         <a class="btn btn--primary btn--sm mt" href="#/perangkat/pindai">Pindai &amp; Sambungkan</a></div>`}
 
       <div class="section-title">${icon('sparkle')} Perangkat yang didukung</div>
       <div class="stack--sm stack">
-        ${D.DEVICE_TYPES.map((t) => `
+        ${D.DEVICE_TYPES.filter((t) => t.nyata).map((t) => `
           <div class="row" style="border:1px solid var(--line);border-radius:16px;background:var(--surface);align-items:flex-start">
             <span class="row__ico">${icon(t.icon)}</span>
             <div style="min-width:0"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small>
@@ -896,7 +898,7 @@
       <div class="card mt">
         <div class="card__head">${icon('watch')}<h3>Perangkat yang didukung</h3></div>
         <div class="stack--sm stack">
-          ${D.DEVICE_TYPES.map((t) => `<div style="display:flex;gap:10px;align-items:center">
+          ${D.DEVICE_TYPES.filter((t) => t.nyata).map((t) => `<div style="display:flex;gap:10px;align-items:center">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon(t.icon)}</span>
             <div><b style="font-size:.87rem">${esc(t.name)}</b>
               <small class="tiny muted" style="display:block">${esc(t.tagline)}</small></div></div>`).join('')}

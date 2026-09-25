@@ -95,8 +95,8 @@
 
   /* ---------------- ONBOARDING ---------------- */
   const SLIDES = [
-    { art: artHub, title: 'Semua perangkat, satu platform',
-      body: 'TeleBand, TeleRing, sabuk EKG, tensimeter, hingga timbangan — semuanya mengalir ke satu riwayat kesehatan yang sama.' },
+    { art: artHub, title: 'Ukur langsung dari TeleBand',
+      body: 'Sambungkan TeleBand lewat Bluetooth, ukur detak jantung dan SpO₂, lalu hasilnya tersimpan di satu riwayat kesehatan.' },
     { art: artConsult, title: 'Dari data langsung ke dokter', fitur: 'konsultasi',
       body: 'Bila ada yang perlu ditanyakan, mulai konsultasi chat atau video call dengan konteks vital Anda sudah terlampir.' }
   ];
@@ -349,18 +349,14 @@
         goal: 'gula-stabil',
         targets: TC.DATA.goal('gula-stabil').targets
       });
-      // satu TeleBand dan satu TeleRing sudah terpasang
+      // satu TeleBand sudah terpasang (TeleRing tidak lagi dipasangkan: aplikasi
+      // kini fokus ke TeleBand)
       const band = {
         id: uid('dev'), type: 'band', name: 'TeleBand', code: TC.Devices.makeCode('TC-BAND'),
         battery: 68, connected: true, pairedAt: Date.now() - 86400000 * 12,
         lastSync: Date.now() - 3600000, rssi: 4
       };
-      const ring = {
-        id: uid('dev'), type: 'ring', name: 'TeleRing', code: TC.Devices.makeCode('TC-RING'),
-        battery: 84, connected: true, pairedAt: Date.now() - 86400000 * 5,
-        lastSync: Date.now() - 5400000, rssi: 3
-      };
-      s.devices = [band, ring];
+      s.devices = [band];
       s.activeDeviceId = band.id;
       s.pendingSamples = 12;
       s.lastSync = Date.now() - 3600000;
@@ -418,7 +414,7 @@
       }];
       s.notifications = [
         { id: uid('n'), title: 'Sinkronisasi selesai', body: '124 sampel dipindahkan dari TeleBand.', kind: 'ok', at: Date.now() - 3600000, read: false },
-        { id: uid('n'), title: 'Pola stres terdeteksi', body: 'Indeks stres naik pada 14.00–16.00 selama 5 hari.', kind: 'warn', at: Date.now() - 18000000, read: false }
+        { id: uid('n'), title: 'Detak jantung istirahat naik', body: 'Rata-rata detak jantung istirahat naik 6 bpm dibanding pekan lalu.', kind: 'warn', at: Date.now() - 18000000, read: false }
       ];
       s.session = { userId: id, at: Date.now() };
     });

@@ -113,6 +113,12 @@ Ubah ke `true` untuk memunculkannya kembali.
 | `daftarAkun` | layar `/daftar` dan tautan "Daftar sekarang" hilang; masuk hanya lewat Google atau Tamu |
 | `konsultasi` | konsultasi, chat, panggilan, janji temu, antrean dokter, dan dering panggilan dokter hilang |
 
+**Hanya TeleBand yang ditampilkan.** Jenis perangkat lain di katalog (TeleRing, TeleStrap,
+TeleCuff, TeleScale, TelePatch) ditandai `tersembunyi: true` di [app/js/data.js](app/js/data.js):
+datanya tetap ada (`TC.DATA.DEVICE_TYPES_SEMUA`), tetapi tidak muncul di daftar mana pun. Hapus
+tanda itu untuk memunculkannya lagi. Di landing page, bagian perbandingan (`#banding`) dan video
+turntable (`#video`) serta tab TeleRing disembunyikan dengan atribut `hidden`.
+
 Halaman **Pindai Perangkat** kini hanya punya satu jalur: TeleBand fisik. Pemindaian simulasi
 (`Devices.simulateScan`) dan BLE generik (`Devices.realScan`, `ble.js`) masih ada di kode, tetapi
 tidak lagi ditawarkan di layar.

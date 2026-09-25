@@ -302,9 +302,9 @@
           <circle cx="100" cy="100" r="66" stroke="#fff" stroke-width="2" stroke-dasharray="5 9"/>
           <path d="M20 100h32l14-32 20 66 16-46 10 12h68" stroke="#fff" stroke-width="3"
                 stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <h3>Hubungkan lebih banyak perangkat</h3>
-        <p>Sabuk EKG, tensimeter, timbangan, hingga patch glukosa — semuanya masuk ke riwayat yang sama.</p>
-        <a class="btn btn--soft btn--sm" href="#/perangkat/pindai">Pindai perangkat ${icon('arrow')}</a>
+        <h3>Ukur dengan TeleBand</h3>
+        <p>Sambungkan TeleBand lewat Bluetooth untuk mengukur detak jantung dan SpO₂ — hasilnya tersimpan di riwayat Anda.</p>
+        <a class="btn btn--soft btn--sm" href="#/teleband">Mulai mengukur ${icon('arrow')}</a>
       </div>
 
       <div class="section-title">${icon('doc')} Bacaan untuk Anda</div>
@@ -364,29 +364,40 @@
     });
   }
 
+  // Wawasan disusun dari yang diukur TeleBand (detak jantung dan SpO₂) serta
+  // catatan sesi makan. Indeks stres tidak lagi dipakai: TeleBand tidak
+  // mengukurnya.
+  function insightLevel() {
+    const v = TC.Vitals.state;
+    if (v.spo2 < 94 || v.hr > 100 || v.hr < 50) return 2;
+    if (v.spo2 < 96 || v.hr > 90) return 1;
+    return 0;
+  }
   function insightTitle() {
-    const s = TC.Vitals.state.stress;
-    if (s >= 66) return 'Beban stres tinggi terdeteksi hari ini';
-    if (s >= 34) return 'Pola stres berulang pada sore hari';
+    const n = insightLevel();
+    if (n === 2) return 'Ada pembacaan yang perlu diperhatikan';
+    if (n === 1) return 'Detak jantung sedikit di atas biasanya';
     return 'Ritme Anda stabil beberapa hari ini';
   }
   function insightBody() {
-    const s = TC.Vitals.state.stress;
+    const v = TC.Vitals.state;
+    const n = insightLevel();
     const meals = Store.state.meals.slice(0, 3);
     const avgDelta = meals.length
       ? Math.round(meals.reduce((a, m) => a + (m.delta || 0), 0) / meals.length) : null;
-    if (s >= 66) {
-      return 'Detak jantung istirahat naik dan HRV menurun dibanding pekan lalu. Coba jadwalkan jeda ' +
-        'singkat setiap dua jam, dan pertimbangkan sesi konseling bila pola ini bertahan.';
+    if (n === 2) {
+      return 'Detak jantung ' + v.hr + ' bpm dan SpO₂ ' + v.spo2 + '% berada di luar rentang umum. ' +
+        'Duduk tenang beberapa menit lalu ukur ulang dengan TeleBand. Bila keluhan menyertai, ' +
+        'segera hubungi tenaga kesehatan.';
     }
-    if (s >= 34) {
-      return 'Kenaikan detak jantung istirahat berulang pada rentang 14.00–16.00 selama beberapa hari. ' +
+    if (n === 1) {
+      return 'Detak jantung istirahat Anda ' + v.hr + ' bpm, sedikit lebih tinggi dari biasanya. ' +
         (avgDelta ? 'Rata-rata kenaikan gula darah setelah makan Anda ' + avgDelta + ' mg/dL. ' : '') +
-        'Perhatikan porsi karbohidrat pada makan siang.';
+        'Cukupi minum dan istirahat, lalu ukur ulang nanti.';
     }
-    return 'HRV berada di rentang yang baik dan saturasi oksigen stabil. ' +
+    return 'Detak jantung dan saturasi oksigen berada di rentang yang baik. ' +
       (avgDelta ? 'Rata-rata kenaikan gula darah setelah makan ' + avgDelta + ' mg/dL — tergolong landai. ' : '') +
-      'Pertahankan pola tidur dan aktivitas Anda saat ini.';
+      'Ukur rutin dengan TeleBand agar tren Anda makin jelas.';
   }
 
   /* ---------------- DETAIL VITAL ---------------- */

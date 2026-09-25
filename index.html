@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TeleCare — Platform Telemedisin AIoT Terpadu | Health 5.0</title>
-<meta name="description" content="TeleCare: platform pemantauan kesehatan berbasis AIoT yang mengintegrasikan wearable TeleBand & TeleRing dengan dashboard terpusat untuk pencegahan penyakit kronis dan manajemen gaya hidup berbasis Health 5.0.">
+<meta name="description" content="TeleCare: platform pemantauan kesehatan berbasis AIoT yang mengintegrasikan wearable TeleBand dengan dashboard terpusat untuk pencegahan penyakit kronis dan manajemen gaya hidup berbasis Health 5.0.">
 <meta name="theme-color" content="#049A5B">
 <meta property="og:title" content="TeleCare — Platform Telemedisin AIoT Terpadu">
 <meta property="og:description" content="Pemantauan detak jantung, SpO₂, suhu tubuh, EKG, dan estimasi tekanan darah untuk perusahaan, pesantren, sekolah berasrama, dan panti jompo.">
@@ -163,7 +163,7 @@
     <nav class="nav__links">
       <a href="#urgensi">Urgensi</a>
       <a href="#produk">Perangkat</a>
-      <a href="#banding">Perbandingan</a>
+      <a href="#banding" hidden>Perbandingan</a>
       <a href="#arsitektur">Arsitektur</a>
       <a href="#health5">Health 5.0</a>
       <a href="#dashboard">Dashboard</a>
@@ -176,7 +176,7 @@
   </div>
 </header>
 <div class="mobile-menu" id="mobileMenu">
-  <a href="#urgensi">Urgensi</a><a href="#produk">Perangkat</a><a href="#banding">Perbandingan</a><a href="#video">Render Produk</a>
+  <a href="#urgensi">Urgensi</a><a href="#produk">Perangkat</a><a href="#banding" hidden>Perbandingan</a><a href="#video" hidden>Render Produk</a>
   <a href="#arsitektur">Arsitektur</a><a href="#health5">Health 5.0</a><a href="#dashboard">Dashboard</a><a href="#segmen">Segmen</a>
   <a href="#alur">Alur Layanan</a><a href="#aplikasi">Aplikasi</a><a href="#tim">Tim Peneliti</a>
 </div>
@@ -190,7 +190,7 @@
       <span class="eyebrow eyebrow--dark"><i class="dot"></i> Penelitian Health 5.0 · Fisika FMIPA UNS</span>
       <h1 class="h-display">Telemedisin <span class="grad-text">AIoT Terpadu</span><br>untuk pencegahan penyakit kronis.</h1>
       <p class="hero__lead">
-        TeleCare mengintegrasikan wearable <b>TeleBand</b> dan <b>TeleRing</b> dengan dashboard
+        TeleCare mengintegrasikan wearable <b>TeleBand</b> dengan dashboard
         pemantauan terpusat — memantau detak jantung, SpO₂, suhu tubuh, sinyal EKG, dan estimasi
         tekanan darah secara berkelanjutan, lalu menghubungkannya langsung ke dokter dan psikolog.
       </p>
@@ -209,9 +209,9 @@
     <div class="hero__stage">
       <i class="hero__ring r1"></i><i class="hero__ring r2"></i><i class="hero__ring r3"></i>
       <picture>
-        <source srcset="assets/img/render-hero-duo.webp" type="image/webp">
-        <img class="hero__product" id="heroProduct" src="assets/img/render-hero-duo.png"
-             width="1200" height="1200" alt="Render 3D TeleBand dan TeleRing"
+        <source srcset="assets/img/render-teleband.webp" type="image/webp">
+        <img class="hero__product" id="heroProduct" src="assets/img/render-teleband.png"
+             width="1200" height="1200" alt="Render 3D TeleBand"
              onerror="this.style.display='none'">
       </picture>
 
@@ -334,14 +334,16 @@
   <div class="wrap">
     <div class="sec-head center">
       <span class="eyebrow"><i class="dot"></i> Perangkat wearable</span>
-      <h2 class="h1">Dua bentuk, satu ekosistem data.</h2>
+      <h2 class="h1">Satu gelang, satu ekosistem data.</h2>
       <p class="lead" style="margin-inline:auto">
         Model 3D di bawah dimodelkan secara prosedural di Blender dan dirender langsung di browser
         dengan Three.js — silakan putar, zoom, dan amati penempatan sensornya.
       </p>
     </div>
 
-    <div class="prod-tabs" role="tablist" aria-label="Pilih perangkat">
+    <!-- Disembunyikan: situs kini fokus ke TeleBand, jadi tab TeleRing tidak
+         ditampilkan. Tab TeleBand sendirian tidak perlu bilah tab. -->
+    <div class="prod-tabs" role="tablist" aria-label="Pilih perangkat" hidden>
       <button class="is-active" role="tab" aria-selected="true" data-model="teleband">TeleBand</button>
       <button role="tab" aria-selected="false" data-model="telering">TeleRing</button>
     </div>
@@ -403,7 +405,9 @@
 
 
 <!-- ══════════════ PERBANDINGAN PERANGKAT ══════════════ -->
-<section class="section section--tight compare" id="banding">
+<!-- Disembunyikan: membandingkan TeleBand dengan TeleRing, sedangkan situs kini
+     fokus ke TeleBand saja. -->
+<section class="section section--tight compare" id="banding" hidden>
   <div class="wrap">
     <div class="sec-head center">
       <span class="eyebrow"><i class="dot"></i> Memilih bentuk faktor</span>
@@ -481,7 +485,8 @@
 </section>
 
 <!-- ══════════════ VIDEO RENDER ══════════════ -->
-<section class="section filmstrip" id="video">
+<!-- Disembunyikan: video turntable memuat TeleBand dan TeleRing sekaligus. -->
+<section class="section filmstrip" id="video" hidden>
   <div class="wrap rel">
     <div class="sec-head center" style="max-width:640px">
       <span class="eyebrow eyebrow--dark"><i class="dot"></i> Visualisasi produk</span>
@@ -493,7 +498,9 @@
     </div>
 
     <figure class="film-wrap reveal" style="margin:0">
-      <video id="prodVideo" src="assets/video/telecare-product.mp4" autoplay muted loop playsinline
+      <!-- Selama bagian ini disembunyikan, video tidak diputar otomatis dan tidak
+           diunduh (preload="none"). Kembalikan `autoplay` bila bagian ini dimunculkan. -->
+      <video id="prodVideo" src="assets/video/telecare-product.mp4" preload="none" muted loop playsinline
              poster="assets/img/render-hero-duo.png"></video>
       <figcaption class="film-bar">
         <span class="dotgrp"><i></i><i></i><i></i></span>
@@ -563,12 +570,16 @@
         </g>
 
         <rect x="52" y="230" width="248" height="120" rx="20" fill="url(#ag1)" stroke="#A9E5C8"/>
-        <text x="76" y="264" font-size="16" font-weight="700" fill="#02643C">TeleRing</text>
-        <text x="76" y="286" font-size="11.5" fill="#5F8477">PPG jari · Suhu · Tidur</text>
+        <text x="76" y="264" font-size="16" font-weight="700" fill="#02643C">Aplikasi TeleCare</text>
+        <text x="76" y="286" font-size="11.5" fill="#5F8477">Web Bluetooth · ponsel &amp; PC</text>
         <g transform="translate(76,300)">
-          <rect width="82" height="20" rx="10" fill="#fff" stroke="#A9E5C8"/><text x="41" y="14" font-size="10" text-anchor="middle" fill="#03804C">Low-power</text>
+          <rect width="82" height="20" rx="10" fill="#fff" stroke="#A9E5C8"/><text x="41" y="14" font-size="10" text-anchor="middle" fill="#03804C">Tanpa instal</text>
         </g>
-        <g transform="translate(238,258)"><circle cx="22" cy="22" r="21" fill="none" stroke="#04372A" stroke-width="7"/><circle cx="22" cy="22" r="21" fill="none" stroke="#6FD3A6" stroke-width="2" stroke-dasharray="4 8"/></g>
+        <g transform="translate(240,252)" opacity=".85">
+          <rect width="34" height="56" rx="8" fill="#fff" stroke="#A9E5C8"/>
+          <rect x="5" y="7" width="24" height="38" rx="4" fill="#04372A"/>
+          <circle cx="17" cy="50" r="2" fill="#A9E5C8"/>
+        </g>
 
         <rect x="52" y="370" width="248" height="62" rx="18" fill="#fff" stroke="#DDEAE3"/>
         <text x="76" y="398" font-size="12.5" font-weight="700" fill="#08201A">Pra-proses on-device</text>
@@ -917,9 +928,9 @@
           <div class="stack-item reveal">
             <span class="stack-item__ico">
               <svg><use href="#i-wifi"/></svg></span>
-            <div><b>Hub multi-perangkat</b>
-              <p>TeleBand, TeleRing, sabuk EKG, tensimeter, timbangan, dan patch glukosa terhubung ke
-                 satu riwayat — bukan enam aplikasi terpisah.</p></div>
+            <div><b>Sambungan langsung TeleBand</b>
+              <p>TeleBand tersambung langsung lewat Bluetooth dari peramban, dan setiap hasil ukurnya
+                 tersimpan di satu riwayat kesehatan.</p></div>
           </div>
           <div class="stack-item reveal" data-d="1">
             <span class="stack-item__ico"><svg><use href="#i-ecg"/></svg></span>
@@ -1062,7 +1073,7 @@
           <div class="flow-item reveal">
             <span class="flow-item__no">TAHAP 02</span>
             <div><h3 class="h3">Pemantauan kontinu</h3>
-              <p>TeleBand atau TeleRing merekam parameter vital sepanjang hari dan malam, mengirimnya
+              <p>TeleBand merekam parameter vital sepanjang hari dan malam, mengirimnya
                  ke gateway institusi lalu ke cloud TeleCare.</p>
               <div class="flow-item__pills"><span class="tag tag--b">Telemetri</span><span class="tag">Mode luring</span></div></div>
           </div>
@@ -1236,7 +1247,7 @@
            Hidup Berbasis Health 5.0.</p>
       </div>
       <div><h5>Platform</h5>
-        <a href="#banding">TeleBand</a><a href="#banding">TeleRing</a>
+        <a href="#produk">TeleBand</a>
         <a href="#dashboard">Dashboard</a><a href="#arsitektur">Arsitektur</a></div>
       <div><h5>Segmen</h5>
         <a href="#segmen">Perusahaan</a><a href="#segmen">Pesantren</a>

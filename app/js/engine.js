@@ -349,14 +349,12 @@
       return prefix + '-' + s;
     }
 
-    /** Hasil pemindaian simulatif — selalu memuat TeleBand & TeleRing. */
+    /** Hasil pemindaian simulatif — memuat semua jenis simulasi yang ditampilkan. */
     function simulateScan() {
-      // Jenis `nyata` (TeleBand berprotokol sendiri) hanya lewat Bluetooth sungguhan.
-      const types = D.DEVICE_TYPES.filter((t) => !t.nyata);
-      const chosen = [types[0], types[1]];
-      // satu atau dua perangkat lain agar terasa seperti ruangan sungguhan
-      const rest = types.slice(2).sort(() => Math.random() - 0.5).slice(0, rint(1, 2));
-      const all = chosen.concat(rest);
+      // Jenis `nyata` (TeleBand berprotokol sendiri) hanya lewat Bluetooth sungguhan,
+      // dan jenis `tersembunyi` (TeleRing dkk.) sudah tersaring dari D.DEVICE_TYPES.
+      // Dulu dua entri pertama diambil lewat indeks tetap; kini bisa tinggal satu.
+      const all = D.DEVICE_TYPES.filter((t) => !t.nyata);
       const owned = Store.state.devices.map((d) => d.code);
       const found = all.map((t) => ({
         id: uid('dev'),

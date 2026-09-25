@@ -59,6 +59,9 @@
 
 /* ---------- 2. RESET ---------- */
 *,*::before,*::after{box-sizing:border-box}
+/* Atribut `hidden` dipakai untuk menyembunyikan bagian (mis. TeleRing) tanpa
+   menghapusnya; tanpa !important, aturan display milik kelas menimpanya. */
+[hidden]{display:none!important}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{
   margin:0;font-family:var(--font);color:var(--ink);background:var(--canvas);

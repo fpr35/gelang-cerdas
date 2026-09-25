@@ -354,14 +354,6 @@
       </div>
 
       <div class="card mt">
-        <div class="card__head">${icon('brain')}<h3>Indeks stres</h3>
-          <span class="push"></span>${statusChip(p.stress >= 66 ? 'crit' : p.stress >= 34 ? 'warn' : 'ok')}</div>
-        <figure class="gauge" style="margin:0">
-          ${TC.gaugeSvg(p.stress)}
-          <figcaption><b>${p.stress}</b><span>dari 100</span></figcaption></figure>
-      </div>
-
-      <div class="card mt">
         <div class="card__head">${icon('chart')}<h3>Detak jantung istirahat · 7 hari</h3></div>
         <div class="chart-wrap"><canvas id="cPat" style="height:150px"></canvas></div>
       </div>
@@ -610,12 +602,12 @@
     tulis([]);
 
     tulis(['Nama', 'Usia', 'Unit', 'Status', 'HR', 'SpO2', 'Suhu', 'Sistolik', 'Diastolik',
-           'Stres', 'Perangkat', 'Penandaan eskalasi', 'Eskalasi terakhir', 'Catatan klinis']);
+           'Perangkat', 'Penandaan eskalasi', 'Eskalasi terakhir', 'Catatan klinis']);
     members.forEach((p) => {
       const esk = Store.escalationsFor(p.id);
       tulis([
         p.name, p.age, p.unit, (D.STATUS_META[p.status] || {}).t || p.status,
-        p.hr, p.spo2, p.temp, p.sys, p.dia, p.stress, p.device,
+        p.hr, p.spo2, p.temp, p.sys, p.dia, p.device,
         esk.length, esk.length ? TC.shortDate(esk[0].at) + ' ' + hhmm(esk[0].at) : '',
         TC.Notes.count(p.id)
       ]);
@@ -1307,7 +1299,7 @@
             // supaya berkas asing tidak menyuntikkan kunci sembarangan.
             let n = 0;
             Object.keys(profil).forEach((jenis) => {
-              if (!D.DEVICE_TYPES.some((t) => t.type === jenis)) return;
+              if (!D.DEVICE_TYPES_SEMUA.some((t) => t.type === jenis)) return;
               Object.keys(profil[jenis] || {}).forEach((param) => {
                 if (!TC.Calib.param(param)) return;
                 const c = profil[jenis][param] || {};

@@ -341,8 +341,15 @@ ul{margin:0;padding:0;list-style:none}
 .devbar .sync.is-busy svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Jumlah kartu vital berubah (kartu glukosa hanya muncul saat TeleBand
+   memasoknya), jadi kolomnya mengikuti jumlah kartu, bukan tetap 4 — kalau
+   tidak, kartu kelima tertinggal sendirian dengan ruang kosong di sebelahnya. */
 .vital-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
-@media(min-width:620px){.vital-grid{grid-template-columns:repeat(4,1fr)}}
+.vital-grid > :last-child:nth-child(odd){grid-column:1 / -1}
+@media(min-width:620px){
+  .vital-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+  .vital-grid > :last-child:nth-child(odd){grid-column:auto}
+}
 .vital{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
   padding:13px 14px;box-shadow:var(--sh-1);position:relative;overflow:hidden;text-align:left;width:100%;
@@ -404,7 +411,9 @@ ul{margin:0;padding:0;list-style:none}
   background:linear-gradient(140deg,var(--green-600),var(--green-900));
 }
 .promo__deco{position:absolute;right:-30px;top:-30px;width:180px;opacity:.16;pointer-events:none}
-.promo > *{position:relative;z-index:2}
+/* :not() wajib: tanpa itu aturan ini menimpa position:absolute milik hiasan,
+   dan hiasannya ikut memakan tempat sehingga kartu tampak berlubang kosong. */
+.promo > :not(.promo__deco){position:relative;z-index:2}
 .promo h3{font-size:1.05rem;margin-bottom:6px}
 .promo p{font-size:.85rem;color:rgba(255,255,255,.76);max-width:40ch}
 .promo .btn{margin-top:14px}
@@ -718,7 +727,7 @@ ul{margin:0;padding:0;list-style:none}
 }
 .insight__glow{position:absolute;width:170px;height:170px;border-radius:50%;filter:blur(48px);
   background:var(--violet-500);opacity:.55;right:-46px;top:-56px}
-.insight > *{position:relative;z-index:2}
+.insight > :not(.insight__glow){position:relative;z-index:2}
 .insight .tag{display:inline-flex;align-items:center;gap:6px;font-size:.65rem;font-weight:800;
   letter-spacing:.11em;text-transform:uppercase;color:#C9C0FF;margin-bottom:9px}
 .insight .tag svg{width:13px;height:13px}
@@ -731,7 +740,9 @@ ul{margin:0;padding:0;list-style:none}
 .prof-head b{display:block;font-size:1.05rem;font-weight:800}
 .prof-head small{display:block;font-size:.8rem;color:var(--muted)}
 
-.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+/* Kolom mengikuti jumlah kotak: sebagian kotak disembunyikan bersama fitur
+   (TC.FITUR), dan grid 3 kolom tetap menyisakan kolom kosong. */
+.stat-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:9px}
 .stat-row div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
   padding:13px;text-align:center;box-shadow:var(--sh-1)}
 .stat-row b{display:block;font-size:1.15rem;font-weight:800;letter-spacing:-.03em}
