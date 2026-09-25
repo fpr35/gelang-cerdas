@@ -326,6 +326,10 @@
   function viewLoginAdmin() {
     setTopbar('');
     setView(`<div class="auth">
+      <div class="auth__top">
+        <a class="topbar__back" href="../" aria-label="Kembali ke halaman utama TeleCare"
+           title="Kembali ke halaman utama">${icon('back')}</a>
+      </div>
       <div class="auth__body">
         <div class="auth__logo">${logoSvg(62)}</div>
         <h1>Masuk Admin</h1>

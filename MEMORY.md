@@ -258,6 +258,14 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     Bug: `shortDate/hhmm/fullDate` (core.js) hanya menerima Date; eskalasi, catatan klinis, dan laporan
     CSV mengirim timestamp → detail pengguna ber-eskalasi gagal "d.getDate is not a function". Kini
     ketiganya menerima Date, angka, atau teks ISO (`keDate`).
+35. **Tangkapan landing diperbarui** (25 Sep): `assets/img/app-beranda.png` (Beranda biru, data contoh:
+    TeleBand tersambung, 1 sesi makan) menggantikan `app-beranda.webp` (file lama dibiarkan, tak dipakai).
+    Teks "Pemantauan oleh admin unit" disesuaikan (tanpa kode unit).
+36. **Render statis dibirukan** (25 Sep): render-teleband, render-hero-duo, og-cover (.png & .webp)
+    diwarnai ulang per piksel (rona 70–200° → 216°, saturasi ×1,75+0,08, kecerahan tetap) lewat canvas
+    di Edge/CDP (skrip scratch warnai.js). `/masuk/admin` kini punya tombol kembali ke landing (`../`).
+    Pelajaran: di PowerShell 5.1 JANGAN `Get-Content | Set-Content -Encoding utf8` untuk file repo —
+    membaca ANSI + menulis BOM merusak "—" (sw.js sempat rusak, dipulihkan dari git).
 
 ---
 
