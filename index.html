@@ -192,7 +192,7 @@
       <p class="hero__lead">
         TeleCare mengintegrasikan wearable <b>TeleBand</b> dengan dashboard
         pemantauan terpusat — memantau detak jantung, SpO₂, suhu tubuh, sinyal EKG, dan estimasi
-        tekanan darah secara berkelanjutan, lalu menghubungkannya langsung ke dokter dan psikolog.
+        tekanan darah secara berkelanjutan, lalu meneruskannya ke tenaga kesehatan yang memantau.
       </p>
       <div class="hero__actions">
         <a href="#produk" class="btn btn--primary">Lihat Perangkat <svg><use href="#i-arrow"/></svg></a>
@@ -640,10 +640,10 @@
         <g transform="translate(974,156)"><rect width="150" height="14" rx="7" fill="#fff" stroke="#A9E5C8"/><rect width="92" height="14" rx="7" fill="#6FD3A6"/></g>
 
         <rect x="952" y="200" width="196" height="104" rx="20" fill="url(#ag2)" stroke="#7CC3E8"/>
-        <text x="974" y="232" font-size="15" font-weight="700" fill="#075A85">Teleconsult</text>
-        <text x="974" y="252" font-size="11.5" fill="#5F8477">Dokter &amp; psikolog</text>
-        <text x="974" y="270" font-size="11.5" fill="#5F8477">terhubung ke rekam vital</text>
-        <g transform="translate(974,280)"><circle cx="9" cy="9" r="9" fill="#fff" stroke="#7CC3E8"/><circle cx="31" cy="9" r="9" fill="#fff" stroke="#7CC3E8"/><circle cx="53" cy="9" r="9" fill="#fff" stroke="#7CC3E8"/><text x="76" y="13" font-size="10" fill="#075A85">antrean daring</text></g>
+        <text x="974" y="232" font-size="15" font-weight="700" fill="#075A85">Tinjauan Nakes</text>
+        <text x="974" y="252" font-size="11.5" fill="#5F8477">Dokter memantau pasien</text>
+        <text x="974" y="270" font-size="11.5" fill="#5F8477">dari rekam vital</text>
+        <g transform="translate(974,280)" font-size="10" fill="#075A85"><rect width="84" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="42" y="13" text-anchor="middle">Catatan klinis</text><rect x="90" width="60" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="120" y="13" text-anchor="middle">Eskalasi</text></g>
 
         <rect x="952" y="322" width="196" height="110" rx="20" fill="#fff" stroke="#DDEAE3"/>
         <text x="974" y="354" font-size="15" font-weight="700" fill="#08201A">Intervensi</text>
@@ -654,14 +654,19 @@
       </g>
 
       <!-- panah alur -->
+      <!-- Semua panah lurus mendatar dan berakhir tepat di sisi kiri kotak tujuan
+           (ujung penanda menjorok 2px, jadi titik akhir = tepi kotak - 3). Tiap
+           ketinggian y dipilih di rentang yang dimiliki kedua kotak sekaligus.
+           Dulu sebagian panah berbelok lalu berhenti di celah antar-kotak. -->
       <g stroke="#049A5B" stroke-width="2" fill="none" marker-end="url(#ah)">
-        <path d="M300 144 L 340 144 Q 352 144 352 168 L 352 214"/>
-        <path d="M300 290 L 340 290 Q 352 290 352 268 L 352 246"/>
-        <path d="M600 200 L 640 200"/>
-        <path d="M600 250 L 626 250 Q 640 250 640 268 L 640 300"/>
-        <path d="M900 132 L 940 132"/>
-        <path d="M900 262 L 926 262 Q 940 262 940 252 L 940 244"/>
-        <path d="M900 382 L 926 382 Q 940 382 940 372 L 940 366"/>
+        <path d="M300 178 L 349 178"/>   <!-- TeleBand → Gateway -->
+        <path d="M300 266 L 349 266"/>   <!-- Aplikasi → Gateway -->
+        <path d="M600 168 L 649 168"/>   <!-- Gateway → Mesin Inferensi -->
+        <path d="M600 262 L 649 262"/>   <!-- Gateway → Basis Data -->
+        <path d="M776 312 L 776 329"/>   <!-- Basis Data → Mesin Aturan Klinis -->
+        <path d="M900 130 L 949 130"/>   <!-- Mesin Inferensi → Dashboard -->
+        <path d="M900 256 L 949 256"/>   <!-- Basis Data → Tinjauan Nakes -->
+        <path d="M900 382 L 949 382"/>   <!-- Mesin Aturan → Intervensi -->
       </g>
       <g stroke="#0E7FB8" stroke-width="1.6" stroke-dasharray="5 6" fill="none">
         <path d="M1050 432 L 1050 456 L 176 456 L 176 440"/>
@@ -904,10 +909,10 @@
   <div class="wrap">
     <div class="sec-head center">
       <span class="eyebrow"><i class="dot"></i> Aplikasi TeleCare</span>
-      <h2 class="h1">Pemantauan dan telemedisin<br>dalam satu aplikasi.</h2>
+      <h2 class="h1">Pemantauan dan tindak lanjut<br>dalam satu aplikasi.</h2>
       <p class="lead" style="margin-inline:auto">
         Aplikasi web TeleCare menyatukan pairing perangkat, sinkronisasi data, pencatatan sesi harian,
-        analisis tren, hingga konsultasi chat dan video call dengan dokter — berjalan di ponsel maupun desktop.
+        analisis tren, hingga pemantauan oleh tenaga kesehatan — berjalan di ponsel maupun desktop.
       </p>
     </div>
 
@@ -917,7 +922,9 @@
           <img src="assets/img/app-beranda.webp" width="390" height="844" loading="lazy"
                alt="Tangkapan layar beranda aplikasi TeleCare">
         </figure>
-        <figure class="phone phone--b">
+        <!-- Disembunyikan: menampilkan daftar dokter untuk konsultasi, fitur yang
+             sedang disembunyikan di aplikasi (TC.FITUR.konsultasi). -->
+        <figure class="phone phone--b" hidden>
           <img src="assets/img/app-konsultasi.webp" width="390" height="844" loading="lazy"
                alt="Tangkapan layar daftar dokter pada aplikasi TeleCare">
         </figure>
@@ -940,9 +947,9 @@
           </div>
           <div class="stack-item reveal" data-d="2">
             <span class="stack-item__ico"><svg><use href="#i-doctor"/></svg></span>
-            <div><b>Konsultasi berkonteks</b>
-              <p>Chat dan video call dengan dokter atau psikolog, dengan ringkasan vital dan catatan
-                 sesi ikut terlampir otomatis.</p></div>
+            <div><b>Tinjauan tenaga kesehatan</b>
+              <p>Dokter melihat vital pasien binaan, menulis catatan klinis, dan menandai kasus
+                 yang perlu tindak lanjut.</p></div>
           </div>
           <div class="stack-item reveal" data-d="3">
             <span class="stack-item__ico"><svg><use href="#i-chart"/></svg></span>
@@ -963,7 +970,7 @@
           <a class="btn btn--ghost" href="app/?demo=1">Coba dengan data contoh</a>
         </div>
         <p class="tiny muted" style="margin-top:14px;font-size:.78rem;color:var(--muted)">
-          Purwarupa: nilai fisiologis disimulasikan dan balasan dokter dihasilkan otomatis.
+          Purwarupa: nilai fisiologis disimulasikan selama TeleBand belum tersambung.
         </p>
       </div>
     </div>
@@ -1086,10 +1093,10 @@
           </div>
           <div class="flow-item reveal">
             <span class="flow-item__no">TAHAP 04</span>
-            <div><h3 class="h3">Konsultasi &amp; intervensi</h3>
-              <p>Kasus berisiko diteruskan ke dokter atau psikolog mitra melalui teleconsult dengan
-                 konteks rekam vital, lalu ditutup dengan rencana intervensi dan evaluasi.</p>
-              <div class="flow-item__pills"><span class="tag tag--g">Teleconsult</span><span class="tag">Rencana tindak</span></div></div>
+            <div><h3 class="h3">Tindak lanjut &amp; intervensi</h3>
+              <p>Kasus berisiko ditandai untuk ditinjau dokter atau tenaga kesehatan unit bersama
+                 rekam vitalnya, lalu ditutup dengan rencana intervensi dan evaluasi.</p>
+              <div class="flow-item__pills"><span class="tag tag--g">Eskalasi</span><span class="tag">Rencana tindak</span></div></div>
           </div>
         </div>
       </div>

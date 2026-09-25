@@ -147,6 +147,14 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     `.stat-row` dan `.vital-grid` (desktop) memakai `grid-auto-flow:column` agar kolom mengikuti
     jumlah kotak. `simulateScan` tak lagi memakai indeks tetap (akan error bila jenis tinggal satu).
     Belum disentuh: kartu EKG beranda demo (TeleBand simulasi punya cap `ecg`, alat fisik tidak).
+    Landing, konsultasi: kotak "Teleconsult" di diagram arsitektur → "Tinjauan Nakes" (catatan
+    klinis, eskalasi — fitur layar dokter yang memang ada); hero, bagian #aplikasi (tangkapan
+    `app-konsultasi.webp` diberi `hidden`, butir "Konsultasi berkonteks" → "Tinjauan tenaga
+    kesehatan"), Tahap 04 alur layanan, dan ticker (js/app.js) tak lagi menawarkan konsultasi.
+    Sengaja dibiarkan: kalimat masalah di #urgensi ("konsultasi tidak selalu tersedia di lokasi").
+    Panah diagram arsitektur dibuat ulang: semuanya lurus mendatar ke tepi kiri kotak tujuan
+    (dulu sebagian berbelok dan berhenti di celah), plus panah Basis Data → Mesin Aturan Klinis.
+    `#/mulai` (onboarding) kini punya tombol kembali ke landing (`href="../"`, kelas `.onb__top`).
 
 ---
 

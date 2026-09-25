@@ -43,9 +43,9 @@
     ['i-temp', 'Suhu tubuh terkompensasi ambien'],
     ['i-ecg', 'Sinyal EKG lead-I 250 Hz'],
     ['i-bp', 'Estimasi tekanan darah berbasis PPG'],
-    ['i-brain', 'Pola tidur'],
+    ['i-wifi', 'Sambungan langsung lewat Web Bluetooth'],
     ['i-cloud', 'Sinkronisasi cloud terenkripsi'],
-    ['i-doctor', 'Teleconsult dokter & psikolog'],
+    ['i-doctor', 'Tinjauan tenaga kesehatan'],
     ['i-shield', 'Privasi data per unit institusi'],
     ['i-chip', 'Pra-proses sinyal di perangkat']
   ];

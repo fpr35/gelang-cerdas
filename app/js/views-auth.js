@@ -110,7 +110,13 @@
     function draw() {
       const s = SLIDES_AKTIF[i];
       const terakhir = i === SLIDES_AKTIF.length - 1;
+      // Tombol kembali ke landing page (akar situs). Tautan relatif "../" dari
+      // /app/ selalu menuju "/", baik lokal maupun di Vercel.
       setView(`<div class="onb">
+        <div class="onb__top">
+          <a class="topbar__back" href="../" aria-label="Kembali ke halaman utama TeleCare"
+             title="Kembali ke halaman utama">${icon('back')}</a>
+        </div>
         <div class="onb__art">${s.art()}</div>
         <h1>${esc(s.title)}</h1>
         <p>${esc(s.body)}</p>

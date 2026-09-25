@@ -700,6 +700,7 @@ ul{margin:0;padding:0;list-style:none}
 .onb{min-height:100svh;display:flex;flex-direction:column;
   background:radial-gradient(80% 50% at 50% 0%,var(--green-50),var(--canvas) 55%);
   padding:0 22px calc(28px + var(--safe-b))}
+.onb__top{display:flex;align-items:center;padding-top:calc(16px + env(safe-area-inset-top, 0px))}
 .onb__art{flex:1;display:grid;place-items:center;padding:30px 0 10px;min-height:280px}
 .onb__art svg{width:min(84vw,340px);height:auto}
 .onb h1{font-size:1.55rem;text-align:center;margin-bottom:9px}
