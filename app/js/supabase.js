@@ -631,15 +631,60 @@
      Pasien mendaftarkan dirinya otomatis saat masuk; admin membaca semuanya.
      ============================================================ */
   const PatientsDB = {
-    async daftarkan(nama, email) {
+    /**
+     * @param {object} [ekstra]  { profile, sesi_berjalan } — kolom dari
+     *   20260929_data_pasien.sql; bila kolomnya belum ada, dikirim ulang tanpa itu.
+     */
+    async daftarkan(nama, email, ekstra) {
       const user = await FB.ensureAuth();
-      const { error } = await FB.sb.from('patients').upsert({
+      const baris = {
         user_id: user.id,
         name: String(nama || 'Pasien').trim().slice(0, 80) || 'Pasien',
         email: email ? String(email).slice(0, 120) : null,
         anonymous: !!user.is_anonymous,
         last_seen: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+      };
+      let { error } = await FB.sb.from('patients').upsert(Object.assign({}, baris, ekstra || {}), { onConflict: 'user_id' });
+      if (error && ekstra && (error.code === 'PGRST204' || error.code === '42703')) {
+        ({ error } = await FB.sb.from('patients').upsert(baris, { onConflict: 'user_id' }));
+      }
+      if (error) throw error;
+      return true;
+    },
+
+    /** Menyalin sesi makan (tanpa foto) ke server. */
+    async simpanSesi(daftar) {
+      const user = await FB.ensureAuth();
+      if (!daftar.length) return true;
+      const { error } = await FB.sb.from('patient_meals').upsert(daftar.map((m) => ({
+        user_id: user.id, id: m.id, at: new Date(m.at).toISOString(), data: m,
+        updated_at: new Date().toISOString()
+      })), { onConflict: 'user_id,id' });
+      if (error) throw error;
+      return true;
+    },
+
+    /** Satu pasien lengkap dengan profil & sesi berjalan (admin). */
+    async satu(userId) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('patients').select('*').eq('user_id', userId).maybeSingle();
+      if (error) throw error;
+      return data || null;
+    },
+
+    /** Riwayat sesi makan seorang pasien (admin), terbaru dulu. */
+    async sesi(userId, batas) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('patient_meals').select('data')
+        .eq('user_id', userId).order('at', { ascending: false }).limit(batas || 60);
+      if (error) throw error;
+      return (data || []).map((r) => r.data);
+    },
+
+    /** Admin menghapus seluruh data seorang pasien di server. */
+    async hapusData(userId) {
+      await FB.ensureAuth();
+      const { error } = await FB.sb.rpc('hapus_data_pasien', { target: userId });
       if (error) throw error;
       return true;
     },

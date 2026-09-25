@@ -240,6 +240,24 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     `device_readings_select_admin`. Dasbor admin (views-roles 2N, `GLOBAL`/`L`): Ringkasan, Pengguna
     (cari nama/email), Perangkat, detail pengguna (tanpa tombol keluarkan), laporan CSV; hasil ukur
     lewat `ReadingsDB.terbaru(2000)`. Urutan migrasi: device_readings → facilities → admins → patients.
+33. **Warna utama biru** (25 Sep, permintaan user). Token `--green-*` (app.css & style.css) kini berisi
+    skala BIRU (nama dipertahankan); `--grad-primary` = #0B3A8C → #1E6FD9 → #3FB6F5 (tombol utama, FAB
+    Catat, avatar, promo, logo, favicon, ikon PWA dibuat ulang via CDP). Hijau hanya untuk status positif
+    lewat `--ok-*` (chip--g, dotlive, STATUS_META ok, batang/legenda Normal triase). Netral berhias hijau
+    ikut dipetakan. Material GLB (TC_Strap/Accent/LED) diwarnai ulang di three-scenes.js. `#34A853` = logo
+    Google (sengaja). Masih hijau: render statis render-teleband/hero-duo/og-cover & app-beranda.webp.
+34. **Data pasien lengkap untuk admin + hapus** (25 Sep, permintaan user). Migrasi `20260929_data_pasien.sql`:
+    `patients.profile`/`sesi_berjalan` (jsonb), tabel `patient_meals`, RPC `hapus_data_pasien(target)`
+    (khusus admin; hapus readings, meals, patients — akun auth tetap). Pasien: `Store.onSave` (core.js) →
+    `sinkronPasien` (app.js, jeda 4 dtk, tanda tangan per item di localStorage `telecare.sinkron.v1`, foto
+    tidak dikirim). Admin: tombol hapus per baris di Pengguna + di detail; detail berisi "Sedang apa",
+    profil & tujuan, capaian gizi hari ini (`Meals.progresTarget(meals, aktif, targets)`,
+    `TC.views.kartuTarget(pr, {admin})`), riwayat sesi makan. Diuji via CDP (skrip scratch cdp-eval.js):
+    kiriman profil/sesi benar, tanpa foto, tidak berulang; alur hapus lengkap. `--dump-dom` headless kini
+    sering kosong (jaringan menggantung) — pakai CDP.
+    Bug: `shortDate/hhmm/fullDate` (core.js) hanya menerima Date; eskalasi, catatan klinis, dan laporan
+    CSV mengirim timestamp → detail pengguna ber-eskalasi gagal "d.getDate is not a function". Kini
+    ketiganya menerima Date, angka, atau teks ISO (`keDate`).
 
 ---
 
@@ -423,7 +441,7 @@ Urut dari yang paling perlu diselesaikan.
 
 ## 8. Rencana berikutnya
 
-- [ ] Jalankan migrasi `messages.kind/data`, `device_readings`, `care_links`, dan `facilities` di Supabase SQL Editor
+- [ ] Jalankan migrasi di Supabase: device_readings → facilities → admins → patients → data_pasien
 - [x] Uji TeleBand dengan alat fisik (25 Sep 2026, Android + Vercel)
 - [x] Hasil ukur pasien di layar dokter (care_links, 25 Sep) — perlu migrasi dijalankan
 - [ ] TeleBand tahap 2: UI kalibrasi per unit (`SET_KALIBRASI`)

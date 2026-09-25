@@ -170,7 +170,7 @@
       entries.forEach(en => {
         const a = links[en.target.id];
         if (!a) return;
-        a.style.background = en.isIntersecting ? 'rgba(4,154,91,.12)' : '';
+        a.style.background = en.isIntersecting ? 'rgba(30,111,217,.12)' : '';
         a.style.color = en.isIntersecting ? 'var(--green-600)' : '';
       });
     }, { rootMargin: '-42% 0px -52% 0px' });

@@ -74,11 +74,11 @@
 
   /* ---------------- SPESIALISASI ---------------- */
   const SPECIALTIES = [
-    { id: 'umum',    name: 'Dokter Umum',   emoji: '🩺', color: '#EDF9F2', fg: '#03804C' },
+    { id: 'umum',    name: 'Dokter Umum',   emoji: '🩺', color: '#EEF5FF', fg: '#1759BA' },
     { id: 'jantung', name: 'Jantung',       emoji: '❤️', color: '#FFF3F1', fg: '#E2543F' },
     { id: 'penyakit-dalam', name: 'Penyakit Dalam', emoji: '🫀', color: '#EFF8FD', fg: '#075A85' },
     { id: 'psikolog', name: 'Psikolog',     emoji: '🧠', color: '#F3F1FE', fg: '#4A3BB8' },
-    { id: 'gizi',    name: 'Gizi Klinik',   emoji: '🥗', color: '#EDF9F2', fg: '#03804C' },
+    { id: 'gizi',    name: 'Gizi Klinik',   emoji: '🥗', color: '#EEF5FF', fg: '#1759BA' },
     { id: 'saraf',   name: 'Saraf',         emoji: '🧬', color: '#EFF8FD', fg: '#075A85' },
     { id: 'paru',    name: 'Paru',          emoji: '🫁', color: '#FFF9EC', fg: '#8A5D00' },
     { id: 'geriatri', name: 'Geriatri',     emoji: '🧓', color: '#F3F1FE', fg: '#4A3BB8' }
@@ -92,7 +92,7 @@
       about: 'Menangani aritmia, hipertensi, dan pemantauan pasca-tindakan jantung. Terbiasa membaca rekaman EKG lead tunggal dari perangkat wearable.' },
     { id: 'd2', name: 'dr. Bagas Prayoga', spec: 'umum', sub: 'Layanan Primer',
       exp: 7, rating: 4.8, reviews: 2140, price: 25000, online: true, wait: '± 1 menit',
-      hospital: 'Klinik Sehat Bersama', color: '#049A5B',
+      hospital: 'Klinik Sehat Bersama', color: '#1E6FD9',
       about: 'Keluhan harian, skrining awal, dan rujukan. Cocok sebagai titik masuk pertama sebelum ke dokter spesialis.' },
     { id: 'd3', name: 'Rani Maheswari, M.Psi., Psikolog', spec: 'psikolog', sub: 'Psikologi Klinis Dewasa',
       exp: 9, rating: 4.9, reviews: 876, price: 90000, online: true, wait: '± 5 menit',
@@ -104,7 +104,7 @@
       about: 'Diabetes, sindrom metabolik, dan tata laksana gaya hidup. Menerima diskusi tren glukosa dari perangkat pemantau.' },
     { id: 'd5', name: 'Dewi Larasati, S.Gz., RD', spec: 'gizi', sub: 'Dietisien Terdaftar',
       exp: 6, rating: 4.7, reviews: 654, price: 45000, online: true, wait: '± 2 menit',
-      hospital: 'Klinik Gizi Nusantara', color: '#28B87A',
+      hospital: 'Klinik Gizi Nusantara', color: '#3D8FEA',
       about: 'Menyusun rencana makan berbasis catatan sesi harian, termasuk pengaturan porsi karbohidrat.' },
     { id: 'd6', name: 'dr. Sekar Ayu, Sp.S', spec: 'saraf', sub: 'Neurologi Umum',
       exp: 11, rating: 4.8, reviews: 743, price: 75000, online: true, wait: '± 6 menit',
@@ -124,7 +124,7 @@
       about: 'Perawatan lansia dengan banyak penyakit penyerta, termasuk pemantauan jarak jauh di panti.' },
     { id: 'd9', name: 'dr. Adhitya Nugroho', spec: 'umum', sub: 'Kedokteran Okupasi',
       exp: 8, rating: 4.6, reviews: 921, price: 30000, online: true, wait: '± 2 menit',
-      hospital: 'Klinik Perusahaan Mandiri', color: '#03804C',
+      hospital: 'Klinik Perusahaan Mandiri', color: '#1759BA',
       about: 'Kesehatan kerja, kelayakan kerja, dan penilaian beban kerja berbasis data wearable.' }
   ];
 
@@ -263,7 +263,7 @@
   /* ---------------- PERAN PENGGUNA ---------------- */
   const ROLES = [
     {
-      id: 'pasien', name: 'Pasien', short: 'Pasien', icon: 'user', color: '#049A5B',
+      id: 'pasien', name: 'Pasien', short: 'Pasien', icon: 'user', color: '#1E6FD9',
       desc: 'Memantau kesehatan sendiri lewat perangkat dan berkonsultasi ke dokter.',
       home: '/home'
     },
@@ -351,7 +351,7 @@
     facility: (id) => FACILITIES.find((f) => f.id === id) || FACILITIES[0],
     patient: (id) => PATIENTS.find((p) => p.id === id) || null,
     doctor: (id) => DOCTORS.find((d) => d.id === id) || null,
-    spec: (id) => SPECIALTIES.find((s) => s.id === id) || { name: id, emoji: '🩺', color: '#EDF9F2', fg: '#03804C' },
+    spec: (id) => SPECIALTIES.find((s) => s.id === id) || { name: id, emoji: '🩺', color: '#EEF5FF', fg: '#1759BA' },
     food: (n) => FOODS.find((f) => f.n === n) || null,
     goal: (id) => GOALS.find((g) => g.id === id) || GOALS[0],
     deviceType: (t) => DEVICE_TYPES.find((d) => d.type === t) || DEVICE_TYPES[0],

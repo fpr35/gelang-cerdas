@@ -56,7 +56,7 @@
         video.style.display = 'none';
         note.innerHTML = 'Kamera tidak dapat diakses. Gunakan tombol galeri di kiri bawah untuk memilih foto.';
         $('#stage').style.background =
-          'radial-gradient(70% 60% at 50% 40%, #0B3327, #04140F)';
+          'radial-gradient(70% 60% at 50% 40%, #0E2B5A, #050F22)';
       }
     }
     startCam();
@@ -121,7 +121,7 @@
           <div>
             <svg class="ring" viewBox="0 0 48 48" fill="none">
               <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.18)" stroke-width="4"/>
-              <circle cx="24" cy="24" r="20" stroke="#6FD3A6" stroke-width="4" stroke-linecap="round"
+              <circle cx="24" cy="24" r="20" stroke="#7FB8F5" stroke-width="4" stroke-linecap="round"
                       stroke-dasharray="32 100">
                 <animateTransform attributeName="transform" type="rotate"
                   from="0 24 24" to="360 24 24" dur="1s" repeatCount="indefinite"/>
@@ -179,7 +179,7 @@
         <div class="analyzing"><div>
           <svg class="ring" viewBox="0 0 48 48" fill="none">
             <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.18)" stroke-width="4"/>
-            <circle cx="24" cy="24" r="20" stroke="#6FD3A6" stroke-width="4" stroke-linecap="round" stroke-dasharray="32 100">
+            <circle cx="24" cy="24" r="20" stroke="#7FB8F5" stroke-width="4" stroke-linecap="round" stroke-dasharray="32 100">
               <animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="1s" repeatCount="indefinite"/>
             </circle></svg>
           <b>Mengenali makanan…</b>
@@ -630,8 +630,8 @@
     const cv = $('#cResp');
     const vals = m.points.map((p) => p.value);
     TC.lineChart(cv, [
-      { data: vals, color: '#049A5B', fill: true, dots: true },
-      { data: vals.map(() => m.baseline), color: '#A9E5C8', dash: [5, 5], smooth: false }
+      { data: vals, color: '#1E6FD9', fill: true, dots: true },
+      { data: vals.map(() => m.baseline), color: '#B7D4FB', dash: [5, 5], smooth: false }
     ], { xLabels: m.points.map((p) => p.label) });
 
     const share = $('[data-share]');

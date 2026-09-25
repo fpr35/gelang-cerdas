@@ -145,7 +145,7 @@
 
   function paintSparks(root) {
     const H = TC.Vitals.hist;
-    const map = { hr: '#E2543F', spo2: '#0E7FB8', temp: '#E09B12', sys: '#6C5CE7', glucose: '#03804C' };
+    const map = { hr: '#E2543F', spo2: '#0E7FB8', temp: '#E09B12', sys: '#6C5CE7', glucose: '#1759BA' };
     Object.keys(map).forEach((k) => {
       const cv = $(`[data-spark="${k}"]`, root);
       if (cv && H[k] && H[k].length > 1) TC.sparkline(cv, H[k].slice(-30), map[k]);
@@ -182,12 +182,17 @@
      batang kemajuan, supaya pengguna tahu apakah targetnya sudah terpenuhi. */
   const ZAT_TAMPIL = {
     kcal: ['🔥', '#FFF1D6'], carb: ['🌾', '#DCEEF9'],
-    protein: ['🥚', '#EDF9F2'], fat: ['🥑', '#EEEBFD']
+    protein: ['🥚', '#EEF5FF'], fat: ['🥑', '#EEEBFD']
   };
   const CHIP_STATUS = { sisa: '', tercapai: 'chip--g', lebih: 'chip--a' };
 
-  function kartuTarget() {
-    const pr = TC.Meals.progresTarget();
+  /**
+   * @param {object} [prLuar]  hasil Meals.progresTarget(...) milik pasien lain (admin)
+   * @param {object} [opsi]    { admin: true } — tanpa ajakan mencatat, kalimat untuk admin
+   */
+  function kartuTarget(prLuar, opsi) {
+    const pr = prLuar || TC.Meals.progresTarget();
+    const admin = !!(opsi && opsi.admin);
     const semua = pr.tercapai === pr.butir.length;
     return `<div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
@@ -207,10 +212,11 @@
         <div style="display:flex;justify-content:flex-end;margin:5px 0 12px">
           <span class="chip ${CHIP_STATUS[b.status]}" style="font-size:.68rem">
             ${b.status === 'tercapai' ? icon('check') + ' ' : ''}${esc(b.teks)}</span></div>`).join('')}
-      ${pr.sesi ? '' : `<p class="small muted">Belum ada sesi makan hari ini.
+      ${pr.sesi ? '' : admin ? '<p class="small muted">Pasien belum mencatat sesi makan hari ini.</p>'
+        : `<p class="small muted">Belum ada sesi makan hari ini.
         <a class="link" href="#/sesi/kamera">Catat sesi</a> untuk mulai menghitung.</p>`}
       <p class="tiny muted" style="margin-top:6px">Tercapai = 90–110% dari target. Dihitung dari sesi makan
-        yang Anda catat hari ini, termasuk sesi yang masih berjalan.</p>
+        yang ${admin ? 'dicatat pasien' : 'Anda catat'} hari ini, termasuk sesi yang masih berjalan.</p>
     </div>`;
   }
 
@@ -289,8 +295,8 @@
       <div class="section-title">${icon('sparkle')} Aksi cepat</div>
       <div class="quick">
         ${TC.FITUR.konsultasi
-          ? `<a href="#/konsultasi"><i style="background:#EDF9F2;color:#03804C">${icon('stetho')}</i>Konsultasi</a>`
-          : `<a href="#/teleband"><i style="background:#EDF9F2;color:#03804C">${icon('heart')}</i>Ukur</a>`}
+          ? `<a href="#/konsultasi"><i style="background:#EEF5FF;color:#1759BA">${icon('stetho')}</i>Konsultasi</a>`
+          : `<a href="#/teleband"><i style="background:#EEF5FF;color:#1759BA">${icon('heart')}</i>Ukur</a>`}
         <a href="#/sesi/kamera"><i style="background:#FFF1D6;color:#8A5D00">${icon('cam')}</i>Catat Sesi</a>
         <a href="#/perangkat"><i style="background:#DCEEF9;color:#075A85">${icon('watch')}</i>Perangkat</a>
         <a href="#/riwayat"><i style="background:#EEEBFD;color:#4A3BB8">${icon('doc')}</i>Riwayat</a>
@@ -369,7 +375,7 @@
     const peakCv = $('#peakChart');
     if (peakCv) {
       const data = TC.Meals.peakTrend(6);
-      TC.lineChart(peakCv, [{ data, color: '#049A5B', fill: true, dots: true }],
+      TC.lineChart(peakCv, [{ data, color: '#1E6FD9', fill: true, dots: true }],
         { padL: 8, yLabels: false });
     }
 
@@ -493,7 +499,7 @@
     bp:   { title: 'Tekanan Darah', unit: 'mmHg', color: '#6C5CE7', key: 'sys',
             normal: '< 120/80 mmHg',
             about: 'Perkiraan tidak langsung dari bentuk gelombang nadi. Wajib dikalibrasi dengan tensimeter lengan dan hanya untuk melihat kecenderungan.' },
-    glucose: { title: 'Glukosa', unit: 'mg/dL', color: '#03804C', key: 'glucose',
+    glucose: { title: 'Glukosa', unit: 'mg/dL', color: '#1759BA', key: 'glucose',
             normal: '70–140 mg/dL (acuan umum, bukan untuk estimasi ini)',
             about: 'Pada TeleBand, angka ini diperkirakan dari sinyal PPG jari dengan model yang menurut firmware-nya sendiri SANGAT eksperimental dan belum punya dasar ilmiah yang kuat. Jangan dipakai untuk keputusan apa pun.' }
   };
@@ -638,7 +644,7 @@
             <div class="card">
               <div class="card__head">${icon('heart')}<h3>Detak jantung istirahat</h3></div>
               <div class="chart-wrap"><canvas id="cRhr" style="height:150px"></canvas></div>
-              <div class="legend"><div><i style="background:#049A5B"></i>7 hari terakhir (bpm)</div></div>
+              <div class="legend"><div><i style="background:#1E6FD9"></i>7 hari terakhir (bpm)</div></div>
             </div>
 
             <div class="card">
@@ -669,7 +675,7 @@
               <p>${esc(weekSummaryBody(week))}</p>
             </div>` : ''}`;
 
-        TC.lineChart($('#cRhr'), [{ data: week.map((d) => d.rhr), color: '#049A5B', fill: true, dots: true }],
+        TC.lineChart($('#cRhr'), [{ data: week.map((d) => d.rhr), color: '#1E6FD9', fill: true, dots: true }],
           { xLabels: labels });
         TC.lineChart($('#cSpo2'), [{ data: week.map((d) => d.spo2), color: '#0E7FB8', fill: true, dots: true }],
           { xLabels: labels });
@@ -688,7 +694,7 @@
             <div class="chart-wrap"><canvas id="cMacro" style="height:170px"></canvas></div>
             <div class="legend">
               <div><i style="background:#0E7FB8"></i>Karbohidrat</div>
-              <div><i style="background:#049A5B"></i>Protein</div>
+              <div><i style="background:#1E6FD9"></i>Protein</div>
               <div><i style="background:#6C5CE7"></i>Lemak</div>
             </div>
           </div>
@@ -699,7 +705,7 @@
         TC.barChart($('#cKcal'), days.map((d) => d.kcal), days.map((d) => d.label), '#E09B12');
         TC.lineChart($('#cMacro'), [
           { data: days.map((d) => d.carb), color: '#0E7FB8', fill: true },
-          { data: days.map((d) => d.protein), color: '#049A5B' },
+          { data: days.map((d) => d.protein), color: '#1E6FD9' },
           { data: days.map((d) => d.fat), color: '#6C5CE7' }
         ], { xLabels: days.map((d) => d.label) });
 
@@ -712,8 +718,8 @@
             <div class="card__head">${icon('drop')}<h3>Puncak gula darah antar sesi</h3></div>
             <div class="chart-wrap"><canvas id="cPeak" style="height:170px"></canvas></div>
             <div class="legend">
-              <div><i style="background:#049A5B"></i>Puncak (mg/dL)</div>
-              <div><i style="background:#A9E5C8"></i>${SIM() ? 'Baseline' : 'Sebelum makan'}</div></div>
+              <div><i style="background:#1E6FD9"></i>Puncak (mg/dL)</div>
+              <div><i style="background:#B7D4FB"></i>${SIM() ? 'Baseline' : 'Sebelum makan'}</div></div>
           </div>
           <div class="section-title">${icon('doc')} Sesi dengan kenaikan terbesar</div>
           <div class="list">
@@ -738,8 +744,8 @@
         if (meals.length) {
           const rev = meals.slice().reverse();
           TC.lineChart($('#cPeak'), [
-            { data: rev.map((m) => m.peak), color: '#049A5B', fill: true, dots: true },
-            { data: rev.map((m) => m.baseline), color: '#A9E5C8', dash: [4, 5] }
+            { data: rev.map((m) => m.peak), color: '#1E6FD9', fill: true, dots: true },
+            { data: rev.map((m) => m.baseline), color: '#B7D4FB', dash: [4, 5] }
           ], { xLabels: rev.map((m) => TC.pad2(new Date(m.at).getDate())) });
         }
       }
@@ -836,7 +842,7 @@
         b.innerHTML = cs.length ? `<div class="list">${cs.map((c) => {
           const doc = D.doctor(c.doctorId);
           return `<a class="row" href="#/chat/${esc(c.id)}">
-            <span class="avatar" style="background:${doc ? doc.color : '#049A5B'}">${esc(initials(doc ? doc.name : '?'))}</span>
+            <span class="avatar" style="background:${doc ? doc.color : '#1E6FD9'}">${esc(initials(doc ? doc.name : '?'))}</span>
             <div style="min-width:0"><b>${esc(doc ? doc.name : 'Dokter')}</b>
               <small>${esc(c.mode === 'video' ? 'Video call' : 'Chat')} · ${esc(TC.relTime(c.startedAt))}</small></div>
             <span class="chip chip--${c.status === 'active' ? 'g' : ''}" style="margin-left:auto">
@@ -919,8 +925,8 @@
     const list = Store.state.notifications;
     setView(list.length ? `<div class="list">${list.map((n) => `
       <div class="row" style="align-items:flex-start">
-        <span class="row__ico" style="background:${n.kind === 'warn' ? '#FFF1D6' : n.kind === 'err' ? '#FFE6E2' : '#EDF9F2'};
-          color:${n.kind === 'warn' ? '#8A5D00' : n.kind === 'err' ? '#E2543F' : '#03804C'}">
+        <span class="row__ico" style="background:${n.kind === 'warn' ? '#FFF1D6' : n.kind === 'err' ? '#FFE6E2' : '#EEF5FF'};
+          color:${n.kind === 'warn' ? '#8A5D00' : n.kind === 'err' ? '#E2543F' : '#1759BA'}">
           ${icon(n.kind === 'warn' ? 'alert' : n.kind === 'err' ? 'alert' : 'check')}</span>
         <div style="min-width:0"><b>${esc(n.title)}</b><small>${esc(n.body)}</small>
           <small class="tiny" style="color:var(--faint)">${esc(TC.relTime(n.at))}</small></div>

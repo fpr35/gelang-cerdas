@@ -248,7 +248,7 @@
       const x = (i / (n - 1)) * w, y = base - ecgBuf[i] * amp;
       i ? ecgCtx.lineTo(x, y) : ecgCtx.moveTo(x, y);
     }
-    ecgCtx.strokeStyle = 'rgba(111,211,166,.22)';
+    ecgCtx.strokeStyle = 'rgba(127,184,245,.22)';
     ecgCtx.lineWidth = 5; ecgCtx.lineJoin = 'round'; ecgCtx.stroke();
 
     // garis utama
@@ -257,13 +257,13 @@
       const x = (i / (n - 1)) * w, y = base - ecgBuf[i] * amp;
       i ? ecgCtx.lineTo(x, y) : ecgCtx.moveTo(x, y);
     }
-    ecgCtx.strokeStyle = '#6FD3A6';
+    ecgCtx.strokeStyle = '#7FB8F5';
     ecgCtx.lineWidth = 1.9; ecgCtx.lineCap = 'round'; ecgCtx.stroke();
 
     // kepala sapuan
     const hy = base - ecgBuf[n - 1] * amp;
     ecgCtx.beginPath(); ecgCtx.arc(w - 1.5, hy, 3.1, 0, Math.PI * 2);
-    ecgCtx.fillStyle = '#D6F2E3'; ecgCtx.fill();
+    ecgCtx.fillStyle = '#DCEAFE'; ecgCtx.fill();
   }
 
   /* ---------------- 10. TREN 24 JAM ---------------- */
@@ -290,8 +290,8 @@
     ctx.clearRect(0, 0, w, h);
 
     // kisi & label jam
-    ctx.strokeStyle = '#DDEAE3'; ctx.lineWidth = 1;
-    ctx.fillStyle = '#5F8477';
+    ctx.strokeStyle = '#DDE5F1'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#5B6E8C';
     ctx.font = '10px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     for (let k = 0; k <= 4; k++) {
@@ -302,7 +302,7 @@
     for (let k = 1; k <= 3; k++) {
       const y = padT + (k / 4) * (h - padB - padT);
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y);
-      ctx.strokeStyle = '#EFF6F2'; ctx.stroke();
+      ctx.strokeStyle = '#F0F4FA'; ctx.stroke();
     }
 
     const plot = (arr, color, fill) => {
@@ -327,7 +327,7 @@
     };
 
     plot(trendSeries.sleep, '#0E7FB8', true);
-    plot(trendSeries.hr, '#049A5B', true);
+    plot(trendSeries.hr, '#1E6FD9', true);
   }
   drawTrend();
   window.addEventListener('resize', drawTrend);
@@ -335,11 +335,11 @@
   /* ---------------- 11. DAFTAR PASIEN ---------------- */
   const PATIENTS = [
     { n: 'Nurhaliza P.',  u: 'Unit A · Karyawan', s: 'crit', c: '#E2543F' },
-    { n: 'Ahmad Fauzi',   u: 'Unit B · Santri',   s: 'ok',   c: '#049A5B' },
+    { n: 'Ahmad Fauzi',   u: 'Unit B · Santri',   s: 'ok',   c: '#1E6FD9' },
     { n: 'Siti Rahmawati',u: 'Unit A · Karyawan', s: 'warn', c: '#E09B12' },
     { n: 'Bagas Pratama', u: 'Unit C · Siswa',    s: 'ok',   c: '#0E7FB8' },
     { n: 'Ibu Kartini',   u: 'Unit D · Lansia',   s: 'warn', c: '#6C5CE7' },
-    { n: 'Rizky Aditya',  u: 'Unit B · Santri',   s: 'ok',   c: '#02643C' }
+    { n: 'Rizky Aditya',  u: 'Unit B · Santri',   s: 'ok',   c: '#124596' }
   ];
   const plist = $('#patientList');
   if (plist) {

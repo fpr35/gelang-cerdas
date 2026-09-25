@@ -330,13 +330,13 @@
           i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         }
       };
-      path(); ctx.strokeStyle = 'rgba(111,211,166,.22)'; ctx.lineWidth = 5;
+      path(); ctx.strokeStyle = 'rgba(127,184,245,.22)'; ctx.lineWidth = 5;
       ctx.lineJoin = 'round'; ctx.stroke();
-      path(); ctx.strokeStyle = '#6FD3A6'; ctx.lineWidth = 1.9;
+      path(); ctx.strokeStyle = '#7FB8F5'; ctx.lineWidth = 1.9;
       ctx.lineCap = 'round'; ctx.stroke();
       ctx.beginPath();
       ctx.arc(W - 1.5, base - buf[n - 1] * amp, 3, 0, 7);
-      ctx.fillStyle = '#D6F2E3'; ctx.fill();
+      ctx.fillStyle = '#DCEAFE'; ctx.fill();
     }
 
     let last = performance.now();
@@ -878,13 +878,14 @@
     }
 
     /** Ringkasan hari ini dari seluruh sesi. */
-    function today() {
+    /** @param {Array} [meals] @param {object} [aktif]  bawaan: data pengguna ini. */
+    function today(meals, aktif) {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       // Sesi yang masih berjalan ikut dihitung: makanannya sudah disantap.
       // Dulu sesi baru masuk hitungan setelah selesai (±2 jam kemudian),
       // sehingga asupan hari ini tampak lebih kecil dari kenyataannya.
-      const active = Store.state.activeMeal;
-      const list = Store.state.meals.concat(active ? [active] : [])
+      const active = meals ? aktif : Store.state.activeMeal;
+      const list = (meals || Store.state.meals).concat(active ? [active] : [])
         .filter((m) => m.at >= start.getTime());
       const t = { kcal: 0, carb: 0, protein: 0, fat: 0, count: list.length };
       list.forEach((m) => {
@@ -907,9 +908,13 @@
       { key: 'protein', label: 'Protein', unit: 'g' },
       { key: 'fat', label: 'Lemak', unit: 'g' }
     ];
-    function progresTarget() {
-      const t = today();
-      const target = Store.profile().targets;
+    /**
+     * Tanpa argumen: data pengguna ini. Admin memanggilnya dengan data pasien
+     * dari server (riwayat sesi, sesi berjalan, target).
+     */
+    function progresTarget(meals, aktif, targets) {
+      const t = meals ? today(meals, aktif) : today();
+      const target = targets || Store.profile().targets;
       const butir = ZAT.map((z) => {
         const nilai = t[z.key], tg = target[z.key] || 0;
         const pct = tg ? nilai / tg : 0;

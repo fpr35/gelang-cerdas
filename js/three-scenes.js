@@ -28,9 +28,9 @@ function initHero() {
   const root = new THREE.Group();
   scene.add(root);
 
-  const COL_A = new THREE.Color('#28B87A');
+  const COL_A = new THREE.Color('#3D8FEA');
   const COL_B = new THREE.Color('#7CC3E8');
-  const COL_C = new THREE.Color('#A9E5C8');
+  const COL_C = new THREE.Color('#B7D4FB');
 
   /* --- titik-titik pada bola (distribusi Fibonacci) --- */
   const N = 1400, R = 6.4;
@@ -113,12 +113,12 @@ function initHero() {
   const linkGeo = new THREE.BufferGeometry();
   linkGeo.setAttribute('position', new THREE.Float32BufferAttribute(linkPos, 3));
   root.add(new THREE.LineSegments(linkGeo, new THREE.LineBasicMaterial({
-    color: 0x2FA77E, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false
+    color: 0x3D8FEA, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false
   })));
 
   /* --- cincin orbit --- */
   const rings = new THREE.Group();
-  [[7.9, 0.012, 0x28B87A, 0.5], [9.1, 0.009, 0x7CC3E8, 0.34], [10.4, 0.007, 0xA9E5C8, 0.2]]
+  [[7.9, 0.012, 0x3D8FEA, 0.5], [9.1, 0.009, 0x7CC3E8, 0.34], [10.4, 0.007, 0xB7D4FB, 0.2]]
     .forEach(([rad, tube, c, o], i) => {
       const m = new THREE.Mesh(
         new THREE.TorusGeometry(rad, tube, 6, 200),
@@ -153,7 +153,7 @@ function initHero() {
   const ecgCurve = new THREE.CatmullRomCurve3(ecgPts, true);
   const ecgMesh = new THREE.Mesh(
     new THREE.TubeGeometry(ecgCurve, 700, 0.035, 6, true),
-    new THREE.MeshBasicMaterial({ color: 0x6FD3A6, transparent: true, opacity: 0.62,
+    new THREE.MeshBasicMaterial({ color: 0x7FB8F5, transparent: true, opacity: 0.62,
       blending: THREE.AdditiveBlending, depthWrite: false })
   );
   ecgMesh.rotation.x = -0.42;
@@ -233,11 +233,11 @@ function initViewer() {
 
   const key = new THREE.DirectionalLight(0xffffff, 2.3);
   key.position.set(5, 7, 6); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x6FD3A6, 1.5);
+  const rim = new THREE.DirectionalLight(0x7FB8F5, 1.5);
   rim.position.set(-6, 3, -5); scene.add(rim);
   const fill = new THREE.DirectionalLight(0x7CC3E8, 0.8);
   fill.position.set(-4, -3, 5); scene.add(fill);
-  scene.add(new THREE.AmbientLight(0xE8F5EF, 0.55));
+  scene.add(new THREE.AmbientLight(0xE8F0FB, 0.55));
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -286,8 +286,20 @@ function initViewer() {
       `assets/models/${key}.glb`,
       (gltf) => {
         const obj = gltf.scene;
+        // Warna merek kini biru, sedangkan material di GLB hasil Blender masih
+        // hijau. Diwarnai ulang di sini agar file model tidak perlu dirender ulang.
+        const WARNA_BARU = {
+          TC_Strap:  { color: 0x1E4F9C },
+          TC_Accent: { color: 0x3D8FEA, emissive: 0x0B3A8C },
+          TC_LED:    { color: 0x7FD3FF, emissive: 0x6CC8FF }
+        };
         obj.traverse((n) => {
           if (n.isMesh && n.material) {
+            const w = WARNA_BARU[n.material.name];
+            if (w) {
+              n.material.color.setHex(w.color);
+              if (w.emissive !== undefined && n.material.emissive) n.material.emissive.setHex(w.emissive);
+            }
             n.material.envMapIntensity = 1.15;
             if (n.material.emissiveIntensity !== undefined && n.material.emissive) {
               n.material.emissiveIntensity = Math.max(n.material.emissiveIntensity, 1.0);
@@ -307,7 +319,7 @@ function initViewer() {
         } else {
           const c = new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.4, 0.55), m);
           const s = new THREE.Mesh(new THREE.BoxGeometry(1.7, 2.0, 0.06),
-            new THREE.MeshStandardMaterial({ color: 0x04372A, emissive: 0x1E7A55, emissiveIntensity: 1.4 }));
+            new THREE.MeshStandardMaterial({ color: 0x0A2552, emissive: 0x1759BA, emissiveIntensity: 1.4 }));
           s.position.z = 0.3; g.add(c, s);
         }
         cache[key] = g;
@@ -364,7 +376,7 @@ function initHolo() {
   const root = new THREE.Group();
   scene.add(root);
 
-  const GREEN = 0x049A5B, BLUE = 0x0E7FB8, MINT = 0x28B87A;
+  const GREEN = 0x1E6FD9, BLUE = 0x0E7FB8, MINT = 0x3D8FEA;
 
   /* --- rangka wireframe utama --- */
   const shellGeo = new THREE.IcosahedronGeometry(3.5, 2);
@@ -403,7 +415,7 @@ function initHolo() {
 
   /* --- cincin orbit tipis --- */
   const orbits = new THREE.Group();
-  [[4.35, 0x049A5B, 0.30], [5.05, 0x0E7FB8, 0.20], [5.75, 0x28B87A, 0.13]]
+  [[4.35, 0x1E6FD9, 0.30], [5.05, 0x0E7FB8, 0.20], [5.75, 0x3D8FEA, 0.13]]
     .forEach(([r, c, o], i) => {
       const m = new THREE.Mesh(
         new THREE.TorusGeometry(r, 0.006, 6, 220),

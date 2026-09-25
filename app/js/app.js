@@ -142,6 +142,67 @@
     return null;
   }
 
+  /* ---------------- SINKRONISASI DATA PASIEN ----------------
+     Hanya yang berubah yang dikirim: tanda tangan (JSON) profil/sesi
+     berjalan dan tiap sesi makan dibandingkan dengan kiriman terakhir.
+     Foto makanan tidak pernah dikirim. Gagal (luring, migrasi belum ada)
+     dicoba lagi pada penyimpanan berikutnya. */
+  const sinkronPasien = (function () {
+    const KUNCI = 'telecare.sinkron.v1';
+    let timer = null, jalan = false;
+    const baca = () => { try { return JSON.parse(localStorage.getItem(KUNCI) || '{}'); } catch (e) { return {}; } };
+    const tulis = (x) => { try { localStorage.setItem(KUNCI, JSON.stringify(x)); } catch (e) { /* abaikan */ } };
+
+    function tanpaFoto(m) {
+      if (!m) return null;
+      const o = Object.assign({}, m);
+      delete o.photo;
+      o.adaFoto = !!m.photo;
+      return o;
+    }
+
+    async function jalankan() {
+      const fb = TC.FB, u = Store.user();
+      if (jalan || !fb || !fb.uid || !u || !Store.is('pasien')) return;
+      jalan = true;
+      try {
+        const catat = baca();
+        const per = catat[fb.uid] = catat[fb.uid] || { profil: '', hari: '', sesi: {} };
+        const p = Store.profile();
+        const profile = {
+          gender: p.gender || null, age: p.age || null, height: p.height || null, weight: p.weight || null,
+          aktivitas: p.aktivitas || null, goal: p.goal, targets: p.targets, targetManual: !!p.targetManual
+        };
+        const ekstra = { profile, sesi_berjalan: tanpaFoto(Store.state.activeMeal) };
+        const nama = p.nickname || u.name;
+        const email = u.email && !/@(tamu|google)\.local$/.test(u.email) ? u.email : null;
+        const tt = JSON.stringify([nama, email, ekstra]);
+        const hari = new Date().toDateString();
+        if (tt !== per.profil || hari !== per.hari) {
+          await TC.PatientsDB.daftarkan(nama, email, ekstra);
+          per.profil = tt; per.hari = hari;
+        }
+        const berubah = Store.state.meals.slice(0, 60).map(tanpaFoto)
+          .filter((m) => per.sesi[m.id] !== JSON.stringify(m));
+        if (berubah.length) {
+          await TC.PatientsDB.simpanSesi(berubah);
+          berubah.forEach((m) => { per.sesi[m.id] = JSON.stringify(m); });
+          // Batasi catatan tanda tangan agar localStorage tidak membengkak.
+          const ids = Object.keys(per.sesi);
+          if (ids.length > 120) ids.slice(0, ids.length - 120).forEach((k) => { delete per.sesi[k]; });
+        }
+        tulis(catat);
+      } catch (e) {
+        console.warn('[TeleCare] sinkron data pasien tertunda:', (e && e.message) || e);
+      } finally { jalan = false; }
+    }
+
+    return {
+      jadwalkan(ms) { clearTimeout(timer); timer = setTimeout(jalankan, ms || 0); },
+      jalankan
+    };
+  })();
+
   /* ---------------- KERANGKA ---------------- */
   function applyChrome(opts) {
     const show = opts.chrome !== false;
@@ -263,12 +324,23 @@
   function paintNav(tab) {
     tab = resolveTab(tab);
     $$('#tabbar .tab').forEach((a) => a.classList.toggle('is-active', a.dataset.tab === tab));
+    // Hanya SATU menu sidebar yang aktif: yang alamatnya paling panjang dan
+    // cocok dengan halaman ini (persis, atau sebagai induk "/x" dari "/x/…").
+    // Dulu setiap menu yang merupakan awalan ikut aktif, sehingga di
+    // /faskes/anggota menu "Ringkasan" (/faskes) dan "Pengguna" sama-sama
+    // tersorot.
     const path = Router.current.path || '';
-    $$('#sidebar .side-link').forEach((a) => {
+    const links = $$('#sidebar .side-link');
+    let terbaik = null, panjang = -1;
+    links.forEach((a) => {
       const href = a.getAttribute('href').slice(1);
-      a.classList.toggle('is-active', path === href ||
-        (href !== '/home' && path.indexOf(href) === 0));
+      const cocok = path === href || (href !== '/home' && path.indexOf(href + '/') === 0);
+      if (cocok && href.length > panjang) { terbaik = a; panjang = href.length; }
     });
+    // Halaman tanpa menu sendiri (mis. /vital/hr, /sesi/…) memakai menu induknya
+    // menurut tab rute; data-side sama dengan id tab.
+    if (!terbaik) terbaik = links.find((a) => a.dataset.side === tab) || null;
+    links.forEach((a) => a.classList.toggle('is-active', a === terbaik));
   }
 
   function toggleDemoBadge(show) {
@@ -374,19 +446,13 @@
     // dengan sesi admin lokal, layar digambar ulang agar penjaga sesi bekerja.
     if (TC.FB) TC.FB.onStatus(() => { if (Store.user() && sesiTidakSah()) Router.render(); });
 
-    // Pasien mendaftarkan dirinya ke tabel `patients` supaya otomatis terlihat
-    // di dasbor admin (tanpa kode unit). Sekali per akun Supabase per hari;
-    // gagal (mis. migrasi belum dijalankan) diabaikan dan dicoba lagi nanti.
-    let terdaftar = null;
-    if (TC.FB && TC.PatientsDB) TC.FB.onStatus((fb) => {
-      const u = Store.user();
-      if (!fb.uid || !u || !Store.is('pasien')) return;
-      const kunci = fb.uid + ':' + new Date().toDateString() + ':' + (u.name || '');
-      if (kunci === terdaftar) return;
-      terdaftar = kunci;
-      TC.PatientsDB.daftarkan(Store.profile().nickname || u.name, u.email && !/@(tamu|google)\.local$/.test(u.email) ? u.email : null)
-        .catch(() => { terdaftar = null; });
-    });
+    // Data pasien disalin ke server agar terlihat di dasbor admin: pendaftaran
+    // (tabel patients), profil & sesi berjalan, dan riwayat sesi makan.
+    // Dipicu saat sesi Supabase siap dan setiap kali data tersimpan (dijeda 4 dtk).
+    if (TC.FB && TC.PatientsDB) {
+      TC.FB.onStatus(() => sinkronPasien.jadwalkan(0));
+      Store.onSave(() => sinkronPasien.jadwalkan(4000));
+    }
 
     // Sesi pasien yang ternyata memakai akun admin (email sama, masuk lewat
     // Google) diakhiri: admin hanya boleh masuk lewat /masuk/admin. Dicek sekali

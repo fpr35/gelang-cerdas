@@ -58,9 +58,13 @@ window.TC = window.TC || {};
                   'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
   const pad2 = (n) => String(n).padStart(2, '0');
-  const hhmm = (d) => pad2(d.getHours()) + ':' + pad2(d.getMinutes());
-  const fullDate = (d) => `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  const shortDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+  // Menerima Date, timestamp (angka), maupun teks ISO. Dulu hanya Date, dan
+  // beberapa pemanggil mengirim timestamp (daftar eskalasi, catatan klinis,
+  // laporan CSV) sehingga layar gagal dengan "d.getDate is not a function".
+  const keDate = (d) => (d instanceof Date ? d : new Date(d));
+  const hhmm = (d) => { d = keDate(d); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+  const fullDate = (d) => { d = keDate(d); return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+  const shortDate = (d) => { d = keDate(d); return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`; };
 
   function relTime(ts) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -190,9 +194,13 @@ window.TC = window.TC || {};
     return state;
   }
 
+  // Dipanggil setiap kali data tersimpan — dipakai sinkronisasi data pasien.
+  const pendengarSimpan = new Set();
+
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
     catch (e) { console.warn('[TeleCare] gagal menyimpan.', e); }
+    pendengarSimpan.forEach((fn) => { try { fn(); } catch (e) { /* abaikan */ } });
   }
 
   const Store = {
@@ -200,6 +208,7 @@ window.TC = window.TC || {};
     load, save,
     reset() { state = defaults(); save(); },
     update(fn) { fn(state); save(); },
+    onSave(fn) { pendengarSimpan.add(fn); return () => pendengarSimpan.delete(fn); },
     user() { return state.session ? state.users[state.session.userId] || null : null; },
     /** Peran pengguna aktif; 'pasien' bila belum ditetapkan. */
     role() { const u = this.user(); return (u && u.role) || 'pasien'; },
@@ -519,11 +528,11 @@ window.TC = window.TC || {};
 
     // kisi + label sumbu Y
     ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#8AA79C'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#8A9AB4'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (let k = 0; k <= 3; k++) {
       const v = mn + (k / 3) * (mx - mn), y = Y(v);
       ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y);
-      ctx.strokeStyle = '#EDF3F0'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = '#EDF2F9'; ctx.lineWidth = 1; ctx.stroke();
       if (opts.yLabels !== false) ctx.fillText(Math.round(v), padL - 6, y);
     }
 
@@ -604,7 +613,7 @@ window.TC = window.TC || {};
       ctx.quadraticCurveTo(x + bw, y, x + bw, y + r);
       ctx.lineTo(x + bw, h - padB); ctx.closePath(); ctx.fill();
       if (labels && labels[i]) {
-        ctx.fillStyle = '#8AA79C';
+        ctx.fillStyle = '#8A9AB4';
         ctx.fillText(labels[i], x + bw / 2, h - 6);
       }
     });
@@ -620,14 +629,14 @@ window.TC = window.TC || {};
     const gid = 'g' + Math.random().toString(36).slice(2, 7);
     return `<svg viewBox="0 0 200 118" style="width:100%">
       <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
-        <stop stop-color="#049A5B"/><stop offset=".55" stop-color="#E09B12"/><stop offset="1" stop-color="#E2543F"/>
+        <stop stop-color="#1E6FD9"/><stop offset=".55" stop-color="#E09B12"/><stop offset="1" stop-color="#E2543F"/>
       </linearGradient></defs>
-      <path d="M18 106a82 82 0 0 1 164 0" fill="none" stroke="#EDF3F0" stroke-width="16" stroke-linecap="round"/>
+      <path d="M18 106a82 82 0 0 1 164 0" fill="none" stroke="#EDF2F9" stroke-width="16" stroke-linecap="round"/>
       <path d="M18 106a82 82 0 0 1 164 0" fill="none" stroke="url(#${gid})" stroke-width="16"
             stroke-linecap="round" stroke-dasharray="${LEN}" stroke-dashoffset="${off}"/>
       <g transform="rotate(${ang} 100 106)">
-        <path d="M100 106V44" stroke="#08201A" stroke-width="3.2" stroke-linecap="round"/>
-        <circle cx="100" cy="106" r="6.5" fill="#08201A"/><circle cx="100" cy="106" r="2.8" fill="#fff"/>
+        <path d="M100 106V44" stroke="#0B1B33" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="100" cy="106" r="6.5" fill="#0B1B33"/><circle cx="100" cy="106" r="2.8" fill="#fff"/>
       </g></svg>`;
   }
 
@@ -636,12 +645,12 @@ window.TC = window.TC || {};
     const R = 42, C = 2 * Math.PI * R;
     const off = C * (1 - clamp(p, 0, 1));
     return `<svg viewBox="0 0 100 100" style="width:${size || 90}px;height:${size || 90}px">
-      <circle cx="50" cy="50" r="${R}" fill="none" stroke="#EDF3F0" stroke-width="9"/>
+      <circle cx="50" cy="50" r="${R}" fill="none" stroke="#EDF2F9" stroke-width="9"/>
       <circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"
         stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
         transform="rotate(-90 50 50)"/>
       ${label ? `<text x="50" y="55" text-anchor="middle" font-size="20" font-weight="800"
-        font-family="Plus Jakarta Sans, sans-serif" fill="#08201A">${esc(label)}</text>` : ''}
+        font-family="Plus Jakarta Sans, sans-serif" fill="#0B1B33">${esc(label)}</text>` : ''}
     </svg>`;
   }
 
