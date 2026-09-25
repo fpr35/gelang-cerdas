@@ -69,6 +69,8 @@
 
     ['/profil',             V.profile,     { guard: 'auth', tab: 'profil' }],
     ['/profil/pribadi',     V.personal,    { guard: 'auth', tab: 'profil' }],
+    ['/profil/dokter',      V.myDoctors,   { guard: 'auth', roles: ['pasien'], tab: 'profil' }],
+    ['/profil/unit',        V.myUnits,     { guard: 'auth', roles: ['pasien', 'dokter'], tab: 'profil' }],
     ['/profil/tujuan',      V.goals,       { guard: 'auth', tab: 'profil' }],
     ['/profil/kalibrasi',   V.calibration, { guard: 'auth', tab: 'profil' }],
     ['/profil/pengaturan',  V.settings,    { guard: 'auth', tab: 'profil' }],
@@ -81,6 +83,16 @@
   function wrap(handler, opts) {
     return function (params) {
       opts = opts || {};
+      // Akun lama berperan admin/faskes ketika peran itu disembunyikan: sesi
+      // diakhiri, bukan dialihkan — beranda peran itu sendiri ikut tersembunyi
+      // sehingga pengalihan akan berputar tanpa henti.
+      if (Store.user() && TC.peranTersembunyi(Store.role())) {
+        const nama = TC.DATA.role(Store.role()).name;
+        Store.update((s) => { s.session = null; });
+        TC.toast('Peran ' + nama + ' sedang tidak tersedia. Silakan masuk dengan peran lain.');
+        Router.navigate('/masuk', true);
+        return;
+      }
       // Fitur yang disembunyikan: rutenya ada, tetapi dialihkan ke beranda
       // (atau layar masuk bila belum masuk) — termasuk tautan lama/undangan.
       if (opts.fitur && !TC.FITUR[opts.fitur]) {
@@ -118,6 +130,7 @@
       { id: 'analisis',   label: 'Analisis',   icon: 'chart', href: '#/analisis' },
       { id: 'catat',      label: 'Catat',      icon: 'cam',   href: '#/sesi/kamera', fab: true },
       { id: 'konsultasi', label: 'Konsultasi', icon: 'chat',  href: '#/konsultasi', fitur: 'konsultasi' },
+      { id: 'riwayat',    label: 'Riwayat',    icon: 'doc',   href: '#/riwayat' },
       { id: 'profil',     label: 'Profil',     icon: 'user',  href: '#/profil' }
     ],
     'dokter': [
@@ -166,8 +179,8 @@
     const EXTRA = {
       'pasien': [
         { id: 'jadwal', label: 'Janji Temu', icon: 'cal', href: '#/jadwal', fitur: 'konsultasi' },
-        { id: 'perangkat', label: 'Perangkat', icon: 'watch', href: '#/perangkat' },
-        { id: 'riwayat', label: 'Riwayat', icon: 'doc', href: '#/riwayat' }
+        { id: 'perangkat', label: 'Perangkat', icon: 'watch', href: '#/perangkat' }
+        // Riwayat kini tab bawah (TABS_BY_ROLE), jadi sudah ikut di sidebar.
       ],
       // Dokter tidak lagi ditautkan ke /riwayat: layar itu memuat riwayat sesi
       // makan milik pengguna sendiri, yang bagi dokter selalu kosong. Riwayat
@@ -248,9 +261,45 @@
     if (back) { e.preventDefault(); Router.back('/home'); }
   });
 
+  /**
+   * Membuang data dummy yang tersimpan dari versi sebelumnya, SEKALI saja,
+   * ketika simulasi dimatikan (TC.FITUR.simulasi):
+   *   - perangkat simulasi (hanya TeleBand fisik yang tersisa) dan buffernya;
+   *   - sesi makan lama — kurva gula darahnya dibangkitkan acak (sesi baru
+   *     ditandai `v: 2` dan diisi hasil ukur TeleBand);
+   *   - agregat harian & riwayat sinkron yang dihitung dari angka simulasi;
+   *   - isian contoh akun tamu (notifikasi, konsultasi & janji temu contoh).
+   * Hasil ukur TeleBand, catatan klinis, dan profil tidak disentuh.
+   */
+  function bersihkanDataDummy() {
+    if (TC.FITUR.simulasi || Store.state.dataNyataV1) return;
+    Store.update((s) => {
+      s.devices = (s.devices || []).filter((d) => d.type === 'teleband');
+      if (!s.devices.some((d) => d.id === s.activeDeviceId)) {
+        s.activeDeviceId = s.devices.length ? s.devices[0].id : null;
+      }
+      s.pendingSamples = 0;
+      s.meals = (s.meals || []).filter((m) => m.v === 2);
+      if (s.activeMeal && s.activeMeal.v !== 2) s.activeMeal = null;
+      s.dailyVitals = {};
+      s.vitalsHistory = [];
+      s._roleSeries = {};
+      const adaTamu = Object.values(s.users || {}).some((u) => u.demo);
+      if (adaTamu) {
+        s.notifications = [];
+        s.consults = (s.consults || []).filter((c) => !c.local && c.id !== 'cs-demo');
+        s.appointments = (s.appointments || []).filter((a) => a.id !== 'ap-demo');
+      }
+      s.dataNyataV1 = Date.now();
+    });
+  }
+
   /* ---------------- BOOT ---------------- */
   function boot() {
     Store.load();
+    bersihkanDataDummy();
+    // Target gizi mengikuti profil terkini (kecuali target yang diketik sendiri).
+    if (Store.user()) Store.update((s) => { TC.Gizi.terapkan(s.profile); });
     if (TC.FB) TC.FB.init();
     drawTabbar();
 
@@ -259,7 +308,7 @@
     // "?demo=1" (pasien) atau "?demo=<peran>" — misalnya ?demo=dokter
     const demo = new URLSearchParams(location.search).get('demo');
     if (demo && !Store.user()) {
-      const valid = TC.DATA.ROLES.map((r) => r.id);
+      const valid = TC.DATA.ROLES.map((r) => r.id).filter((r) => !TC.peranTersembunyi(r));
       const role = valid.indexOf(demo) !== -1 ? demo : 'pasien';
       // Rute pada URL dipertahankan agar tautan undangan tetap berfungsi.
       TC.views.seedDemoUser(false, role);

@@ -87,8 +87,8 @@
         <div class="note note--w mt">${icon('alert')}
           <div><b>Tensi dan glukosa${TANDA} hanya estimasi eksperimental</b>
           Firmware TeleBand sendiri menyatakan modelnya belum punya dasar ilmiah yang kuat.
-          Detak jantung dan SpO₂ diukur langsung lewat PPG. Alat ini tidak mengukur suhu —
-          suhu di beranda tetap simulasi. Bukan alat medis.</div></div>
+          Detak jantung dan SpO₂ diukur langsung lewat PPG. Alat ini tidak mengukur suhu${
+            TC.FITUR.simulasi ? ' — suhu di beranda tetap simulasi' : ''}. Bukan alat medis.</div></div>
 
         <div id="tbHasil">${daftarHasilHtml()}</div>
 

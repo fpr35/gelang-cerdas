@@ -112,6 +112,17 @@ Ubah ke `true` untuk memunculkannya kembali.
 | --- | --- |
 | `daftarAkun` | layar `/daftar` dan tautan "Daftar sekarang" hilang; masuk hanya lewat Google atau Tamu |
 | `konsultasi` | konsultasi, chat, panggilan, janji temu, antrean dokter, dan dering panggilan dokter hilang |
+| `simulasi` | tidak ada angka buatan: vital "—" tanpa TeleBand, sesi makan diisi glukosa TeleBand, tamu mulai kosong, dokter melihat pasien asli |
+| `peranAdmin` | peran Admin Platform (seluruhnya data contoh) tidak dapat dipilih |
+
+**Hubungan dokter–pasien** butuh migrasi [supabase/migrations/20260926_care_links.sql](supabase/migrations/20260926_care_links.sql)
+dijalankan sekali di Supabase SQL Editor. Alurnya: dokter membuat *kode dokter* di layar Klinik →
+pasien memasukkannya di Profil → Dokter saya → dokter dapat membaca hasil ukur TeleBand pasien itu.
+
+**Unit faskes** butuh migrasi [supabase/migrations/20260926_facilities.sql](supabase/migrations/20260926_facilities.sql).
+Admin Faskes membuat unit → mendapat *kode unit* → pasien (anggota) dan dokter (nakes) memasukkannya
+di Profil → Unit saya → admin melihat hasil ukur TeleBand anggota, triase, inventaris TeleBand yang
+terpakai, dan dapat mengunduh laporan CSV.
 
 **Hanya TeleBand yang ditampilkan.** Jenis perangkat lain di katalog (TeleRing, TeleStrap,
 TeleCuff, TeleScale, TelePatch) ditandai `tersembunyi: true` di [app/js/data.js](app/js/data.js):

@@ -436,6 +436,22 @@
       return true;
     },
 
+    /**
+     * Hasil milik beberapa pengguna sekaligus (satu kueri), terbaru dulu.
+     * RLS server yang menentukan baris mana yang boleh terbaca.
+     */
+    async daftarBanyak(userIds, batas) {
+      await FB.ensureAuth();
+      if (!userIds || !userIds.length) return [];
+      const { data, error } = await FB.sb.from('device_readings').select('*')
+        .in('user_id', userIds)
+        .order('measured_at', { ascending: false, nullsFirst: false })
+        .order('received_at', { ascending: false })
+        .limit(batas || 1000);
+      if (error) throw error;
+      return data || [];
+    },
+
     /** Hasil milik pengguna tertentu (bawaan: diri sendiri), terbaru dulu. */
     async daftar(userId, batas) {
       const user = await FB.ensureAuth();
@@ -446,6 +462,176 @@
         .limit(batas || 50);
       if (error) throw error;
       return data || [];
+    }
+  };
+
+  /* ============================================================
+     2c. HUBUNGAN DOKTER–PASIEN — tabel care_invites & care_links
+     (supabase/migrations/20260926_care_links.sql)
+     ============================================================ */
+  // Tanpa huruf/angka yang mudah tertukar (0/O, 1/I/L).
+  const ABJAD_KODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+  function kodeAcak() {
+    const b = new Uint8Array(6);
+    crypto.getRandomValues(b);
+    return Array.from(b, (x) => ABJAD_KODE[x % ABJAD_KODE.length]).join('');
+  }
+
+  /** Galat "tabel/fungsi belum ada" — migrasi belum dijalankan. */
+  function belumDimigrasi(e) {
+    const c = e && e.code;
+    return c === '42P01' || c === 'PGRST205' || c === 'PGRST202' || c === '42883';
+  }
+
+  const CareDB = {
+    belumDimigrasi,
+
+    /** Kode dokter milik saya, atau null. */
+    async kodeSaya() {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('care_invites').select('code')
+        .eq('doctor_id', user.id).maybeSingle();
+      if (error) throw error;
+      return data ? data.code : null;
+    },
+
+    /** Membuat kode baru (kode lama tidak berlaku lagi). */
+    async buatKode(namaDokter) {
+      const user = await FB.ensureAuth();
+      await FB.sb.from('care_invites').delete().eq('doctor_id', user.id);
+      for (let i = 0; i < 5; i++) {
+        const code = kodeAcak();
+        const { error } = await FB.sb.from('care_invites')
+          .insert({ code, doctor_id: user.id, doctor_name: String(namaDokter || 'Dokter').slice(0, 80) });
+        if (!error) return code;
+        if (error.code !== '23505') throw error;   // 23505: kode bentrok, coba lagi
+      }
+      throw new Error('Gagal membuat kode unik. Coba lagi.');
+    },
+
+    /** Pasien menukarkan kode dokter. Mengembalikan nama dokter. */
+    async hubungkan(kode, namaPasien) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.rpc('hubungkan_dokter',
+        { p_kode: String(kode || '').trim().toUpperCase(), p_nama: String(namaPasien || '').slice(0, 80) });
+      if (error) throw error;
+      return data;
+    },
+
+    /** Dokter yang terhubung dengan saya (sisi pasien). */
+    async dokterSaya() {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('care_links').select('*')
+        .eq('patient_id', user.id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    /** Pasien yang terhubung dengan saya (sisi dokter). */
+    async pasienSaya() {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('care_links').select('*')
+        .eq('doctor_id', user.id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async putus(patientId, doctorId) {
+      await FB.ensureAuth();
+      const { error } = await FB.sb.from('care_links').delete()
+        .eq('patient_id', patientId).eq('doctor_id', doctorId);
+      if (error) throw error;
+      return true;
+    }
+  };
+
+  /* ============================================================
+     2d. UNIT FASKES — tabel facilities & facility_members
+     (supabase/migrations/20260926_facilities.sql)
+     ============================================================ */
+  const FacilityDB = {
+    /** Unit yang saya kelola (sisi admin faskes), atau null. */
+    async milikSaya() {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('facilities').select('*')
+        .eq('admin_id', user.id).maybeSingle();
+      if (error) throw error;
+      return data || null;
+    },
+
+    /** Membuat unit baru beserta kodenya. */
+    async buat(unit) {
+      const user = await FB.ensureAuth();
+      for (let i = 0; i < 5; i++) {
+        const { data, error } = await FB.sb.from('facilities').insert({
+          admin_id: user.id,
+          name: String(unit.name || '').trim().slice(0, 80),
+          kind: String(unit.kind || 'Lainnya').slice(0, 40),
+          city: String(unit.city || '').trim().slice(0, 60),
+          code: kodeAcak()
+        }).select('*').single();
+        if (!error) return data;
+        // 23505 pada kolom code: kode bentrok, coba lagi. Pada admin_id:
+        // akun ini sudah punya unit — lempar apa adanya.
+        if (error.code !== '23505' || /admin_id/.test(error.message || '')) throw error;
+      }
+      throw new Error('Gagal membuat kode unit yang unik. Coba lagi.');
+    },
+
+    /** Mengganti kode unit; keanggotaan yang ada tidak berubah. */
+    async gantiKode(facilityId) {
+      await FB.ensureAuth();
+      for (let i = 0; i < 5; i++) {
+        const code = kodeAcak();
+        const { error } = await FB.sb.from('facilities').update({ code }).eq('id', facilityId);
+        if (!error) return code;
+        if (error.code !== '23505') throw error;
+      }
+      throw new Error('Gagal membuat kode unit yang unik. Coba lagi.');
+    },
+
+    /** Seluruh anggota & nakes sebuah unit (sisi admin). */
+    async anggota(facilityId) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('facility_members').select('*')
+        .eq('facility_id', facilityId).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async keluarkan(facilityId, userId) {
+      await FB.ensureAuth();
+      const { error } = await FB.sb.from('facility_members').delete()
+        .eq('facility_id', facilityId).eq('user_id', userId);
+      if (error) throw error;
+      return true;
+    },
+
+    /** Pasien/dokter menukarkan kode unit. Mengembalikan nama unit. */
+    async gabung(kode, nama, peran) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.rpc('gabung_unit', {
+        p_kode: String(kode || '').trim().toUpperCase(),
+        p_nama: String(nama || '').slice(0, 80),
+        p_peran: peran === 'dokter' ? 'dokter' : 'pasien'
+      });
+      if (error) throw error;
+      return data;
+    },
+
+    /** Unit tempat saya menjadi anggota/nakes. */
+    async unitSaya() {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('facility_members').select('*')
+        .eq('user_id', user.id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async keluar(facilityId) {
+      const user = await FB.ensureAuth();
+      return FacilityDB.keluarkan(facilityId, user.id);
     }
   };
 
@@ -785,4 +971,6 @@
   TC.Chat = Chat;
   TC.RTC = RTC;
   TC.ReadingsDB = ReadingsDB;
+  TC.CareDB = CareDB;
+  TC.FacilityDB = FacilityDB;
 })(window.TC);

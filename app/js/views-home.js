@@ -12,6 +12,11 @@
   /* ---------------- KOMPONEN BERSAMA ---------------- */
 
   const aktifTeleband = () => (Store.activeDevice() || {}).type === 'teleband';
+  const SIM = () => !!TC.FITUR.simulasi;
+
+  /** Angka + satuan, atau "—" bila metrik belum terukur. */
+  const angka = (x, unit) => (x == null ? '—' : x + (unit ? '<u>' + unit + '</u>' : ''));
+  const tensi = (v) => (v.sys == null || v.dia == null ? '—' : v.sys + '/' + v.dia);
 
   function deviceBar() {
     const st = TC.Devices.statusText();
@@ -59,7 +64,7 @@
         Router.render();
         return;
       }
-      Router.navigate(aktifTeleband() ? '/teleband' : '/perangkat');
+      Router.navigate(aktifTeleband() ? '/teleband' : (SIM() ? '/perangkat' : '/perangkat/pindai'));
     };
   }
 
@@ -70,6 +75,11 @@
    */
   function sumberChip() {
     const V = TC.Vitals;
+    if (!SIM()) {
+      return V.adaDariAlat()
+        ? `<span class="chip chip--g"><i class="dotlive"></i> dari TeleBand</span>`
+        : `<span class="chip">${icon('info')} belum ada pengukuran</span>`;
+    }
     const kunci = ['hr', 'spo2', 'temp', 'bp'];
     const dariAlat = kunci.filter((k) => V.sourceOf(k) === 'device').length;
     if (!dariAlat) return `<span class="chip chip--a">${icon('info')} simulasi</span>`;
@@ -85,7 +95,9 @@
    */
   function srcLabel(k) {
     const V = TC.Vitals;
-    if (V.sourceOf(k) !== 'device') return '<span class="vital__src">simulasi</span>';
+    if (V.sourceOf(k) !== 'device') {
+      return `<span class="vital__src">${SIM() ? 'simulasi' : 'belum diukur'}</span>`;
+    }
     const nama = V.jenisAsal(k) === 'teleband' ? 'TeleBand' : 'perangkat';
     return V.eksperimental(k)
       ? `<span class="vital__src is-eks">estimasi eksperimental · ${nama}</span>`
@@ -94,34 +106,38 @@
 
   // Glukosa hanya tampil di beranda bila datang dari alat; nilai simulasinya
   // sudah diwakili kurva sesi makan.
-  const tampilGlukosa = () => TC.Vitals.sourceOf('glucose') === 'device';
+  // Tanpa simulasi kartu glukosa selalu ada (berisi "—" sampai TeleBand mengukur).
+  const tampilGlukosa = () => !SIM() || TC.Vitals.sourceOf('glucose') === 'device';
+  // TeleBand tidak punya sensor suhu: tanpa simulasi, kartu suhu hanya muncul
+  // bila suatu saat ada perangkat yang benar-benar memasoknya.
+  const tampilSuhu = () => SIM() || TC.Vitals.sourceOf('temp') === 'device';
 
   function vitalsGrid() {
     const v = TC.Vitals.snapshot();
     return `<div class="vital-grid">
       <button class="vital vital--hr" data-vital="hr">
         <span class="vital__lab">${icon('heart')} Detak jantung</span>
-        <span class="vital__val" data-v="hr">${v.hr}<u>bpm</u></span>
+        <span class="vital__val" data-v="hr">${angka(v.hr, 'bpm')}</span>
         <span data-src="hr">${srcLabel('hr')}</span>
         <canvas data-spark="hr"></canvas></button>
       <button class="vital vital--spo" data-vital="spo2">
         <span class="vital__lab">${icon('spo2')} SpO₂</span>
-        <span class="vital__val" data-v="spo2">${v.spo2}<u>%</u></span>
+        <span class="vital__val" data-v="spo2">${angka(v.spo2, '%')}</span>
         <span data-src="spo2">${srcLabel('spo2')}</span>
         <canvas data-spark="spo2"></canvas></button>
-      <button class="vital vital--tmp" data-vital="temp">
+      ${tampilSuhu() ? `<button class="vital vital--tmp" data-vital="temp">
         <span class="vital__lab">${icon('temp')} Suhu</span>
-        <span class="vital__val" data-v="temp">${v.temp}<u>°C</u></span>
+        <span class="vital__val" data-v="temp">${angka(v.temp, '°C')}</span>
         <span data-src="temp">${srcLabel('temp')}</span>
-        <canvas data-spark="temp"></canvas></button>
+        <canvas data-spark="temp"></canvas></button>` : ''}
       <button class="vital vital--bp" data-vital="bp">
         <span class="vital__lab">${icon('bp')} Tekanan darah</span>
-        <span class="vital__val" data-v="bp">${v.sys}/${v.dia}</span>
+        <span class="vital__val" data-v="bp">${tensi(v)}</span>
         <span data-src="bp">${srcLabel('bp')}</span>
         <canvas data-spark="sys"></canvas></button>
       ${tampilGlukosa() ? `<button class="vital vital--glu" data-vital="glucose">
         <span class="vital__lab">${icon('drop')} Glukosa</span>
-        <span class="vital__val" data-v="glucose">${v.glucose}<u>mg/dL</u></span>
+        <span class="vital__val" data-v="glucose">${angka(v.glucose, 'mg/dL')}</span>
         <span data-src="glucose">${srcLabel('glucose')}</span>
         <canvas data-spark="glucose"></canvas></button>` : ''}
     </div>`;
@@ -142,11 +158,11 @@
       const el = $(`[data-v="${k}"]`, root);
       if (el) el.innerHTML = txt;
     };
-    set('hr', v.hr + '<u>bpm</u>');
-    set('spo2', v.spo2 + '<u>%</u>');
-    set('temp', v.temp + '<u>°C</u>');
-    set('bp', v.sys + '/' + v.dia);
-    set('glucose', v.glucose + '<u>mg/dL</u>');
+    set('hr', angka(v.hr, 'bpm'));
+    set('spo2', angka(v.spo2, '%'));
+    set('temp', angka(v.temp, '°C'));
+    set('bp', tensi(v));
+    set('glucose', angka(v.glucose, 'mg/dL'));
     ['hr', 'spo2', 'temp', 'bp', 'glucose'].forEach((k) => {
       const el = $(`[data-src="${k}"]`, root);
       if (el) el.innerHTML = srcLabel(k);
@@ -158,6 +174,44 @@
     $$('[data-vital]', root).forEach((b) => {
       b.onclick = () => Router.navigate('/vital/' + b.dataset.vital);
     });
+  }
+
+  /* ---------------- CAPAIAN TARGET GIZI HARI INI ----------------
+     Dipakai Beranda dan Profil → Tujuan Kesehatan. Setiap zat gizi diberi
+     status yang terbaca langsung — sisa, tercapai, atau lebih — bukan hanya
+     batang kemajuan, supaya pengguna tahu apakah targetnya sudah terpenuhi. */
+  const ZAT_TAMPIL = {
+    kcal: ['🔥', '#FFF1D6'], carb: ['🌾', '#DCEEF9'],
+    protein: ['🥚', '#EDF9F2'], fat: ['🥑', '#EEEBFD']
+  };
+  const CHIP_STATUS = { sisa: '', tercapai: 'chip--g', lebih: 'chip--a' };
+
+  function kartuTarget() {
+    const pr = TC.Meals.progresTarget();
+    const semua = pr.tercapai === pr.butir.length;
+    return `<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="chip ${semua ? 'chip--g' : pr.tercapai ? 'chip--a' : ''}">
+          ${semua ? icon('check') + ' ' : ''}${pr.tercapai} dari ${pr.butir.length} target tercapai</span>
+        <span style="flex:1"></span>
+        <span class="tiny muted">${pr.sesi} sesi makan hari ini</span>
+      </div>
+      ${pr.butir.map((b) => `
+        <div class="macro">
+          <span class="macro__ico" style="background:${ZAT_TAMPIL[b.key][1]}">${ZAT_TAMPIL[b.key][0]}</span>
+          <b>${esc(b.label)}</b>
+          <span class="num">${b.nilai}<s> / ${b.target} ${esc(b.unit)}</s></span>
+        </div>
+        <div class="bar"><i class="${b.status === 'lebih' ? 'over' : ''}"
+          style="width:${(clamp(b.pct, 0, 1.15) * 100).toFixed(0)}%"></i></div>
+        <div style="display:flex;justify-content:flex-end;margin:5px 0 12px">
+          <span class="chip ${CHIP_STATUS[b.status]}" style="font-size:.68rem">
+            ${b.status === 'tercapai' ? icon('check') + ' ' : ''}${esc(b.teks)}</span></div>`).join('')}
+      ${pr.sesi ? '' : `<p class="small muted">Belum ada sesi makan hari ini.
+        <a class="link" href="#/sesi/kamera">Catat sesi</a> untuk mulai menghitung.</p>`}
+      <p class="tiny muted" style="margin-top:6px">Tercapai = 90–110% dari target. Dihitung dari sesi makan
+        yang Anda catat hari ini, termasuk sesi yang masih berjalan.</p>
+    </div>`;
   }
 
   /* ---------------- BERANDA ----------------
@@ -172,24 +226,12 @@
     const user = Store.user();
     const p = Store.profile();
     const now = new Date();
-    const today = TC.Meals.today();
-    const t = p.targets;
     const active = Store.state.activeMeal;
     const lastMeal = Store.state.meals[0];
     const unread = Store.unread();
     const dev = Store.activeDevice();
 
     setTopbar('');
-
-    const macroRow = (label, emo, bg, val, target, unit) => {
-      const pct = clamp(val / target, 0, 1.15);
-      return `<div class="macro">
-        <span class="macro__ico" style="background:${bg}">${emo}</span>
-        <b>${label}</b>
-        <span class="num">${val}<s> / ${target} ${unit}</s></span>
-      </div>
-      <div class="bar"><i class="${pct > 1 ? 'over' : ''}" style="width:${(pct * 100).toFixed(0)}%"></i></div>`;
-    };
 
     setView(`
       <div class="hero-head">
@@ -208,8 +250,11 @@
         <span class="push"></span>
         <span data-sumber>${sumberChip()}</span></div>
       ${vitalsGrid()}
+      ${!SIM() && !TC.Vitals.adaDariAlat() ? `
+        <p class="tiny muted mt">Angka terisi saat TeleBand tersambung dan mengukur.
+          <a class="link" href="#/teleband">Ukur sekarang</a></p>` : ''}
 
-      ${dev && dev.connected && D.deviceType(dev.type).caps.indexOf('ecg') !== -1 ? `
+      ${SIM() && dev && dev.connected && D.deviceType(dev.type).caps.indexOf('ecg') !== -1 ? `
         <div class="card mt">
           <div class="card__head">${icon('ecg')}<h3>Sinyal EKG · Lead I</h3>
             <span class="push"></span><span class="chip chip--r">MEREKAM</span></div>
@@ -238,13 +283,8 @@
         </a>` : ''}
 
       <div class="section-title">${icon('food')} Ringkasan Hari Ini
-        <span class="push"></span><span class="chip">${today.count} sesi</span></div>
-      <div class="card">
-        ${macroRow('Kalori', '🔥', '#FFF1D6', today.kcal, t.kcal, 'kkal')}
-        ${macroRow('Karbohidrat', '🌾', '#DCEEF9', today.carb, t.carb, 'g')}
-        ${macroRow('Protein', '🥚', '#EDF9F2', today.protein, t.protein, 'g')}
-        ${macroRow('Lemak', '🥑', '#EEEBFD', today.fat, t.fat, 'g')}
-      </div>
+        <span class="push"></span><a class="link" href="#/profil/tujuan">Atur target</a></div>
+      ${kartuTarget()}
 
       <div class="section-title">${icon('sparkle')} Aksi cepat</div>
       <div class="quick">
@@ -264,7 +304,7 @@
             ${lastMeal.photo ? `<img src="${lastMeal.photo}" alt="">` : `<span class="ph">${icon('food')}</span>`}
             <div style="min-width:0;flex:1">
               <small>${icon('clock')} ${hhmm(new Date(lastMeal.at))} · ${esc(lastMeal.kind)}</small>
-              <b style="margin-top:2px">puncak +${lastMeal.delta} mg/dL · normal dalam ${lastMeal.recovery} jam</b>
+              <b style="margin-top:2px">${esc(ringkasSesi(lastMeal))}</b>
               <span class="chip chip--${lastMeal.delta > 45 ? 'r' : lastMeal.delta > 28 ? 'a' : 'g'}" style="margin-top:6px">${esc(lastMeal.category)}</span>
             </div>
             ${icon('chev', 'chev')}
@@ -273,13 +313,15 @@
         <div class="section-title">${icon('clock')} Sesi Terakhir</div>
         <div class="card"><div class="empty" style="padding:26px 10px">${icon('food')}
           <b>Belum ada sesi tercatat</b>
-          <p>Potret makanan Anda untuk mulai melihat hubungan antara isi piring dan respons tubuh.</p>
+          <p>${SIM() ? 'Potret makanan Anda untuk mulai melihat hubungan antara isi piring dan respons tubuh.'
+            : 'Catat isi piring Anda, lalu ukur dengan TeleBand sebelum dan sesudah makan untuk melihat respons tubuh.'}</p>
           <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi pertama</a></div></div>`}
 
       ${TC.Meals.peakTrend(6).length > 1 ? `
         <div class="card mt">
           <div class="card__head">${icon('drop')}<h3>Puncak Gula Darah</h3>
             <span class="push"></span><span class="chip">${TC.Meals.peakTrend(6).length} sesi terakhir</span></div>
+          ${SIM() ? '' : '<p class="tiny muted" style="margin:-6px 0 8px">Estimasi eksperimental TeleBand, bukan hasil laboratorium.</p>'}
           <div style="display:flex;align-items:center;gap:16px">
             <div><b style="font-size:1.7rem;letter-spacing:-.04em">${TC.Meals.peakTrend(1)[0]}</b>
               <span class="tiny muted"> mg/dL</span></div>
@@ -340,6 +382,11 @@
       // Kartu glukosa muncul/hilang mengikuti asal datanya (TeleBand tersambung
       // atau lepas); itu mengubah susunan, jadi beranda digambar ulang.
       if (tampilGlukosa() !== !!$('[data-v="glucose"]', root)) { Router.render(); return; }
+      // Tanpa simulasi, ajakan "Ukur sekarang" muncul/hilang mengikuti ada
+      // tidaknya angka dari alat.
+      if (!SIM() && TC.Vitals.adaDariAlat() === !!$('a[href="#/teleband"].link', root)) {
+        Router.render(); return;
+      }
       paintVitals(root);
       const sc = $('[data-sumber]', root);
       if (sc) sc.innerHTML = sumberChip();
@@ -367,36 +414,68 @@
   // Wawasan disusun dari yang diukur TeleBand (detak jantung dan SpO₂) serta
   // catatan sesi makan. Indeks stres tidak lagi dipakai: TeleBand tidak
   // mengukurnya.
+  /** Ringkasan satu baris sebuah sesi makan untuk daftar & kartu. */
+  function ringkasSesi(m) {
+    if (m.status !== 'done') return 'sesi berjalan';
+    if (m.delta == null) return 'gizi tercatat · titik gula darah belum cukup';
+    if (m.v === 2) {
+      return `puncak +${m.delta} mg/dL` + (m.pulih2jam == null ? ''
+        : m.pulih2jam ? ' · kembali dekat awal dalam 2 jam' : ' · belum kembali dalam 2 jam');
+    }
+    return `puncak +${m.delta} mg/dL · normal dalam ${m.recovery} jam`;
+  }
+
+  /** Sumber wawasan tanpa simulasi: vital dari alat saat ini, atau hasil ukur terakhir. */
+  function vitalWawasan() {
+    if (SIM() || TC.Vitals.adaDariAlat()) return TC.Vitals.snapshot();
+    const r = TC.Readings.list()[0];
+    return r ? { hr: r.bpm, spo2: r.spo2, at: r.waktu || r.diterima } : null;
+  }
+
   function insightLevel() {
-    const v = TC.Vitals.state;
-    if (v.spo2 < 94 || v.hr > 100 || v.hr < 50) return 2;
-    if (v.spo2 < 96 || v.hr > 90) return 1;
+    const v = vitalWawasan() || {};
+    if (v.hr == null && v.spo2 == null) return -1;
+    const sp = v.spo2, hr = v.hr;
+    if ((sp != null && sp < 94) || (hr != null && (hr > 100 || hr < 50))) return 2;
+    if ((sp != null && sp < 96) || (hr != null && hr > 90)) return 1;
     return 0;
   }
   function insightTitle() {
     const n = insightLevel();
+    if (n === -1) return 'Belum ada hasil ukur';
     if (n === 2) return 'Ada pembacaan yang perlu diperhatikan';
-    if (n === 1) return 'Detak jantung sedikit di atas biasanya';
+    if (n === 1) return 'Ada angka yang sedikit menyimpang';
     return 'Ritme Anda stabil beberapa hari ini';
   }
   function insightBody() {
-    const v = TC.Vitals.state;
+    const v = vitalWawasan() || {};
     const n = insightLevel();
-    const meals = Store.state.meals.slice(0, 3);
+    if (n === -1) {
+      return 'Wawasan disusun dari detak jantung dan SpO₂ hasil ukur TeleBand Anda. ' +
+        'Sambungkan TeleBand dan lakukan pengukuran pertama untuk mulai melihatnya.';
+    }
+    // Angka yang benar-benar dipakai disebutkan, supaya kalimat tidak pernah
+    // menyimpulkan lebih dari datanya.
+    const bagian = [];
+    if (v.hr != null) bagian.push('detak jantung ' + v.hr + ' bpm');
+    if (v.spo2 != null) bagian.push('SpO₂ ' + v.spo2 + '%');
+    const kapan = !SIM() && !TC.Vitals.adaDariAlat() && v.at
+      ? 'Hasil ukur ' + relTime(v.at) + ': ' : 'Saat ini: ';
+    const meals = Store.state.meals.filter((m) => m.delta != null).slice(0, 3);
     const avgDelta = meals.length
-      ? Math.round(meals.reduce((a, m) => a + (m.delta || 0), 0) / meals.length) : null;
+      ? Math.round(meals.reduce((a, m) => a + m.delta, 0) / meals.length) : null;
+    const gula = avgDelta == null ? ''
+      : 'Rata-rata kenaikan gula darah setelah makan ' + avgDelta + ' mg/dL (estimasi). ';
+    const awal = kapan + bagian.join(', ') + '. ';
     if (n === 2) {
-      return 'Detak jantung ' + v.hr + ' bpm dan SpO₂ ' + v.spo2 + '% berada di luar rentang umum. ' +
-        'Duduk tenang beberapa menit lalu ukur ulang dengan TeleBand. Bila keluhan menyertai, ' +
-        'segera hubungi tenaga kesehatan.';
+      return awal + 'Ada angka di luar rentang umum. Duduk tenang beberapa menit lalu ukur ulang ' +
+        'dengan TeleBand. Bila keluhan menyertai, segera hubungi tenaga kesehatan.';
     }
     if (n === 1) {
-      return 'Detak jantung istirahat Anda ' + v.hr + ' bpm, sedikit lebih tinggi dari biasanya. ' +
-        (avgDelta ? 'Rata-rata kenaikan gula darah setelah makan Anda ' + avgDelta + ' mg/dL. ' : '') +
+      return awal + 'Sedikit di luar kebiasaan umum. ' + gula +
         'Cukupi minum dan istirahat, lalu ukur ulang nanti.';
     }
-    return 'Detak jantung dan saturasi oksigen berada di rentang yang baik. ' +
-      (avgDelta ? 'Rata-rata kenaikan gula darah setelah makan ' + avgDelta + ' mg/dL — tergolong landai. ' : '') +
+    return awal + 'Berada di rentang yang baik. ' + gula +
       'Ukur rutin dengan TeleBand agar tren Anda makin jelas.';
   }
 
@@ -422,7 +501,17 @@
   function viewVital(params) {
     const meta = VITAL_META[params.kind] || VITAL_META.hr;
     const v = TC.Vitals.snapshot();
-    const cur = params.kind === 'bp' ? v.sys + '/' + v.dia : v[meta.key];
+    const nilaiKini = (x) => (params.kind === 'bp' ? tensi(x) : (x[meta.key] == null ? '—' : x[meta.key]));
+    const cur = nilaiKini(v);
+
+    // Tanpa simulasi, grafik memakai hasil ukur TeleBand yang tersimpan — deret
+    // nyata yang bertahan antar-sesi — bukan riwayat sementara di memori.
+    const KOLOM = { hr: 'bpm', spo2: 'spo2', glucose: 'glukosa', bp: 'sis' };
+    const riwayat = SIM() ? null : TC.hasilLokal()
+      .filter((x) => KOLOM[params.kind] && x[KOLOM[params.kind]] != null)
+      .slice(0, 60).reverse();
+    // Tensi dan glukosa TeleBand selalu estimasi eksperimental.
+    const eksAlat = !SIM() && (params.kind === 'bp' || params.kind === 'glucose');
 
     // Subjudul mengikuti asal angka yang sebenarnya. Sebelumnya layar ini
     // selalu mengaku "langsung dari perangkat", padahal beranda sudah jujur
@@ -431,7 +520,7 @@
     const dariPerangkat = TC.Vitals.sourceOf(kind) === 'device';
     const eksperimental = TC.Vitals.eksperimental(kind);
     TC.topbar(meta.title, {
-      sub: !dariPerangkat ? 'Nilai simulasi purwarupa'
+      sub: !dariPerangkat ? (SIM() ? 'Nilai simulasi purwarupa' : 'Belum diukur saat ini')
         : eksperimental ? 'Estimasi eksperimental dari perangkat'
         : 'Data langsung dari perangkat'
     });
@@ -442,17 +531,25 @@
           <span data-live>${cur}</span>
           <span style="font-size:.4em;color:var(--muted);font-weight:700">${esc(meta.unit)}</span>
         </div>
-        <span class="chip chip--g"><i class="dotlive"></i> diperbarui ${TC.relTime(v.at)}</span>
+        ${dariPerangkat || SIM()
+          ? `<span class="chip chip--g"><i class="dotlive"></i> diperbarui ${TC.relTime(v.at)}</span>`
+          : `<span class="chip">sambungkan TeleBand untuk mengukur</span>`}
       </div>
 
-      ${eksperimental ? `<div class="note note--w mt">${icon('alert')}
+      ${eksperimental || eksAlat ? `<div class="note note--w mt">${icon('alert')}
         <div><b>Estimasi eksperimental, bukan alat medis</b>Angka ini tidak diukur langsung.
         Firmware alat menyatakan modelnya belum tervalidasi. Jangan dipakai untuk keputusan kesehatan.</div></div>` : ''}
 
       <div class="card mt">
-        <div class="card__head"><h3>60 pembacaan terakhir</h3>
-          <span class="push"></span>${srcLabel(kind)}</div>
-        <div class="chart-wrap"><canvas id="vChart" style="height:170px"></canvas></div>
+        <div class="card__head"><h3>${SIM() ? '60 pembacaan terakhir' : 'Hasil ukur tersimpan'}</h3>
+          <span class="push"></span>${SIM() ? srcLabel(kind)
+            : `<span class="chip">${riwayat.length} hasil</span>`}</div>
+        ${!SIM() && riwayat.length < 2
+          ? `<p class="small muted">${params.kind === 'temp'
+              ? 'TeleBand tidak mengukur suhu tubuh.'
+              : riwayat.length ? 'Baru satu hasil ukur. Grafik muncul setelah ada dua hasil atau lebih.'
+              : 'Belum ada hasil ukur TeleBand untuk ukuran ini.'}</p>`
+          : `<div class="chart-wrap"><canvas id="vChart" style="height:170px"></canvas></div>`}
         ${params.kind === 'bp' ? `<div class="legend">
           <div><i style="background:#6C5CE7"></i>Sistolik</div>
           <div><i style="background:#7CC3E8"></i>Diastolik</div></div>` : ''}
@@ -478,6 +575,16 @@
     function paint() {
       const cv = $('#vChart');
       if (!cv) return;
+      if (!SIM()) {
+        const lbl = riwayat.map((x) => TC.pad2(new Date(x.t).getDate()) + '/' + TC.pad2(new Date(x.t).getMonth() + 1));
+        const k = KOLOM[params.kind];
+        TC.lineChart(cv, params.kind === 'bp' ? [
+          { data: riwayat.map((x) => x.sis), color: '#6C5CE7', fill: true, dots: true },
+          { data: riwayat.map((x) => x.dia), color: '#7CC3E8', dots: true }
+        ] : [{ data: riwayat.map((x) => x[k]), color: meta.color, fill: true, dots: true }],
+        { xLabels: lbl.length <= 8 ? lbl : null });
+        return;
+      }
       const H = TC.Vitals.hist;
       if (params.kind === 'bp') {
         TC.lineChart(cv, [
@@ -493,8 +600,8 @@
     const un = TC.Vitals.subscribe(() => {
       const el = $('[data-live]');
       const s = TC.Vitals.snapshot();
-      if (el) el.textContent = params.kind === 'bp' ? s.sys + '/' + s.dia : s[meta.key];
-      paint();
+      if (el) el.textContent = nilaiKini(s);
+      if (SIM()) paint();
     });
     Router.onLeave(un);
   }
@@ -543,7 +650,12 @@
 
           <div class="note note--${hariAda ? 'i' : 'w'} mt">${icon(hariAda ? 'info' : 'alert')}
             <div><b>${hariAda} dari 7 hari punya data</b>${
-              hariAda
+              !SIM()
+                ? (hariAda
+                  ? `Tren dihitung dari ${week.reduce((a, d) => a + d.n, 0)} hasil ukur TeleBand yang tersimpan. ` +
+                    'Detak istirahat didekati dengan detak terendah tiap hari.'
+                  : 'Belum ada hasil ukur. Sambungkan TeleBand dan lakukan pengukuran, lalu buka lagi layar ini.')
+                : hariAda
                 ? 'Tren dihitung dari pembacaan yang benar-benar berjalan di perangkat ini' +
                   (hariSensor ? `, ${hariSensor} hari di antaranya dari sensor.` : ', seluruhnya dari simulasi purwarupa.')
                 : 'Belum ada rekaman. Biarkan aplikasi terbuka beberapa saat, atau sambungkan perangkat, lalu buka lagi layar ini.'
@@ -592,14 +704,16 @@
         ], { xLabels: days.map((d) => d.label) });
 
       } else {
-        const meals = Store.state.meals.filter((m) => m.status === 'done').slice(0, 10);
+        // Hanya sesi yang kenaikannya benar-benar terhitung (titik sebelum dan
+        // sesudah makan terukur); sesi "data kurang" tidak punya kurva.
+        const meals = Store.state.meals.filter((m) => m.status === 'done' && m.peak != null).slice(0, 10);
         body.innerHTML = meals.length ? `
           <div class="card">
             <div class="card__head">${icon('drop')}<h3>Puncak gula darah antar sesi</h3></div>
             <div class="chart-wrap"><canvas id="cPeak" style="height:170px"></canvas></div>
             <div class="legend">
               <div><i style="background:#049A5B"></i>Puncak (mg/dL)</div>
-              <div><i style="background:#A9E5C8"></i>Baseline</div></div>
+              <div><i style="background:#A9E5C8"></i>${SIM() ? 'Baseline' : 'Sebelum makan'}</div></div>
           </div>
           <div class="section-title">${icon('doc')} Sesi dengan kenaikan terbesar</div>
           <div class="list">
@@ -613,10 +727,12 @@
               </a>`).join('')}
           </div>
           <div class="note note--w mt">${icon('alert')}
-            <div><b>Perkiraan, bukan hasil laboratorium</b>Nilai ini dihitung dari sensor dan catatan
-            asupan. Tidak dapat dipakai untuk menegakkan diagnosis diabetes.</div></div>` : `
+            <div><b>Perkiraan, bukan hasil laboratorium</b>${SIM() ? 'Nilai ini dihitung dari sensor dan catatan asupan.'
+            : 'Gula darah di sini adalah estimasi eksperimental TeleBand dari sinyal PPG jari.'}
+            Tidak dapat dipakai untuk menegakkan diagnosis diabetes.</div></div>` : `
           <div class="empty">${icon('drop')}<b>Belum cukup data</b>
-            <p>Catat beberapa sesi makan untuk melihat pola respons tubuh Anda.</p>
+            <p>${SIM() ? 'Catat beberapa sesi makan untuk melihat pola respons tubuh Anda.'
+              : 'Catat sesi makan, lalu ukur dengan TeleBand sebelum makan dan 1–2 jam sesudahnya.'}</p>
             <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi</a></div>`;
 
         if (meals.length) {
@@ -703,7 +819,7 @@
       <div class="seg">
         <button data-h="sesi" class="is-active">Sesi Makan</button>
         ${TC.FITUR.konsultasi ? '<button data-h="konsul">Konsultasi</button>' : ''}
-        <button data-h="sync">Sinkronisasi</button>
+        <button data-h="sync">${SIM() ? 'Sinkronisasi' : 'Hasil Ukur'}</button>
       </div>
       <div id="hBody" class="mt"></div>`);
 
@@ -713,7 +829,7 @@
         const meals = Store.state.meals;
         b.innerHTML = meals.length ? groupByDay(meals) : `
           <div class="empty">${icon('food')}<b>Belum ada sesi</b>
-          <p>Setiap kali Anda memotret makanan, catatannya muncul di sini.</p>
+          <p>Setiap sesi makan yang Anda catat muncul di sini.</p>
           <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi</a></div>`;
       } else if (t === 'konsul') {
         const cs = Store.state.consults;
@@ -730,6 +846,23 @@
           <div class="empty">${icon('stetho')}<b>Belum ada konsultasi</b>
           <p>Mulai percakapan dengan dokter kapan saja — riwayat vital Anda ikut terlampir.</p>
           <a class="btn btn--primary btn--sm mt" href="#/konsultasi">Cari dokter</a></div>`;
+      } else if (!SIM()) {
+        // Hasil ukur TeleBand (tersimpan lokal dan di server).
+        const hs = TC.Readings.list().slice(0, 50);
+        const x = (v, u) => (v == null ? '—' : v + (u || ''));
+        b.innerHTML = hs.length ? `<div class="list">${hs.map((r) => `
+          <div class="row">
+            <span class="row__ico">${icon('heart')}</span>
+            <div style="min-width:0"><b>${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')}</b>
+              <small>${esc(TC.relTime(r.waktu || r.diterima))}${r.waktu ? ' · ' + hhmm(new Date(r.waktu)) : ''}
+                · TD ${r.sis != null && r.dia != null ? r.sis + '/' + r.dia : '—'} · glukosa ${x(r.glukosa)}
+                <span class="tiny">(estimasi)</span></small></div>
+            <span class="chip ${r.tersinkron ? 'chip--g' : 'chip--a'}" style="margin-left:auto">
+              ${r.tersinkron ? 'tersimpan' : 'belum terkirim'}</span>
+          </div>`).join('')}</div>` : `
+          <div class="empty">${icon('heart')}<b>Belum ada hasil ukur</b>
+          <p>Hasil setiap pengukuran TeleBand tersimpan di sini.</p>
+          <a class="btn btn--primary btn--sm mt" href="#/teleband">Ukur sekarang</a></div>`;
       } else {
         const vh = Store.state.vitalsHistory.slice().reverse().slice(0, 30);
         b.innerHTML = vh.length ? `<div class="list">${vh.map((v) => `
@@ -760,7 +893,9 @@
               <span class="row__ico">${icon('food')}</span>
               <div style="min-width:0"><b>${esc(m.items.map((i) => i.n).join(', '))}</b>
                 <small>${hhmm(new Date(m.at))} · ${m.nutrition.kcal} kkal · ${m.nutrition.carb} g karbo</small></div>
-              ${m.status === 'done' ? `<span class="chip chip--${m.delta > 45 ? 'r' : m.delta > 28 ? 'a' : 'g'}" style="margin-left:auto">+${m.delta}</span>` : `<span class="chip chip--a" style="margin-left:auto">berjalan</span>`}
+              ${m.status !== 'done' ? `<span class="chip chip--a" style="margin-left:auto">berjalan</span>`
+                : m.delta == null ? `<span class="chip" style="margin-left:auto">data kurang</span>`
+                : `<span class="chip chip--${m.delta > 45 ? 'r' : m.delta > 28 ? 'a' : 'g'}" style="margin-left:auto">+${m.delta}</span>`}
               ${icon('chev', 'chev')}
             </a>`).join('')}</div>`;
       }).join('');
@@ -822,6 +957,6 @@
   Object.assign(TC.views, {
     home: viewHome, vital: viewVital, analysis: viewAnalysis,
     history: viewHistory, notifications: viewNotifications, article: viewArticle,
-    deviceBar, bindDeviceBar
+    deviceBar, bindDeviceBar, kartuTarget
   });
 })(window.TC);

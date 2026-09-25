@@ -41,6 +41,8 @@
 
 /* ---------- RESET ---------- */
 *,*::before,*::after{box-sizing:border-box}
+/* `hidden` harus menang atas display milik kelas (.btn, .row, ...). */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0;font-family:var(--font);background:var(--canvas);color:var(--ink);

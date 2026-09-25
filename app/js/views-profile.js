@@ -52,6 +52,12 @@
         <a class="row" href="#/perangkat"><span class="row__ico">${icon('watch')}</span>
           <div><b>Status Perangkat</b><small>${conn} dari ${devs.length} perangkat tersambung</small></div>
           ${icon('chev', 'chev')}</a>
+        ${Store.is('pasien') || Store.is('dokter') ? `<a class="row" href="#/profil/unit"><span class="row__ico">${icon('building')}</span>
+          <div><b>Unit saya</b><small>${Store.is('dokter') ? 'Bergabung sebagai nakes' : 'Bergabung sebagai anggota'} unit faskes lewat kode unit</small></div>
+          ${icon('chev', 'chev')}</a>` : ''}
+        ${Store.is('pasien') ? `<a class="row" href="#/profil/dokter"><span class="row__ico">${icon('stetho')}</span>
+          <div><b>Dokter saya</b><small>Bagikan hasil ukur TeleBand ke dokter lewat kode dokter</small></div>
+          ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/profil/kalibrasi"><span class="row__ico">${icon('bp')}</span>
           <div><b>Kalibrasi Tekanan Darah</b>
             <small>${p.bpCal ? 'Terakhir ' + esc(relTime(p.bpCal.at)) : 'Belum pernah dikalibrasi'}</small></div>
@@ -64,7 +70,7 @@
           <div><b>Janji Temu</b><small>${Store.state.appointments.length} jadwal tersimpan</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/riwayat"><span class="row__ico">${icon('doc')}</span>
-          <div><b>Riwayat Lengkap</b><small>Sesi makan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan sinkronisasi</small></div>
+          <div><b>Riwayat Lengkap</b><small>Sesi makan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan ${TC.FITUR.simulasi ? 'sinkronisasi' : 'hasil ukur'}</small></div>
           ${icon('chev', 'chev')}</a>
         <a class="row" href="#/notifikasi"><span class="row__ico">${icon('bell')}</span>
           <div><b>Notifikasi</b><small>${Store.unread()} belum dibaca</small></div>
@@ -74,13 +80,13 @@
       <div class="section-title">${icon('shield')} Aplikasi</div>
       <div class="list">
         <a class="row" href="#/profil/pengaturan"><span class="row__ico">${icon('sync')}</span>
-          <div><b>Pengaturan</b><small>Mode demo, notifikasi, dan data lokal</small></div>
+          <div><b>Pengaturan</b><small>${TC.FITUR.simulasi ? 'Mode demo, notifikasi,' : 'Notifikasi'} dan data lokal</small></div>
           ${icon('chev', 'chev')}</a>
         <a class="row" href="#/tentang"><span class="row__ico">${icon('info')}</span>
           <div><b>Tentang TeleCare</b><small>Batasan penggunaan dan sumber data</small></div>
           ${icon('chev', 'chev')}</a>
         <button class="row" data-switch><span class="row__ico">${icon('swap')}</span>
-          <div><b>Ganti peran</b><small>Mode purwarupa · lihat aplikasi dari sudut pandang lain</small></div>
+          <div><b>Ganti peran</b><small>${TC.FITUR.simulasi ? 'Mode purwarupa · lihat aplikasi dari sudut pandang lain' : 'Pasien atau dokter'}</small></div>
           ${icon('chev', 'chev')}</button>
         <button class="row row--danger" data-logout><span class="row__ico">${icon('out')}</span>
           <div><b>Keluar</b><small>Riwayat tetap tersimpan di perangkat ini</small></div></button>
@@ -105,6 +111,167 @@
     };
 
     $('[data-switch]').onclick = () => TC.views.roleSheet(u.id);
+  }
+
+  /* ---------------- 1b. DOKTER SAYA (pasien) ----------------
+     Pasien menautkan diri ke dokter dengan KODE DOKTER. Selama tautan ada,
+     dokter itu dapat membaca hasil ukur TeleBand pasien dari server
+     (supabase/migrations/20260926_care_links.sql). */
+  function viewMyDoctors() {
+    TC.topbar('Dokter saya', { sub: 'Bagikan hasil ukur TeleBand ke dokter' });
+    setView(`
+      <div class="card">
+        <div class="card__head">${icon('link')}<h3>Hubungkan dengan dokter</h3></div>
+        <p class="small muted">Minta <b>kode dokter</b> (6 karakter) dari dokter Anda. Setelah terhubung,
+          dokter dapat melihat hasil ukur TeleBand Anda — tidak lebih.</p>
+        <form id="fKode" class="mt" novalidate style="display:flex;gap:9px;flex-wrap:wrap">
+          <input id="kodeIn" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            placeholder="Mis. K7P2QX" aria-label="Kode dokter"
+            style="flex:1;min-width:140px;font:inherit;font-size:1.1rem;letter-spacing:.16em;text-transform:uppercase;
+                   padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)">
+          <button class="btn btn--primary" type="submit">Hubungkan</button>
+        </form>
+      </div>
+
+      <div class="section-title">${icon('stetho')} Dokter terhubung</div>
+      <div id="dokList"><p class="small muted tc" style="padding:14px">Memuat…</p></div>
+
+      <div class="note note--i mt2">${icon('info')}
+        <div><b>Anda yang memegang kendali</b>Memutus tautan langsung menghentikan akses dokter
+        itu ke hasil ukur Anda.</div></div>
+    `);
+
+    const galat = (e) => (TC.CareDB && TC.CareDB.belumDimigrasi(e)
+      ? 'Fitur ini belum aktif di server (migrasi 20260926_care_links.sql belum dijalankan).'
+      : (e && e.message) || 'Gagal menghubungi server.');
+
+    async function muat() {
+      const box = $('#dokList');
+      try {
+        const list = await TC.CareDB.dokterSaya();
+        if (!$('#dokList')) return;
+        box.innerHTML = list.length ? `<div class="list">${list.map((l) => `
+          <div class="row">
+            <span class="avatar" style="background:#0E7FB8">${esc(TC.initials(l.doctor_name))}</span>
+            <div style="min-width:0"><b>${esc(l.doctor_name)}</b>
+              <small>Terhubung ${esc(relTime(new Date(l.created_at).getTime()))}</small></div>
+            <button class="btn btn--dangerSoft btn--sm" style="margin-left:auto" data-putus="${esc(l.doctor_id)}"
+              data-nama="${esc(l.doctor_name)}">Putuskan</button>
+          </div>`).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:14px">Belum ada dokter yang terhubung.</p></div>`;
+        $$('[data-putus]').forEach((b) => {
+          b.onclick = async () => {
+            const ok = await confirmSheet({ title: 'Putuskan ' + b.dataset.nama + '?',
+              body: 'Dokter ini tidak lagi dapat melihat hasil ukur Anda.', ok: 'Putuskan', danger: true });
+            if (!ok) return;
+            try { await TC.CareDB.putus(TC.FB.uid, b.dataset.putus); toast('Tautan diputus.'); }
+            catch (e) { toast(galat(e), 'err'); }
+            muat();
+          };
+        });
+      } catch (e) {
+        if (box) box.innerHTML = `<div class="note note--w">${icon('alert')}<div>${esc(galat(e))}</div></div>`;
+      }
+    }
+    muat();
+
+    $('#fKode').onsubmit = async (e) => {
+      e.preventDefault();
+      const kode = $('#kodeIn').value.trim().toUpperCase();
+      if (!/^[A-Z2-9]{6}$/.test(kode)) { toast('Kode dokter terdiri dari 6 huruf/angka.', 'err'); return; }
+      const u = Store.user() || {};
+      const nama = Store.profile().nickname || u.name || 'Pasien';
+      try {
+        const dokter = await TC.CareDB.hubungkan(kode, nama);
+        toast('Terhubung dengan ' + dokter + '.');
+        $('#kodeIn').value = '';
+        muat();
+      } catch (err) {
+        toast(err && err.code === 'P0002' ? 'Kode dokter tidak ditemukan.' : galat(err), 'err');
+      }
+    };
+  }
+
+  /* ---------------- 1c. UNIT SAYA (pasien & dokter) ----------------
+     Bergabung ke unit faskes dengan KODE UNIT. Pasien menjadi anggota —
+     admin unit dapat membaca hasil ukur TeleBand-nya; dokter menjadi nakes
+     (supabase/migrations/20260926_facilities.sql). */
+  function viewMyUnits() {
+    const dokter = Store.is('dokter');
+    TC.topbar('Unit saya', { sub: dokter ? 'Bergabung sebagai tenaga kesehatan' : 'Bergabung sebagai anggota unit' });
+    setView(`
+      <div class="card">
+        <div class="card__head">${icon('building')}<h3>Gabung ke unit</h3></div>
+        <p class="small muted">Minta <b>kode unit</b> (6 karakter) dari admin faskes.
+          ${dokter ? 'Anda akan tercatat sebagai nakes unit itu.'
+            : 'Setelah bergabung, admin unit dapat melihat hasil ukur TeleBand Anda — tidak lebih.'}</p>
+        <form id="fUnit" class="mt" novalidate style="display:flex;gap:9px;flex-wrap:wrap">
+          <input id="unitIn" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            placeholder="Mis. P4TR8M" aria-label="Kode unit"
+            style="flex:1;min-width:140px;font:inherit;font-size:1.1rem;letter-spacing:.16em;text-transform:uppercase;
+                   padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)">
+          <button class="btn btn--primary" type="submit">Gabung</button>
+        </form>
+      </div>
+
+      <div class="section-title">${icon('building')} Unit Anda</div>
+      <div id="unitList"><p class="small muted tc" style="padding:14px">Memuat…</p></div>
+
+      <div class="note note--i mt2">${icon('info')}
+        <div><b>Anda yang memegang kendali</b>Keluar dari unit langsung menghentikan akses admin
+        unit itu ke hasil ukur Anda.</div></div>
+    `);
+
+    const galat = (e) => (TC.CareDB && TC.CareDB.belumDimigrasi(e)
+      ? 'Fitur ini belum aktif di server (migrasi 20260926_facilities.sql belum dijalankan).'
+      : (e && e.message) || 'Gagal menghubungi server.');
+
+    async function muat() {
+      const box = $('#unitList');
+      try {
+        const list = await TC.FacilityDB.unitSaya();
+        if (!$('#unitList')) return;
+        box.innerHTML = list.length ? `<div class="list">${list.map((m) => `
+          <div class="row">
+            <span class="row__ico">${icon('building')}</span>
+            <div style="min-width:0"><b>${esc(m.facility_name)}</b>
+              <small>${m.role === 'dokter' ? 'Nakes' : 'Anggota'} · sejak ${esc(relTime(new Date(m.created_at).getTime()))}</small></div>
+            <button class="btn btn--dangerSoft btn--sm" style="margin-left:auto" data-keluar="${esc(m.facility_id)}"
+              data-nama="${esc(m.facility_name)}">Keluar</button>
+          </div>`).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:14px">Belum tergabung di unit mana pun.</p></div>`;
+        $$('[data-keluar]').forEach((b) => {
+          b.onclick = async () => {
+            const ok = await confirmSheet({ title: 'Keluar dari ' + b.dataset.nama + '?',
+              body: dokter ? 'Anda tidak lagi tercatat sebagai nakes unit ini.'
+                : 'Admin unit tidak lagi dapat melihat hasil ukur Anda.', ok: 'Keluar', danger: true });
+            if (!ok) return;
+            try { await TC.FacilityDB.keluar(b.dataset.keluar); toast('Anda keluar dari unit.'); }
+            catch (e) { toast(galat(e), 'err'); }
+            muat();
+          };
+        });
+      } catch (e) {
+        if (box) box.innerHTML = `<div class="note note--w">${icon('alert')}<div>${esc(galat(e))}</div></div>`;
+      }
+    }
+    muat();
+
+    $('#fUnit').onsubmit = async (e) => {
+      e.preventDefault();
+      const kode = $('#unitIn').value.trim().toUpperCase();
+      if (!/^[A-Z2-9]{6}$/.test(kode)) { toast('Kode unit terdiri dari 6 huruf/angka.', 'err'); return; }
+      const u = Store.user() || {};
+      const nama = Store.profile().nickname || u.name || (dokter ? 'Dokter' : 'Anggota');
+      try {
+        const unit = await TC.FacilityDB.gabung(kode, nama, dokter ? 'dokter' : 'pasien');
+        toast('Bergabung dengan ' + unit + '.');
+        $('#unitIn').value = '';
+        muat();
+      } catch (err) {
+        toast(err && err.code === 'P0002' ? 'Kode unit tidak ditemukan.' : galat(err), 'err');
+      }
+    };
   }
 
   /* ---------------- 2. INFORMASI PRIBADI ---------------- */
@@ -136,6 +303,12 @@
         <label class="field"><span>Berat badan (kg)</span>
           <span class="wrap"><input name="weight" type="number" min="20" max="250" step="0.1" value="${p.weight || ''}"></span>
           <span class="hint">Perbarui sebulan sekali agar target harian tetap masuk akal.</span></label>
+        <label class="field"><span>Tingkat aktivitas</span>
+          <span class="wrap"><select name="aktivitas">
+            <option value="">Belum diisi</option>
+            ${TC.Gizi.AKTIVITAS.map((a) => `<option value="${a.id}"${p.aktivitas === a.id ? ' selected' : ''}>${esc(a.nama)} — ${esc(a.desc)}</option>`).join('')}
+          </select></span>
+          <span class="hint">Menentukan faktor pengali kebutuhan energi harian.</span></label>
 
         <div class="section-title">${icon('mail')} Kontak pemulihan</div>
         <label class="field"><span>Email</span>
@@ -162,10 +335,15 @@
           gender: f.gender.value,
           age: +f.age.value || null,
           height: +f.height.value || null,
-          weight: +f.weight.value || null
+          weight: +f.weight.value || null,
+          aktivitas: f.aktivitas.value || null
         });
+        TC.Gizi.terapkan(s.profile);
       });
-      toast('Perubahan tersimpan. Target di Beranda ikut menyesuaikan.');
+      const pr = Store.profile();
+      toast(pr.targetManual ? 'Perubahan tersimpan. Target gizi tetap memakai angka yang Anda ketik sendiri.'
+        : TC.Gizi.kurang(pr).length ? 'Perubahan tersimpan. Lengkapi ' + TC.Gizi.kurang(pr).join(', ') + ' agar target dihitung dari profil.'
+        : 'Perubahan tersimpan. Target gizi dihitung ulang: ' + pr.targets.kcal + ' kkal/hari.');
       Router.render();
     };
   }
@@ -173,8 +351,8 @@
   function bmiCard(p) {
     if (!p.height || !p.weight) {
       return `<div class="note note--i mt">${icon('info')}
-        <div><b>Lengkapi tinggi dan berat</b>Selama belum diisi, aplikasi memakai nilai bawaan
-        sehingga target gizi kurang sesuai dengan kebutuhan Anda.</div></div>`;
+        <div><b>Lengkapi tinggi dan berat</b>Selama profil belum lengkap, target gizi memakai paket
+        bawaan yang sama untuk semua orang, bukan kebutuhan Anda.</div></div>`;
     }
     const h = p.height / 100;
     const bmi = p.weight / (h * h);
@@ -196,8 +374,16 @@
     TC.topbar('Tujuan Kesehatan', { sub: 'Menentukan target pada Beranda' });
 
     setView(`
+      <div class="section-title" style="margin-top:0">${icon('target')} Capaian hari ini
+        <span class="push"></span><span class="chip">${esc(D.goal(p.goal).name)}</span></div>
+      ${TC.views.kartuTarget()}
+
+      <div class="section-title">${icon('info')} Dasar perhitungan target</div>
+      ${kartuDasar(p)}
+
+      <div class="section-title">${icon('sparkle')} Pilih tujuan</div>
       <div class="stack--sm stack" id="goalList">
-        ${D.GOALS.map((g) => `
+        ${D.GOALS.map((g) => ({ g, tg: TC.Gizi.targetUntuk(p, g.id) })).map(({ g, tg }) => `
           <button class="card" data-goal="${g.id}" style="text-align:left;width:100%;
             border-color:${g.id === p.goal ? 'var(--green-400)' : 'var(--line)'};
             background:${g.id === p.goal ? 'var(--green-50)' : 'var(--surface)'}">
@@ -207,10 +393,10 @@
             </div>
             <p class="small muted mt" style="margin-top:6px">${esc(g.desc)}</p>
             <div class="metric3 mt" style="grid-template-columns:repeat(4,1fr)">
-              <div><span>Kalori</span><b style="font-size:1rem">${g.targets.kcal}</b></div>
-              <div><span>Karbo</span><b style="font-size:1rem">${g.targets.carb}</b></div>
-              <div><span>Protein</span><b style="font-size:1rem">${g.targets.protein}</b></div>
-              <div><span>Lemak</span><b style="font-size:1rem">${g.targets.fat}</b></div>
+              <div><span>Kalori</span><b style="font-size:1rem">${tg.kcal}</b></div>
+              <div><span>Karbo</span><b style="font-size:1rem">${tg.carb}</b></div>
+              <div><span>Protein</span><b style="font-size:1rem">${tg.protein}</b></div>
+              <div><span>Lemak</span><b style="font-size:1rem">${tg.fat}</b></div>
             </div>
           </button>`).join('')}
       </div>
@@ -241,9 +427,9 @@
         const g = D.goal(b.dataset.goal);
         Store.update((s) => {
           s.profile.goal = g.id;
-          s.profile.targets = Object.assign({}, g.targets);
+          TC.Gizi.terapkan(s.profile, true);
         });
-        toast('Tujuan diperbarui: ' + g.name);
+        toast('Tujuan diperbarui: ' + g.name + ' · ' + Store.profile().targets.kcal + ' kkal/hari');
         Router.render();
       };
     });
@@ -258,10 +444,60 @@
           protein: clamp(+f.protein.value || 60, 20, 300),
           fat: clamp(+f.fat.value || 65, 10, 250)
         };
+        s.profile.targetManual = true;
       });
-      toast('Target tersimpan. Batang kemajuan di Beranda menyesuaikan.');
+      toast('Target sendiri tersimpan. Perubahan profil tidak akan menimpanya.');
       Router.render();
     };
+
+    const ulang = $('[data-hitung-ulang]');
+    if (ulang) ulang.onclick = () => {
+      Store.update((s) => { TC.Gizi.terapkan(s.profile, true); });
+      toast('Target dihitung ulang dari profil.');
+      Router.render();
+    };
+  }
+
+  /** Penjelasan dari mana angka target berasal — ditampilkan apa adanya. */
+  function kartuDasar(p) {
+    const h = TC.Gizi.hitung(p, p.goal);
+    const kurang = TC.Gizi.kurang(p);
+    if (p.targetManual) {
+      return `<div class="note note--i">${icon('edit')}
+        <div><b>Memakai target yang Anda ketik sendiri</b>Perubahan profil tidak menimpanya.
+        ${kurang.length ? '' : `Hitungan dari profil Anda: ${h.targets.kcal} kkal.`}
+        <button class="btn btn--soft btn--sm mt" data-hitung-ulang ${kurang.length ? 'hidden' : ''}>
+          ${icon('refresh')} Hitung ulang dari profil</button></div></div>`;
+    }
+    if (!h) {
+      return `<div class="note note--w">${icon('alert')}
+        <div><b>Target masih paket bawaan</b>Angka saat ini sama untuk semua orang. Lengkapi
+        ${esc(kurang.join(', '))} di <a class="link" href="#/profil/pribadi">Informasi Pribadi</a>
+        agar target dihitung dari kebutuhan Anda.</div></div>`;
+    }
+    const adj = h.penyesuaian;
+    return `<div class="card">
+      <div class="stack--sm stack">
+        <div><div style="display:grid;gap:2px;font-size:.9rem">
+          <b>1. Energi basal (BMR) ${h.bmr} kkal</b>
+          <small>Mifflin-St Jeor: 10×${p.weight} kg + 6,25×${p.height} cm − 5×${p.age} th
+            ${p.gender === 'laki-laki' ? '+ 5' : '− 161'}</small></div></div>
+        <div><div style="display:grid;gap:2px;font-size:.9rem">
+          <b>2. Kebutuhan harian ${h.tdee} kkal</b>
+          <small>BMR × ${h.aktivitas.f} (${esc(h.aktivitas.nama.toLowerCase())})</small></div></div>
+        <div><div style="display:grid;gap:2px;font-size:.9rem">
+          <b>3. Target energi ${h.targets.kcal} kkal</b>
+          <small>${adj ? (adj > 0 ? '+' : '−') + Math.abs(adj) + ' kkal untuk tujuan ini' : 'Tanpa penyesuaian'}${
+            h.dilantai ? ' · dinaikkan ke batas aman minimum' : ''}</small></div></div>
+        <div><div style="display:grid;gap:2px;font-size:.9rem">
+          <b>4. Pembagian zat gizi</b>
+          <small>Protein ${h.tujuan.proteinPerKg} g/kg × ${p.weight} kg = ${h.targets.protein} g (${h.persen.protein}%) ·
+            lemak ${Math.round(h.tujuan.lemakPct * 100)}% energi = ${h.targets.fat} g ·
+            karbohidrat sisanya = ${h.targets.carb} g (${h.persen.carb}%)</small></div></div>
+      </div>
+      <p class="tiny muted mt">Perkiraan untuk orang dewasa sehat. Kebutuhan saat hamil, menyusui,
+        atau dengan penyakit tertentu perlu ditetapkan bersama tenaga kesehatan.</p>
+    </div>`;
   }
 
   /* ---------------- 4. HUB PERANGKAT ---------------- */
@@ -629,9 +865,9 @@
     const t = s.turn || {};
     TC.topbar('Pengaturan');
     setView(`
-      <div class="section-title">${icon('clock')} Mode purwarupa</div>
+      <div class="section-title">${icon('clock')} ${TC.FITUR.simulasi ? 'Mode purwarupa' : 'Peringatan'}</div>
       <div class="list">
-        <label class="row">
+        <label class="row" ${TC.FITUR.simulasi ? '' : 'hidden'}>
           <span class="row__ico">${icon('clock')}</span>
           <div style="min-width:0"><b>Percepat waktu sesi</b>
             <small>Rentang 2 jam dipadatkan menjadi ± 2 menit agar alur dapat dicoba utuh.</small></div>
@@ -928,16 +1164,20 @@
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('bt')}</span>
             <div><b style="font-size:.87rem">Web Bluetooth</b>
-              <small class="tiny muted" style="display:block">Pemindaian perangkat BLE nyata bila peramban mendukungnya; selain itu memakai daftar simulasi.</small></div>
+              <small class="tiny muted" style="display:block">${TC.FITUR.simulasi
+                ? 'Pemindaian perangkat BLE nyata bila peramban mendukungnya; selain itu memakai daftar simulasi.'
+                : 'TeleBand tersambung langsung dari peramban (Chrome/Edge). Tanpa alat, tidak ada angka vital yang ditampilkan.'}</small></div>
           </div>
         </div>
       </div>
 
       <div class="note note--w mt">${icon('info')}
-        <div><b>Status purwarupa</b>
-        Nilai fisiologis pada iterasi ini dibangkitkan secara simulatif, dan balasan dokter dihasilkan
+        <div><b>Status purwarupa</b>${TC.FITUR.simulasi
+        ? `Nilai fisiologis pada iterasi ini dibangkitkan secara simulatif, dan balasan dokter dihasilkan
         otomatis dari pola kata kunci — tidak ada tenaga kesehatan sungguhan di balik layar, dan tidak
-        ada transaksi yang ditagih. Percakapan serta panggilan, sebaliknya, berjalan sungguhan.</div></div>
+        ada transaksi yang ditagih. Percakapan serta panggilan, sebaliknya, berjalan sungguhan.`
+        : `Semua angka vital berasal dari pengukuran TeleBand; tanpa alat, layar vital menampilkan “—”.
+        Tekanan darah dan glukosa TeleBand adalah estimasi eksperimental. TeleCare bukan alat medis.`}</div></div>
 
       <div class="list mt2">
         <a class="row" href="../index.html"><span class="row__ico">${icon('link')}</span>
@@ -951,6 +1191,8 @@
 
   TC.views = TC.views || {};
   Object.assign(TC.views, {
+    myUnits: viewMyUnits,
+    myDoctors: viewMyDoctors,
     profile: viewProfile, personal: viewPersonal, goals: viewGoals,
     devices: viewDevices, scan: viewScan, deviceDetail: viewDeviceDetail,
     calibration: viewCalibration, settings: viewSettings, about: viewAbout

@@ -65,10 +65,674 @@
     return s._roleSeries[seedKey].days;
   }
 
+
+  /* ============================================================
+     1N. DOKTER — DATA NYATA (TC.FITUR.simulasi mati)
+     ============================================================
+     Pasien binaan = pasien yang menautkan diri lewat KODE DOKTER
+     (tabel care_links, supabase/migrations/20260926_care_links.sql).
+     Angka yang tampil adalah hasil ukur TeleBand pasien dari tabel
+     device_readings; status triase dihitung dari hasil terakhir dengan
+     ambang yang sama seperti eskalasi di sisi pasien (TC.statusHasil).
+     Catatan klinis dan penandaan eskalasi tetap lokal di peramban dokter.
+     ============================================================ */
+  const STATUS_NONE = { t: 'Belum ada data', c: '', color: '#8AA79B' };
+  const metaStatus = (st) => D.STATUS_META[st] || STATUS_NONE;
+  const chipStatus = (st) => `<span class="chip ${metaStatus(st).c ? 'chip--' + metaStatus(st).c : ''}">${esc(metaStatus(st).t)}</span>`;
+
+  function namaDokter() {
+    const u = Store.user() || {};
+    return (Store.profile().nickname || u.name || 'Dokter').slice(0, 80);
+  }
+
+  /** Pesan galat Supabase yang bisa dipahami, termasuk migrasi yang belum dijalankan. */
+  function pesanGalat(e, berkas) {
+    if (TC.CareDB && TC.CareDB.belumDimigrasi(e)) {
+      return (berkas ? 'Tabel unit faskes' : 'Tabel hubungan dokter–pasien') +
+        ' belum ada di server. Jalankan supabase/migrations/' +
+        (berkas || '20260926_care_links.sql') + ' di Supabase SQL Editor.';
+    }
+    return (e && e.message) || 'Gagal memuat data dari server.';
+  }
+
+  /** Pasien tertaut beserta hasil ukur terakhirnya. */
+  async function muatPasienNyata() {
+    const links = await TC.CareDB.pasienSaya();
+    return Promise.all(links.map(async (l) => {
+      let rows = [];
+      try { rows = await TC.ReadingsDB.daftar(l.patient_id, 1); } catch (e) { /* tampil tanpa data */ }
+      const terakhir = TC.hasilDariBaris(rows)[0] || null;
+      return { id: l.patient_id, nama: l.patient_name, sejak: l.created_at,
+               terakhir, status: TC.statusHasil(terakhir) };
+    }));
+  }
+
+  function barisPasienNyata(p, dasar) {
+    const r = p.terakhir;
+    const x = (v, u) => (v == null ? '—' : v + u);
+    return `<a class="row" href="${dasar || '#/klinik/pasien/'}${esc(p.id)}">
+      <span class="avatar" style="background:${metaStatus(p.status).color}">${esc(initials(p.nama))}</span>
+      <div style="min-width:0">
+        <b>${esc(p.nama)}</b>
+        <small>${r ? `${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')} · ${esc(relTime(r.t))}`
+          : 'Belum ada hasil ukur TeleBand'}</small>
+      </div>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        ${chipStatus(p.status)}${icon('chev', 'chev')}</span>
+    </a>`;
+  }
+
+  const URUT_STATUS = { crit: 0, warn: 1, ok: 2, none: 3 };
+
+  function viewClinicNyata() {
+    const u = Store.user();
+    setTopbar('');
+    setView(`
+      <div class="hero-head">
+        <span class="avatar avatar--lg" style="background:#0E7FB8;border-radius:18px">
+          ${esc(initials(namaDokter()))}</span>
+        <div style="min-width:0">
+          <b>${esc(greeting(new Date()))}, ${esc(namaDokter())}</b>
+          <small>${esc(u.email && !/@tamu\.local$/.test(u.email) ? u.email : 'Dokter')}</small>
+        </div>
+        <button class="icon-btn" data-notif style="margin-left:auto" aria-label="Notifikasi">
+          ${icon('bell')}</button>
+      </div>
+
+      <div class="card">
+        <div class="card__head">${icon('link')}<h3>Kode dokter</h3></div>
+        <p class="small muted">Berikan kode ini ke pasien. Setelah pasien memasukkannya di
+          <b>Profil → Dokter saya</b>, hasil ukur TeleBand-nya muncul di sini.</p>
+        <div id="kodeBox" class="mt"><p class="small muted">Memuat…</p></div>
+      </div>
+
+      <div id="klinikIsi" class="mt"><p class="small muted tc" style="padding:18px">Memuat pasien…</p></div>
+    `);
+    $('[data-notif]').onclick = () => Router.navigate('/notifikasi');
+
+    gambarKode();
+    muatPasienNyata().then((daftar) => {
+      const box = $('#klinikIsi');
+      if (!box) return;
+      const perhatian = daftar.filter((p) => p.status === 'warn' || p.status === 'crit')
+        .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
+      box.innerHTML = `
+        <div class="stat-row">
+          <div><b>${daftar.length}</b><span>Pasien terhubung</span></div>
+          <div><b>${perhatian.length}</b><span>Perlu perhatian</span></div>
+        </div>
+        <div class="section-title">${icon('alert')} Pasien perlu perhatian
+          <span class="push"></span><span class="chip chip--a">${perhatian.length}</span></div>
+        ${perhatian.length ? `<div class="list">${perhatian.map((p) => barisPasienNyata(p)).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:14px">${daftar.length
+            ? 'Hasil ukur terakhir semua pasien berada di rentang umum.'
+            : 'Belum ada pasien yang terhubung.'}</p></div>`}
+        ${daftar.length ? `<a class="btn btn--ghost btn--block mt" href="#/klinik/pasien">Lihat semua pasien</a>` : ''}`;
+    }).catch((e) => {
+      const box = $('#klinikIsi');
+      if (box) box.innerHTML = `<div class="note note--w">${icon('alert')}<div><b>Data pasien belum bisa dimuat</b>${esc(pesanGalat(e))}</div></div>`;
+    });
+  }
+
+  async function gambarKode() {
+    const box = $('#kodeBox');
+    if (!box) return;
+    let kode = null;
+    try { kode = await TC.CareDB.kodeSaya(); }
+    catch (e) {
+      box.innerHTML = `<div class="note note--w">${icon('alert')}<div>${esc(pesanGalat(e))}</div></div>`;
+      return;
+    }
+    if (!$('#kodeBox')) return;
+    box.innerHTML = kode ? `
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <b class="mono" style="font-size:1.7rem;letter-spacing:.18em">${esc(kode)}</b>
+        <span class="push" style="flex:1"></span>
+        <button class="btn btn--soft btn--sm" data-kode-salin>${icon('doc')} Salin</button>
+        <button class="btn btn--ghost btn--sm" data-kode-baru>${icon('refresh')} Ganti kode</button>
+      </div>
+      <p class="tiny muted mt">Mengganti kode tidak memutus pasien yang sudah terhubung; kode lama saja yang tidak berlaku.</p>` : `
+      <button class="btn btn--primary btn--block" data-kode-baru>${icon('plus')} Buat kode dokter</button>`;
+    const salin = $('[data-kode-salin]');
+    if (salin) salin.onclick = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(kode) : Promise.reject())
+        .then(() => toast('Kode disalin.'), () => toast('Salin manual: ' + kode));
+    };
+    $('[data-kode-baru]').onclick = async (ev) => {
+      const b = ev.currentTarget;
+      b.classList.add('is-disabled');
+      try {
+        await TC.CareDB.buatKode(namaDokter());
+        toast('Kode dokter siap dibagikan.');
+      } catch (e) { toast(pesanGalat(e), 'err'); }
+      gambarKode();
+    };
+  }
+
+  function viewPatientsNyata() {
+    TC.topbar('Pasien Binaan', { sub: 'Pasien yang terhubung lewat kode dokter', back: false });
+    setView(`
+      <div class="searchbar">${icon('search')}
+        <input id="pq" type="search" placeholder="Cari nama pasien" aria-label="Cari pasien"></div>
+      <div class="list mt" id="pList"><p class="small muted tc" style="padding:18px">Memuat…</p></div>`);
+    let semua = [], q = '';
+    function draw() {
+      const box = $('#pList');
+      if (!box) return;
+      const list = semua.filter((p) => !q || p.nama.toLowerCase().indexOf(q) !== -1)
+        .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
+      box.innerHTML = list.length ? list.map((p) => barisPasienNyata(p)).join('')
+        : `<div class="empty" style="background:var(--surface)">${icon('users')}
+           <b>${semua.length ? 'Tidak ditemukan' : 'Belum ada pasien'}</b>
+           <p>${semua.length ? 'Coba kata kunci lain.' : 'Bagikan kode dokter dari layar Klinik ke pasien Anda.'}</p></div>`;
+    }
+    $('#pq').oninput = (e) => { q = e.target.value.trim().toLowerCase(); draw(); };
+    muatPasienNyata().then((d) => { semua = d; draw(); }).catch((e) => {
+      const box = $('#pList');
+      if (box) box.innerHTML = `<div class="note note--w">${icon('alert')}<div>${esc(pesanGalat(e))}</div></div>`;
+    });
+  }
+
+  function viewPatientDetailNyata(params) {
+    const pid = params.id;
+    // Admin faskes memakai layar yang sama untuk anggota unitnya: sumber
+    // keanggotaan berbeda, dan ia bukan klinisi sehingga tanpa catatan klinis.
+    const FASKES = Store.is('admin-faskes');
+    const KEMBALI = FASKES ? '/faskes/anggota' : '/klinik/pasien';
+    let unitId = null;
+    TC.topbar('Pasien', { sub: 'Memuat…' });
+    setView(`<p class="small muted tc" style="padding:24px">Memuat data pasien…</p>`);
+
+    const muatTautan = FASKES
+      ? muatUnit().then((d) => {
+          if (!d.unit) return [];
+          unitId = d.unit.id;
+          return d.anggota.map((a) => ({ patient_id: a.id, patient_name: a.nama, created_at: a.sejak }));
+        })
+      : TC.CareDB.pasienSaya();
+
+    Promise.all([muatTautan, TC.ReadingsDB.daftar(pid, 200)]).then(([links, rows]) => {
+      const link = links.find((l) => l.patient_id === pid);
+      if (!link) {
+        toast(FASKES ? 'Orang ini bukan anggota unit Anda.' : 'Pasien ini tidak terhubung dengan Anda.', 'err');
+        Router.navigate(KEMBALI, true); return;
+      }
+      const hasil = TC.hasilDariBaris(rows);
+      const r = hasil[0] || null;
+      const st = TC.statusHasil(r);
+      const tren = TC.trenDariHasil(hasil);
+      const x = (v) => (v == null ? '—' : v);
+      const nama = link.patient_name;
+
+      TC.topbar(nama, { sub: (FASKES ? 'Anggota sejak ' : 'Terhubung ') + shortDate(new Date(link.created_at)) });
+      setView(`
+        <div class="card" style="display:flex;gap:14px;align-items:center">
+          <span class="avatar avatar--lg" style="background:${metaStatus(st).color}">${esc(initials(nama))}</span>
+          <div style="min-width:0">
+            <b style="font-size:1rem">${esc(nama)}</b>
+            <small class="muted" style="display:block;font-size:.8rem">${r
+              ? 'Hasil ukur terakhir ' + esc(relTime(r.t)) : 'Belum ada hasil ukur'}</small>
+          </div>
+          <span style="margin-left:auto">${chipStatus(st)}</span>
+        </div>
+
+        <div class="vital-grid mt">
+          <div class="vital vital--hr"><span class="vital__lab">${icon('heart')} Detak jantung</span>
+            <span class="vital__val">${x(r && r.bpm)}<u>bpm</u></span></div>
+          <div class="vital vital--spo"><span class="vital__lab">${icon('spo2')} SpO₂</span>
+            <span class="vital__val">${x(r && r.spo2)}<u>%</u></span></div>
+          <div class="vital vital--bp"><span class="vital__lab">${icon('bp')} Tekanan darah</span>
+            <span class="vital__val">${r && r.sis != null && r.dia != null ? r.sis + '/' + r.dia : '—'}</span>
+            <span class="vital__src is-eks">estimasi eksperimental</span></div>
+          <div class="vital vital--glu"><span class="vital__lab">${icon('drop')} Glukosa</span>
+            <span class="vital__val">${x(r && r.glukosa)}<u>mg/dL</u></span>
+            <span class="vital__src is-eks">estimasi eksperimental</span></div>
+        </div>
+
+        <div class="card mt">
+          <div class="card__head">${icon('chart')}<h3>Detak jantung terendah · 7 hari</h3>
+            <span class="push"></span><span class="chip">${tren.filter((d) => d.ada).length} hari berdata</span></div>
+          ${tren.some((d) => d.rhr != null)
+            ? `<div class="chart-wrap"><canvas id="cPat" style="height:150px"></canvas></div>`
+            : `<p class="small muted">Belum ada hasil ukur dalam 7 hari terakhir.</p>`}
+        </div>
+
+        <div class="section-title">${icon('doc')} Hasil ukur terbaru
+          <span class="push"></span><span class="chip">${hasil.length}</span></div>
+        ${hasil.length ? `<div class="list">${hasil.slice(0, 10).map((h) => `
+          <div class="row"><span class="row__ico">${icon('heart')}</span>
+            <div style="min-width:0"><b>${x(h.bpm)} bpm · SpO₂ ${x(h.spo2)}%</b>
+              <small>${esc(shortDate(new Date(h.t)))} · ${esc(hhmm(new Date(h.t)))} ·
+                TD ${h.sis != null && h.dia != null ? h.sis + '/' + h.dia : '—'} · glukosa ${x(h.glukosa)} (estimasi)</small></div>
+            <span style="margin-left:auto">${chipStatus(TC.statusHasil(h))}</span></div>`).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:14px">Pasien belum mengirim hasil ukur TeleBand.</p></div>`}
+
+        ${FASKES ? '' : `<div class="section-title">${icon('doc')} Catatan klinis
+          <span class="push"></span><span class="chip" data-note-count>${TC.Notes.count(pid)}</span></div>
+        <div class="card">
+          <label class="field">
+            <span>Catatan baru</span>
+            <textarea id="noteText" rows="4" maxlength="4000"
+              placeholder="Temuan pemeriksaan, penilaian, dan rencana tindak lanjut…"></textarea>
+            <small>Setelah disimpan, isi catatan tidak dapat diubah — hanya dihapus.</small>
+          </label>
+          <button class="btn btn--primary btn--block mt" data-note-save>${icon('check')} Simpan catatan</button>
+        </div>
+        <div id="patNotes" class="mt">${gambarCatatan(pid, true)}</div>`}
+
+        <div class="section-title">${icon('alert')} Penandaan eskalasi
+          <span class="push"></span><span class="chip" data-esc-count>${Store.escalationsFor(pid).length}</span></div>
+        <div id="patEsk">${gambarEskalasi(pid)}</div>
+
+        <div class="grid2 mt2">
+          <button class="btn btn--ghost btn--block" data-esc>${icon('alert')} Tandai eskalasi</button>
+          <button class="btn btn--dangerSoft btn--block" data-putus>${icon('x')} ${FASKES ? 'Keluarkan dari unit' : 'Putuskan pasien'}</button>
+        </div>
+
+        <div class="note note--i mt2">${icon('info')}
+          <div><b>Sumber data</b>Angka di halaman ini adalah hasil ukur TeleBand milik pasien yang
+          tersimpan di server. Tekanan darah dan glukosa adalah estimasi eksperimental.
+          ${FASKES ? 'Penandaan eskalasi' : 'Catatan klinis dan penandaan eskalasi'} tersimpan di peramban perangkat ini saja.</div></div>
+      `);
+
+      const cv = $('#cPat');
+      if (cv) TC.lineChart(cv, [{ data: tren.map((d) => d.rhr), color: metaStatus(st).color === '#8AA79B' ? '#049A5B' : metaStatus(st).color, fill: true, dots: true }],
+        { xLabels: tren.map((d) => d.label) });
+
+      function segarkan() {
+        if ($('#patNotes')) {
+          $('#patNotes').innerHTML = gambarCatatan(pid, true);
+          $('[data-note-count]').textContent = TC.Notes.count(pid);
+        }
+        $('#patEsk').innerHTML = gambarEskalasi(pid);
+        $('[data-esc-count]').textContent = Store.escalationsFor(pid).length;
+        pasang();
+      }
+      function pasang() {
+        $$('[data-note-del]').forEach((b) => {
+          b.onclick = async () => {
+            const ok = await confirmSheet({ title: 'Hapus catatan klinis?',
+              body: 'Catatan yang dihapus tidak dapat dikembalikan.', ok: 'Hapus', danger: true });
+            if (!ok) return;
+            TC.Notes.remove(pid, b.dataset.noteDel);
+            segarkan(); toast('Catatan dihapus.');
+          };
+        });
+        $$('[data-esc-del]').forEach((b) => {
+          b.onclick = () => { Store.removeEscalation(b.dataset.escDel); segarkan(); toast('Penandaan dihapus.'); };
+        });
+      }
+      pasang();
+
+      const simpanCatatan = $('[data-note-save]');
+      if (simpanCatatan) simpanCatatan.onclick = () => {
+        const ta = $('#noteText');
+        const isi = ta.value.trim();
+        if (!isi) { toast('Catatan masih kosong.'); ta.focus(); return; }
+        TC.Notes.add(pid, isi, namaDokter(), Store.role());
+        ta.value = '';
+        segarkan(); toast('Catatan klinis disimpan.');
+      };
+      $('[data-esc]').onclick = () => {
+        Store.addEscalation(pid, FASKES ? (Store.user() || {}).name || 'Admin faskes' : namaDokter());
+        Store.notify('Eskalasi ditandai', nama, 'warn');
+        segarkan(); toast('Pasien ditandai untuk tindak lanjut.');
+      };
+      $('[data-putus]').onclick = async () => {
+        const ok = await confirmSheet({
+          title: (FASKES ? 'Keluarkan ' : 'Putuskan ') + nama + '?',
+          body: FASKES
+            ? 'Anda tidak lagi dapat melihat hasil ukurnya. Ia bisa bergabung ulang dengan kode unit.'
+            : 'Anda tidak lagi dapat melihat hasil ukurnya. Pasien bisa menautkan ulang dengan kode dokter.',
+          ok: FASKES ? 'Keluarkan' : 'Putuskan', danger: true });
+        if (!ok) return;
+        try {
+          if (FASKES) await TC.FacilityDB.keluarkan(unitId, pid);
+          else await TC.CareDB.putus(pid, TC.FB.uid);
+          toast(FASKES ? 'Anggota dikeluarkan.' : 'Pasien diputus.');
+          Router.navigate(KEMBALI, true);
+        } catch (e) { toast(pesanGalat(e, FASKES ? '20260926_facilities.sql' : null), 'err'); }
+      };
+    }).catch((e) => {
+      setView(`<div class="note note--w">${icon('alert')}<div><b>Data pasien belum bisa dimuat</b>${
+        esc(pesanGalat(e, FASKES ? '20260926_facilities.sql' : null))}</div></div>`);
+    });
+  }
+
+  /* ============================================================
+     2N. ADMIN FASKES — DATA NYATA (TC.FITUR.simulasi mati)
+     ============================================================
+     Unit = baris tabel facilities milik admin ini. Anggota (pasien) dan
+     nakes (dokter) bergabung sendiri dengan KODE UNIT lewat Profil → Unit
+     saya (supabase/migrations/20260926_facilities.sql). Semua angka di
+     layar-layar ini dihitung dari keanggotaan itu dan hasil ukur TeleBand
+     anggota di tabel device_readings — tidak ada katalog contoh.
+     ============================================================ */
+  const FILE_UNIT = '20260926_facilities.sql';
+  const JENIS_UNIT = ['Perusahaan', 'Pesantren', 'Sekolah Berasrama', 'Panti Jompo', 'Klinik', 'Lainnya'];
+  const HARI = 86400000;
+
+  /** Unit milik admin ini beserta anggota, nakes, dan hasil ukur anggota. */
+  async function muatUnit() {
+    const unit = await TC.FacilityDB.milikSaya();
+    if (!unit) return { unit: null, anggota: [], nakes: [], rows: [] };
+    const semua = await TC.FacilityDB.anggota(unit.id);
+    const pasien = semua.filter((m) => m.role === 'pasien');
+    const nakes = semua.filter((m) => m.role === 'dokter');
+    let rows = [];
+    try { rows = await TC.ReadingsDB.daftarBanyak(pasien.map((m) => m.user_id), 2000); }
+    catch (e) { /* anggota tetap tampil, tanpa angka */ }
+    const perOrang = {};
+    rows.forEach((r) => { (perOrang[r.user_id] = perOrang[r.user_id] || []).push(r); });
+    const anggota = pasien.map((m) => {
+      const hasil = TC.hasilDariBaris(perOrang[m.user_id] || []);
+      const terakhir = hasil[0] || null;
+      return { id: m.user_id, nama: m.member_name, sejak: m.created_at,
+               terakhir, status: TC.statusHasil(terakhir), hasil };
+    });
+    return { unit, anggota, nakes, rows };
+  }
+
+  const waktuBaris = (r) => new Date(r.measured_at || r.received_at).getTime();
+
+  /** Tampilan saat unit belum ada: formulir pembuatan unit. */
+  function formUnitBaru() {
+    setView(`
+      <div class="card">
+        <div class="card__head">${icon('building')}<h3>Buat unit Anda</h3></div>
+        <p class="small muted">Satu akun admin faskes mengelola satu unit. Setelah dibuat, Anda
+          mendapat <b>kode unit</b> untuk dibagikan ke anggota (pasien) dan tenaga kesehatan.</p>
+        <form id="fUnit" class="mt" novalidate>
+          <label class="field"><span>Nama unit</span>
+            <span class="wrap"><input name="name" maxlength="80" required placeholder="Mis. Klinik Pratama Sehat"></span></label>
+          <label class="field"><span>Jenis</span>
+            <span class="wrap"><select name="kind">${JENIS_UNIT.map((j) => `<option>${esc(j)}</option>`).join('')}</select></span></label>
+          <label class="field"><span>Kota</span>
+            <span class="wrap"><input name="city" maxlength="60" placeholder="Mis. Surakarta"></span></label>
+          <button class="btn btn--primary btn--lg btn--block" type="submit">${icon('check')} Buat unit</button>
+        </form>
+      </div>`);
+    $('#fUnit').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      if (!f.name.value.trim()) { toast('Nama unit wajib diisi.', 'err'); return; }
+      try {
+        await TC.FacilityDB.buat({ name: f.name.value, kind: f.kind.value, city: f.city.value });
+        toast('Unit dibuat. Bagikan kode unitnya ke anggota.');
+        Router.render();
+      } catch (err) { toast(pesanGalat(err, FILE_UNIT), 'err'); }
+    };
+  }
+
+  function galatUnit(e) {
+    setView(`<div class="note note--w">${icon('alert')}<div><b>Data unit belum bisa dimuat</b>${
+      esc(pesanGalat(e, FILE_UNIT))}</div></div>`);
+  }
+
+  function kartuKodeUnit(unit) {
+    return `<div class="card mt">
+      <div class="card__head">${icon('link')}<h3>Kode unit</h3></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <b class="mono" style="font-size:1.6rem;letter-spacing:.18em" data-kode>${esc(unit.code)}</b>
+        <span style="flex:1"></span>
+        <button class="btn btn--soft btn--sm" data-kode-salin>${icon('doc')} Salin</button>
+        <button class="btn btn--ghost btn--sm" data-kode-ganti>${icon('refresh')} Ganti kode</button>
+      </div>
+      <p class="tiny muted mt">Anggota dan nakes memasukkan kode ini di <b>Profil → Unit saya</b>.
+        Mengganti kode tidak mengeluarkan yang sudah bergabung.</p>
+    </div>`;
+  }
+
+  function pasangKodeUnit(unit) {
+    $('[data-kode-salin]').onclick = () => {
+      const kode = $('[data-kode]').textContent;
+      (navigator.clipboard ? navigator.clipboard.writeText(kode) : Promise.reject())
+        .then(() => toast('Kode disalin.'), () => toast('Salin manual: ' + kode));
+    };
+    $('[data-kode-ganti]').onclick = async () => {
+      const ok = await confirmSheet({ title: 'Ganti kode unit?',
+        body: 'Kode lama tidak berlaku lagi untuk bergabung. Anggota yang sudah ada tetap di unit.', ok: 'Ganti' });
+      if (!ok) return;
+      try { $('[data-kode]').textContent = await TC.FacilityDB.gantiKode(unit.id); toast('Kode unit diganti.'); }
+      catch (e) { toast(pesanGalat(e, FILE_UNIT), 'err'); }
+    };
+  }
+
+  function viewFacilityNyata() {
+    setTopbar('');
+    setView(`<p class="small muted tc" style="padding:24px">Memuat unit…</p>`);
+    muatUnit().then((d) => {
+      if (!d.unit) { formUnitBaru(); return; }
+      const { unit, anggota, nakes, rows } = d;
+      const hitung = (st) => anggota.filter((a) => a.status === st).length;
+      const perhatian = anggota.filter((a) => a.status === 'warn' || a.status === 'crit')
+        .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
+      // Jumlah hasil ukur per hari, 7 hari terakhir.
+      const hari = [];
+      for (let i = 6; i >= 0; i--) {
+        const t = new Date(); t.setDate(t.getDate() - i); t.setHours(0, 0, 0, 0);
+        const t0 = t.getTime();
+        hari.push({ label: TC.DAYS[t.getDay()].slice(0, 3),
+                    n: rows.filter((r) => waktuBaris(r) >= t0 && waktuBaris(r) < t0 + HARI).length });
+      }
+
+      setView(`
+        <div class="hero-head">
+          <span class="avatar avatar--lg" style="background:#6C5CE7;border-radius:18px">${icon('building')}</span>
+          <div style="min-width:0">
+            <b>${esc(unit.name)}</b>
+            <small>${esc(unit.kind)}${unit.city ? ' · ' + esc(unit.city) : ''}</small>
+          </div>
+          <button class="icon-btn" data-notif style="margin-left:auto" aria-label="Notifikasi">${icon('bell')}</button>
+        </div>
+
+        <div class="stat-row">
+          <div><b>${anggota.length}</b><span>Anggota</span></div>
+          <div><b>${nakes.length}</b><span>Nakes</span></div>
+          <div><b style="${perhatian.length ? 'color:var(--coral-500)' : ''}">${perhatian.length}</b><span>Perlu perhatian</span></div>
+        </div>
+
+        ${kartuKodeUnit(unit)}
+
+        <div class="card mt">
+          <div class="card__head">${icon('users')}<h3>Status triase unit</h3>
+            <span class="push"></span><span class="chip">${anggota.length} orang</span></div>
+          ${anggota.length ? triaseBar(hitung('ok'), hitung('warn'), hitung('crit')) +
+            (hitung('none') ? `<p class="tiny muted mt">${hitung('none')} anggota belum punya hasil ukur.</p>` : '')
+            : '<p class="small muted">Belum ada anggota. Bagikan kode unit di atas.</p>'}
+          <p class="tiny muted mt">Dari hasil ukur TeleBand terakhir tiap anggota.</p>
+        </div>
+
+        <div class="card mt">
+          <div class="card__head">${icon('chart')}<h3>Hasil ukur 7 hari terakhir</h3>
+            <span class="push"></span><span class="chip">${hari.reduce((a, h) => a + h.n, 0)} hasil</span></div>
+          ${hari.some((h) => h.n) ? '<div class="chart-wrap"><canvas id="cFac" style="height:150px"></canvas></div>'
+            : '<p class="small muted">Belum ada pengukuran anggota dalam 7 hari terakhir.</p>'}
+        </div>
+
+        <div class="section-title">${icon('alert')} Perlu tindak lanjut
+          <span class="push"></span><a class="link" href="#/faskes/anggota">Semua anggota</a></div>
+        ${perhatian.length ? `<div class="list">${perhatian.map((a) => barisPasienNyata(a, '#/faskes/anggota/')).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:16px">
+            Tidak ada anggota yang memerlukan tindak lanjut saat ini.</p></div>`}
+
+        <div class="section-title">${icon('sparkle')} Kelola unit</div>
+        <div class="quick">
+          <a href="#/faskes/anggota"><i style="background:#EDF9F2;color:#03804C">${icon('users')}</i>Anggota</a>
+          <a href="#/faskes/perangkat"><i style="background:#DCEEF9;color:#075A85">${icon('watch')}</i>Perangkat</a>
+          <a href="#/faskes/nakes"><i style="background:#EEEBFD;color:#4A3BB8">${icon('stetho')}</i>Nakes</a>
+          <a href="#/notifikasi"><i style="background:#FFF1D6;color:#8A5D00">${icon('bell')}</i>Peringatan</a>
+        </div>
+
+        <div class="promo mt2">
+          <svg class="promo__deco" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <circle cx="100" cy="100" r="86" stroke="#fff" stroke-width="2"/>
+            <circle cx="100" cy="100" r="58" stroke="#fff" stroke-width="2" stroke-dasharray="4 8"/></svg>
+          <h3>Laporan unit</h3>
+          <p>Rekap anggota beserta hasil ukur TeleBand terakhirnya dan jumlah pengukuran 30 hari,
+             dalam berkas CSV untuk pelaporan internal.</p>
+          <button class="btn btn--soft btn--sm" data-report>${icon('doc')} Unduh laporan</button>
+        </div>
+      `);
+
+      const cv = $('#cFac');
+      if (cv) TC.barChart(cv, hari.map((h) => h.n), hari.map((h) => h.label), '#6C5CE7');
+      $('[data-notif]').onclick = () => Router.navigate('/notifikasi');
+      pasangKodeUnit(unit);
+      $('[data-report]').onclick = () => laporanUnit(unit, anggota);
+    }).catch(galatUnit);
+  }
+
+  /** Laporan CSV dari data nyata unit. */
+  function laporanUnit(unit, anggota) {
+    const baris = [];
+    const kutip = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const tulis = (arr) => baris.push(arr.map(kutip).join(','));
+    const batas30 = Date.now() - 30 * HARI;
+    tulis(['Laporan unit TeleCare']);
+    tulis(['Unit', unit.name, 'Jenis', unit.kind, 'Kota', unit.city]);
+    tulis(['Disusun', TC.fullDate(new Date()) + ' ' + hhmm(Date.now())]);
+    tulis(['Sumber: hasil ukur TeleBand anggota di server. Tekanan darah & glukosa = estimasi eksperimental.']);
+    tulis([]);
+    tulis(['Nama', 'Anggota sejak', 'Status', 'Hasil terakhir', 'Detak (bpm)', 'SpO2 (%)',
+           'TD estimasi', 'Glukosa estimasi', 'Hasil ukur 30 hari', 'Penandaan eskalasi (perangkat ini)']);
+    anggota.forEach((a) => {
+      const r = a.terakhir;
+      tulis([
+        a.nama, shortDate(new Date(a.sejak)), metaStatus(a.status).t,
+        r ? shortDate(new Date(r.t)) + ' ' + hhmm(new Date(r.t)) : '',
+        r ? r.bpm : '', r ? r.spo2 : '',
+        r && r.sis != null && r.dia != null ? r.sis + '/' + r.dia : '', r ? r.glukosa : '',
+        a.hasil.filter((h) => h.t >= batas30).length,
+        Store.escalationsFor(a.id).length
+      ]);
+    });
+    const blob = new Blob(['\ufeff' + baris.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const el = document.createElement('a');
+    el.href = URL.createObjectURL(blob);
+    el.download = 'laporan-unit-' + kunciTanggal() + '.csv';
+    el.click();
+    setTimeout(() => URL.revokeObjectURL(el.href), 1000);
+    toast('Laporan tersusun · ' + anggota.length + ' anggota.');
+  }
+
+  function viewFacilityMembersNyata() {
+    TC.topbar('Anggota Unit', { sub: 'Memuat…', back: false });
+    setView(`<p class="small muted tc" style="padding:24px">Memuat anggota…</p>`);
+    muatUnit().then((d) => {
+      if (!d.unit) { Router.navigate('/faskes', true); return; }
+      TC.topbar('Anggota Unit', { sub: d.unit.name, back: false });
+      setView(`
+        <div class="searchbar">${icon('search')}
+          <input id="mq" type="search" placeholder="Cari nama anggota" aria-label="Cari anggota"></div>
+        <div class="list mt" id="mList"></div>`);
+      function draw(q) {
+        const list = d.anggota.filter((a) => !q || a.nama.toLowerCase().indexOf(q) !== -1)
+          .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
+        $('#mList').innerHTML = list.length ? list.map((a) => barisPasienNyata(a, '#/faskes/anggota/')).join('')
+          : `<div class="empty" style="background:var(--surface)">${icon('users')}
+             <b>${d.anggota.length ? 'Tidak ditemukan' : 'Belum ada anggota'}</b>
+             <p>${d.anggota.length ? 'Coba kata kunci lain.' : 'Bagikan kode unit dari layar Unit.'}</p></div>`;
+      }
+      draw('');
+      $('#mq').oninput = (e) => draw(e.target.value.trim().toLowerCase());
+    }).catch(galatUnit);
+  }
+
+  function viewFacilityDevicesNyata() {
+    TC.topbar('Perangkat Unit', { sub: 'Memuat…', back: false });
+    setView(`<p class="small muted tc" style="padding:24px">Memuat perangkat…</p>`);
+    muatUnit().then((d) => {
+      if (!d.unit) { Router.navigate('/faskes', true); return; }
+      TC.topbar('Perangkat Unit', { sub: d.unit.name, back: false });
+      const nama = {};
+      d.anggota.forEach((a) => { nama[a.id] = a.nama; });
+      // Inventaris disusun dari hasil ukur: setiap TeleBand (serial) yang
+      // pernah mengirim hasil milik anggota unit ini.
+      const alat = {};
+      const batas7 = Date.now() - 7 * HARI;
+      d.rows.forEach((r) => {
+        const x = alat[r.device_serial] = alat[r.device_serial] ||
+          { serial: r.device_serial, unit: r.device_unit, firmware: r.firmware, terakhir: 0, n7: 0, n: 0, pemakai: {} };
+        const t = waktuBaris(r);
+        x.n++;
+        if (t >= batas7) x.n7++;
+        if (t > x.terakhir) { x.terakhir = t; x.firmware = r.firmware || x.firmware; x.unit = r.device_unit || x.unit; }
+        x.pemakai[r.user_id] = true;
+      });
+      const daftar = Object.values(alat).sort((a, b) => b.terakhir - a.terakhir);
+      const aktif = daftar.filter((x) => x.terakhir >= batas7).length;
+
+      setView(`
+        <div class="stat-row">
+          <div><b>${daftar.length}</b><span>TeleBand terpakai</span></div>
+          <div><b>${aktif}</b><span>Aktif 7 hari</span></div>
+          <div><b>${daftar.reduce((a, x) => a + x.n7, 0)}</b><span>Hasil 7 hari</span></div>
+        </div>
+
+        <div class="section-title">${icon('watch')} TeleBand anggota</div>
+        ${daftar.length ? `<div class="stack--sm stack">${daftar.map((x) => `
+          <div class="dev-card${x.terakhir >= batas7 ? ' is-on' : ''}">
+            <span class="dev-card__ico">${icon('watch')}</span>
+            <span style="min-width:0;flex:1">
+              <b>TeleBand${x.unit ? ' · unit ' + esc(String(x.unit)) : ''}</b>
+              <small class="mono">${esc(x.serial)}${x.firmware ? ' · fw ' + esc(x.firmware) : ''}</small>
+              <span class="meta">
+                <span class="chip" style="font-size:.66rem">${esc(relTime(x.terakhir))}</span>
+                <span class="chip" style="font-size:.66rem">${x.n} hasil</span>
+                <span class="chip" style="font-size:.66rem">${esc(Object.keys(x.pemakai).map((id) => nama[id] || '?').join(', '))}</span>
+              </span>
+            </span>
+          </div>`).join('')}</div>`
+          : `<div class="card"><p class="small muted tc" style="padding:16px">Belum ada TeleBand yang
+             mengirim hasil ukur anggota unit ini.</p></div>`}
+
+        <div class="note note--i mt2">${icon('info')}
+          <div><b>Tercatat otomatis</b>Daftar ini disusun dari hasil ukur yang dikirim anggota —
+          setiap TeleBand yang dipakai anggota muncul di sini beserta waktu pemakaian terakhirnya.</div></div>
+      `);
+    }).catch(galatUnit);
+  }
+
+  function viewFacilityStaffNyata() {
+    TC.topbar('Tenaga Kesehatan', { sub: 'Memuat…', back: false });
+    setView(`<p class="small muted tc" style="padding:24px">Memuat nakes…</p>`);
+    muatUnit().then((d) => {
+      if (!d.unit) { Router.navigate('/faskes', true); return; }
+      TC.topbar('Tenaga Kesehatan', { sub: d.unit.name, back: false });
+      setView(`
+        ${d.nakes.length ? `<div class="list">${d.nakes.map((n) => `
+          <div class="row">
+            <span class="avatar" style="background:#0E7FB8">${esc(initials(n.member_name))}</span>
+            <div style="min-width:0"><b>${esc(n.member_name)}</b>
+              <small>Bergabung ${esc(shortDate(new Date(n.created_at)))}</small></div>
+            <button class="btn btn--dangerSoft btn--sm" style="margin-left:auto" data-keluarkan="${esc(n.user_id)}"
+              data-nama="${esc(n.member_name)}">Keluarkan</button>
+          </div>`).join('')}</div>`
+          : `<div class="empty">${icon('stetho')}<b>Belum ada nakes</b>
+             <p>Dokter bergabung dengan memasukkan kode unit di Profil → Unit saya.</p></div>`}
+
+        <div class="note note--i mt2">${icon('info')}
+          <div><b>Menambah nakes</b>Bagikan kode unit dari layar Unit ke dokter. Akun berperan dokter
+          yang memasukkannya tercatat sebagai nakes, akun berperan pasien sebagai anggota.</div></div>
+      `);
+      $$('[data-keluarkan]').forEach((b) => {
+        b.onclick = async () => {
+          const ok = await confirmSheet({ title: 'Keluarkan ' + b.dataset.nama + '?',
+            body: 'Ia tidak lagi tercatat sebagai nakes unit ini.', ok: 'Keluarkan', danger: true });
+          if (!ok) return;
+          try { await TC.FacilityDB.keluarkan(d.unit.id, b.dataset.keluarkan); toast('Nakes dikeluarkan.'); Router.render(); }
+          catch (e) { toast(pesanGalat(e, FILE_UNIT), 'err'); }
+        };
+      });
+    }).catch(galatUnit);
+  }
+
   /* ============================================================
      1. DOKTER — beranda klinik
      ============================================================ */
   function viewClinic() {
+    if (!TC.FITUR.simulasi) { viewClinicNyata(); return; }
     const u = Store.user();
     const doc = D.doctor(u.doctorId) || D.DOCTORS[0];
     const consults = Store.state.consults;
@@ -206,6 +870,7 @@
 
   /* ---------------- Dokter · daftar pasien ---------------- */
   function viewPatients() {
+    if (!TC.FITUR.simulasi) { viewPatientsNyata(); return; }
     TC.topbar('Pasien Binaan', { sub: D.PATIENTS.length + ' orang terpantau', back: false });
     setView(`
       <div class="searchbar">${icon('search')}
@@ -314,6 +979,7 @@
   }
 
   function viewPatientDetail(params) {
+    if (!TC.FITUR.simulasi && (Store.is('dokter') || Store.is('admin-faskes'))) { viewPatientDetailNyata(params); return; }
     const p = D.patient(params.id);
     if (!p) {
       // Layar ini dipakai dua peran; mengembalikan ke daftar milik peran lain
@@ -505,6 +1171,7 @@
   }
 
   function viewFacility() {
+    if (!TC.FITUR.simulasi) { viewFacilityNyata(); return; }
     const u = Store.user();
     const f = facilityOf(u);
     const members = D.PATIENTS.filter((p) => p.fac === f.id);
@@ -637,6 +1304,7 @@
   }
 
   function viewFacilityMembers() {
+    if (!TC.FITUR.simulasi) { viewFacilityMembersNyata(); return; }
     const f = facilityOf(Store.user());
     TC.topbar('Anggota Unit', { sub: f.name, back: false });
     const members = D.PATIENTS.filter((p) => p.fac === f.id);
@@ -661,6 +1329,7 @@
   }
 
   function viewFacilityDevices() {
+    if (!TC.FITUR.simulasi) { viewFacilityDevicesNyata(); return; }
     const f = facilityOf(Store.user());
     TC.topbar('Perangkat Unit', { sub: f.name, back: false });
 
@@ -732,6 +1401,7 @@
   }
 
   function viewFacilityStaff() {
+    if (!TC.FITUR.simulasi) { viewFacilityStaffNyata(); return; }
     const f = facilityOf(Store.user());
     TC.topbar('Tenaga Kesehatan', { sub: f.name, back: false });
     const staff = D.DOCTORS.slice(0, f.staff);
@@ -919,7 +1589,7 @@
       <h3>Ubah peran</h3>
       <p class="sub">${esc(u.name)} · ${esc(u.email)}</p>
       <div class="stack--sm stack">
-        ${D.ROLES.map((r) => `
+        ${D.ROLES.filter((r) => !TC.peranTersembunyi(r.id)).map((r) => `
           <button class="row" data-setrole="${r.id}" style="border-radius:16px;
             ${(u.role || 'pasien') === r.id ? 'box-shadow:inset 0 0 0 1.5px var(--green-400);background:var(--green-50)' : ''}">
             <span class="row__ico" style="background:${r.color}1a;color:${r.color}">${icon(r.icon)}</span>

@@ -155,6 +155,60 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     Panah diagram arsitektur dibuat ulang: semuanya lurus mendatar ke tepi kiri kotak tujuan
     (dulu sebagian berbelok dan berhenti di celah), plus panah Basis Data → Mesin Aturan Klinis.
     `#/mulai` (onboarding) kini punya tombol kembali ke landing (`href="../"`, kelas `.onb__top`).
+26. **Data nyata saja** (25 Sep, permintaan user: "semua data dummy hilangkan"). Keputusan user:
+    dokter–pasien dibuat asli; vital "—" bila TeleBand tak tersambung; sesi makan = input manual +
+    glukosa TeleBand; tamu mulai kosong. Sakelar baru `TC.FITUR.simulasi=false` (semua jalur simulasi
+    tetap ada di kode) dan `peranAdmin=false` (Admin Faskes/Platform disembunyikan: seluruhnya data
+    contoh; akun lama berperan itu di-logout oleh `wrap()`).
+    - Vitals: nilai awal null, `step()` tak membangkitkan apa pun, `hist` diisi `ingest()`, alat lepas
+      → kembali null. `snapshot()` mengembalikan null per metrik; kartu suhu/EKG hilang.
+    - Sesi makan `v: 2`: titik Sebelum makan (−30…+15 mnt), +1 jam (45…80), +2 jam (105…140) hanya
+      diisi `Meals.isiGlukosa()` dari HASIL TeleBand (dipanggil `TeleBandLink.onHasil`, pakai waktu
+      alat); jendela lewat → `terlewat`; delta hanya bila baseline + ≥1 titik sesudah; selain itu
+      kategori "Data kurang". Foto hanya lampiran, tak ada pengenalan makanan acak.
+    - Tren 7 hari & grafik detail vital dari `Readings` (`TC.trenDariHasil`, `TC.hasilLokal`).
+      Riwayat: tab "Hasil Ukur" menggantikan "Sinkronisasi".
+    - `bersihkanDataDummy()` (app.js, sekali, bendera `dataNyataV1`): buang perangkat non-TeleBand,
+      buffer, sesi makan lama, dailyVitals, vitalsHistory, isian tamu.
+    - Dokter–pasien: migrasi `supabase/migrations/20260926_care_links.sql` (care_invites, care_links,
+      RPC `hubungkan_dokter`, policy `device_readings_select_doctor`). Klien `TC.CareDB`
+      (supabase.js). Dokter: kartu Kode dokter + pasien dari server (`viewClinicNyata` dkk. di
+      views-roles.js); pasien: Profil → Dokter saya (`/profil/dokter`). Tanpa migrasi, layar
+      menampilkan petunjuk menjalankannya (dicek: server produksi belum punya tabelnya).
+    - Tab bar pasien: Riwayat di kiri Profil. Aplikasi kini punya `[hidden]{display:none!important}`.
+    - Landing: "Jadwalkan Demo" → "Buka Aplikasi"; Wi-Fi → Bluetooth (teks & ikon `i-bt`);
+      tangkapan kedua `assets/img/app-pindai.png` (emulasi 390×844 lewat CDP, skrip scratch).
+      Tangkapan lama `app-beranda.webp` masih berisi data contoh & tab Konsultasi.
+    - Uji Node TeleBand kini 60/60 (asersi 4C lama diganti: suhu tetap null; + 5 uji sesi makan).
+27. **Admin Faskes kembali, data asli** (25 Sep, permintaan user; Admin Platform tetap tersembunyi,
+    `peranTersembunyi()` kini hanya 'admin'). Migrasi `supabase/migrations/20260926_facilities.sql`:
+    `facilities` (satu unit per admin, kolom `code`), `facility_members` (role pasien|dokter, nama
+    disalin), RPC `gabung_unit(kode, nama, peran)`, policy `device_readings_select_facility` (admin
+    membaca hasil ukur anggota berperan pasien). Klien `TC.FacilityDB` + `ReadingsDB.daftarBanyak`.
+    Layar `viewFacilityNyata` (buat unit bila belum ada, kode unit, triase dari hasil terakhir,
+    grafik jumlah hasil 7 hari, laporan CSV), Anggota, Perangkat (inventaris dari `device_serial`
+    hasil ukur), Nakes; detail anggota memakai `viewPatientDetailNyata` (mode FASKES: tanpa catatan
+    klinis, tombol "Keluarkan dari unit"). Anggota/nakes bergabung di Profil → Unit saya
+    (`/profil/unit`, pasien & dokter). Diuji dengan mock FacilityDB/ReadingsDB (tampilan benar);
+    alur server belum teruji karena migrasi belum dijalankan.
+28. **Capaian target gizi** (25 Sep, permintaan user: pasien tak tahu apakah target Tujuan
+    Kesehatan tercapai). `Meals.progresTarget()` (engine.js): status per zat gizi — sisa (<90%),
+    tercapai (90–110%), lebih (>110%). Kartu bersama `TC.views.kartuTarget()` di Beranda
+    ("Ringkasan Hari Ini", + tautan Atur target) dan di atas Profil → Tujuan Kesehatan.
+    Bug diperbaiki: `Meals.today()` dulu mengabaikan sesi yang masih berjalan (baru terhitung ±2 jam
+    setelah makan).
+29. **Target gizi dari profil** (25 Sep, permintaan user). `TC.Gizi` (engine.js): BMR Mifflin-St Jeor
+    × faktor aktivitas (1,2/1,375/1,55/1,725) ± tujuan (turun −500, massa +300; lantai = max(BMR,
+    1200 P/1500 L)); protein g/kg (jaga 0,8 · gula 1,0 · turun 1,2 · massa 1,6), lemak % energi
+    (jaga 30 · gula 35 · lainnya 25), karbo = sisa; semua kombinasi uji berada dalam AMDR. Field profil
+    baru `aktivitas` (Informasi Pribadi & Lengkapi Data) dan `targetManual` (target ketik sendiri tidak
+    ditimpa; tombol "Hitung ulang dari profil"). Profil belum lengkap → paket D.GOALS + petunjuk.
+    Target dihitung ulang saat boot, simpan profil, dan pilih tujuan. Halaman Tujuan menampilkan
+    "Dasar perhitungan target" langkah demi langkah. Angka "tercapai" = jumlah gizi sesi makan hari
+    ini dari tabel FOODS (bukan TeleBand). Uji Node gizi 24/24 (skrip scratch).
+30. **Tujuan "Bulking"** (25 Sep, permintaan user): `bulking` di D.GOALS (cadangan 2700/355/130/75) dan
+    `Gizi.TUJUAN` (+500 kkal, protein 1,8 g/kg, lemak 25%) — beda dari "Menambah massa otot" (+300,
+    1,6 g/kg). Otomatis muncul di Profil → Tujuan dan Lengkapi Data. Uji gizi 29/29.
 
 ---
 
@@ -338,9 +392,11 @@ Urut dari yang paling perlu diselesaikan.
 
 ## 8. Rencana berikutnya
 
-- [ ] Jalankan migrasi `messages.kind/data` dan `device_readings` di Supabase SQL Editor
+- [ ] Jalankan migrasi `messages.kind/data`, `device_readings`, `care_links`, dan `facilities` di Supabase SQL Editor
 - [x] Uji TeleBand dengan alat fisik (25 Sep 2026, Android + Vercel)
-- [ ] TeleBand tahap 2: hasil ukur pasien di layar dokter; UI kalibrasi per unit (`SET_KALIBRASI`)
+- [x] Hasil ukur pasien di layar dokter (care_links, 25 Sep) — perlu migrasi dijalankan
+- [ ] TeleBand tahap 2: UI kalibrasi per unit (`SET_KALIBRASI`)
+- [ ] Perbarui tangkapan `assets/img/app-beranda.webp` (masih data contoh)
 - [ ] Ekspor skema + RLS + Edge Function `send-push` ke `supabase/` di repo
 - [ ] Ganti kredensial TURN statis dengan kredensial sementara (`fetchFrom`), putar ulang yang lama
 - [ ] Putuskan nasib dashboard landing page (Supabase atau simulasi berlabel), lalu hapus sisa Firebase

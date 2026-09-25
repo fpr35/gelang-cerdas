@@ -95,8 +95,21 @@ window.TC = window.TC || {};
      Ubah ke `true` untuk memunculkannya kembali. */
   const FITUR = {
     daftarAkun: false,   // layar Daftar (/daftar) dan tautan "Daftar sekarang"
-    konsultasi: false    // konsultasi dokter, chat, panggilan, janji temu, dering panggilan
+    konsultasi: false,   // konsultasi dokter, chat, panggilan, janji temu, dering panggilan
+    // Data simulasi purwarupa: vital acak saat alat tidak tersambung, perangkat
+    // dan buffer simulasi, kurva gula darah acak, isian akun tamu, katalog
+    // pasien contoh. Mati = hanya angka dari TeleBand dan perhitungan
+    // atasnya yang tampil; tanpa alat, vital tampil "—".
+    simulasi: false,
+    // Peran Admin Platform. Layarnya dibangun seluruhnya dari data contoh
+    // (statistik platform, verifikasi dokter, daftar faskes) yang belum punya
+    // padanan nyata, jadi disembunyikan dari pilihan peran. Admin Faskes
+    // tetap ada: tanpa simulasi ia memakai unit sungguhan (tabel facilities).
+    peranAdmin: false
   };
+
+  /** Benar bila peran itu sedang disembunyikan (lihat FITUR.peranAdmin). */
+  const peranTersembunyi = (role) => !FITUR.peranAdmin && role === 'admin';
 
   /* ---------------- 2. STORE ---------------- */
   // Seluruh data aplikasi tersimpan di localStorage perangkat ini.
@@ -142,7 +155,11 @@ window.TC = window.TC || {};
     profile: {
       nickname: '', gender: '', age: null, height: null, weight: null,
       goal: 'jaga-berat',
+      aktivitas: null,             // id di TC.Gizi.AKTIVITAS
+      // Target dihitung dari profil (TC.Gizi); `targetManual` benar bila
+      // pengguna mengetik targetnya sendiri — perhitungan tidak menimpanya.
       targets: { kcal: 2000, carb: 250, protein: 60, fat: 65 },
+      targetManual: false,
       bpCal: null                  // { sys, dia, at }
     },
     // turn: { urls, username, credential } — server TURN pilihan pengguna,
@@ -621,7 +638,7 @@ window.TC = window.TC || {};
   Object.assign(TC, {
     $, $$, clamp, lerp, rnd, rint, pick, uid, secureId, esc, icon, rupiah,
     pad2, hhmm, fullDate, shortDate, relTime, countdown, greeting, initials,
-    DAYS, MONTHS, FITUR,
+    DAYS, MONTHS, FITUR, peranTersembunyi,
     Store, Router,
     setView, setTopbar, topbar, toast, sheet, closeSheet: close, confirmSheet,
     fitCanvas, sparkline, lineChart, barChart, gaugeSvg, ringSvg

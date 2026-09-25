@@ -304,13 +304,38 @@
   }
 
   /* ---------------- MASUK SEBAGAI TAMU ---------------- */
+  /**
+   * Akun tamu tanpa data contoh (TC.FITUR.simulasi mati): tanpa perangkat,
+   * riwayat, notifikasi, atau identitas dokter/pasien karangan. Nama bisa
+   * diubah di Profil → Informasi Pribadi; dokter memakainya pada kode dokter.
+   */
+  function buatTamuKosong(redirect, role) {
+    const id = uid('u');
+    const nama = role === 'dokter' ? 'Dokter Tamu' : role === 'admin-faskes' ? 'Pengelola Tamu' : 'Tamu';
+    const user = {
+      id, name: nama, nickname: nama, email: id + '@tamu.local', phone: '',
+      pass: null, role, doctorId: null, facilityId: null,
+      createdAt: Date.now(), demo: true
+    };
+    Store.update((s) => {
+      s.users[id] = user;
+      s.onboarded = true;
+      s.profile = Object.assign(s.profile, { nickname: nama });
+      s.session = { userId: id, at: Date.now() };
+    });
+    if (redirect === false) return;
+    Router.navigate(TC.DATA.role(role).home, true);
+    toast('Masuk sebagai tamu · peran ' + TC.DATA.role(role).name + '.');
+  }
+
   function guestSheet() {
     sheet(`
       <h3>Masuk sebagai tamu</h3>
-      <p class="sub">Pilih peran yang ingin Anda coba. Data contoh disiapkan otomatis
-        dan hanya tersimpan di peramban ini.</p>
+      <p class="sub">${TC.FITUR.simulasi
+        ? 'Pilih peran yang ingin Anda coba. Data contoh disiapkan otomatis dan hanya tersimpan di peramban ini.'
+        : 'Pilih peran Anda. Akun tamu dimulai kosong — datanya terisi dari pengukuran TeleBand Anda sendiri.'}</p>
       <div class="stack--sm stack">
-        ${TC.DATA.ROLES.map((r) => `
+        ${TC.DATA.ROLES.filter((r) => !TC.peranTersembunyi(r.id)).map((r) => `
           <button class="row" data-role="${r.id}" style="border-radius:16px">
             <span class="row__ico" style="background:${r.color}1a;color:${r.color}">${icon(r.icon)}</span>
             <div style="min-width:0"><b>${esc(r.name)}</b><small>${esc(r.desc)}</small></div>
@@ -331,6 +356,8 @@
    */
   function seedDemoUser(redirect, role) {
     role = role || 'pasien';
+    if (TC.peranTersembunyi(role)) role = 'pasien';
+    if (!TC.FITUR.simulasi) { buatTamuKosong(redirect, role); return; }
     const id = uid('u');
     const PROFILES = {
       'pasien':       { name: 'Ayu Prameswari',   nick: 'Ayu',   email: 'ayu@contoh.id' },
@@ -542,6 +569,12 @@
         <label class="field"><span>Berat badan (kg)</span>
           <span class="wrap"><input name="weight" type="number" min="20" max="250" step="0.1" value="${p.weight || ''}" placeholder="mis. 60"></span>
           <span class="hint">Perbarui kira-kira sebulan sekali agar target tetap masuk akal.</span></label>
+        <label class="field"><span>Tingkat aktivitas</span>
+          <span class="wrap"><select name="aktivitas">
+            <option value="">Belum diisi</option>
+            ${TC.Gizi.AKTIVITAS.map((a) => `<option value="${a.id}"${p.aktivitas === a.id ? ' selected' : ''}>${esc(a.nama)} — ${esc(a.desc)}</option>`).join('')}
+          </select></span>
+          <span class="hint">Menentukan faktor pengali kebutuhan energi harian.</span></label>
 
         <div class="section-title">${icon('target')} Tujuan kesehatan</div>
         <div class="stack--sm stack" id="goals">
@@ -568,9 +601,10 @@
           age: +f.age.value || null,
           height: +f.height.value || null,
           weight: +f.weight.value || null,
-          goal: goalId,
-          targets: Object.assign({}, TC.DATA.goal(goalId).targets)
+          aktivitas: f.aktivitas.value || null,
+          goal: goalId
         });
+        TC.Gizi.terapkan(s.profile, true);
       });
       toast('Data tersimpan.');
       Router.navigate('/home', true);

@@ -186,7 +186,12 @@
     { id: 'gula-stabil', name: 'Menjaga kestabilan gula darah', desc: 'Karbohidrat lebih rendah dan serat lebih tinggi.',
       targets: { kcal: 1900, carb: 180, protein: 80, fat: 70 } },
     { id: 'naik-massa',  name: 'Menambah massa otot', desc: 'Surplus energi ringan dengan protein tinggi.',
-      targets: { kcal: 2400, carb: 300, protein: 110, fat: 70 } }
+      targets: { kcal: 2400, carb: 300, protein: 110, fat: 70 } },
+    // Bulking: surplus lebih besar dari "Menambah massa otot" (+500 vs +300 kkal)
+    // untuk menaikkan berat badan lebih cepat; paling bermakna bila disertai
+    // latihan beban rutin. Target di bawah hanya cadangan bila profil belum lengkap.
+    { id: 'bulking',     name: 'Bulking', desc: 'Surplus energi lebih besar untuk menaikkan berat badan dan massa otot lebih cepat, disertai latihan beban rutin.',
+      targets: { kcal: 2700, carb: 355, protein: 130, fat: 75 } }
   ];
 
   /* ---------------- ARTIKEL EDUKASI ---------------- */

@@ -97,10 +97,17 @@
      ============================================================ */
   const Vitals = (function () {
     const HIST = 60;
-    const state = {
+    // Tanpa simulasi (TC.FITUR.simulasi mati) setiap metrik mulai kosong dan
+    // hanya terisi oleh angka dari alat; tampilan menulis "—" untuk null.
+    const SIM = () => !!TC.FITUR.simulasi;
+    const state = SIM() ? {
       hr: 74, spo2: 98, temp: 36.7, sys: 118, dia: 76,
       stress: 28, steps: 0, glucose: 92, hrv: 46,
       source: 'sim', updatedAt: Date.now()
+    } : {
+      hr: null, spo2: null, temp: null, sys: null, dia: null,
+      stress: null, steps: 0, glucose: null, hrv: null,
+      source: 'none', updatedAt: null
     };
     // `dia` ikut direkam supaya grafik tekanan darah menggambar diastolik yang
     // sebenarnya. Sebelumnya riwayat ini tidak ada, dan grafiknya memalsukan
@@ -129,6 +136,9 @@
     }
 
     function step() {
+      // Tanpa simulasi tidak ada yang dibangkitkan; riwayat grafik diisi oleh
+      // ingest(), satu titik per pembacaan alat.
+      if (!SIM()) return;
       const now = new Date();
       const base = circadian(now.getHours() + now.getMinutes() / 60);
 
@@ -165,7 +175,7 @@
     }
 
     function start() {
-      if (timer) return;
+      if (timer || !SIM()) return;
       if (!hist.hr.length) for (let i = 0; i < 30; i++) step();
       timer = setInterval(step, 2000);
     }
@@ -209,6 +219,13 @@
           }
         });
         state.updatedAt = now;
+        if (!SIM()) {
+          Object.keys(hist).forEach((k) => {
+            if (typeof v[k] !== 'number' || !isFinite(v[k])) return;
+            hist[k].push(state[k]);
+            if (hist[k].length > HIST) hist[k].shift();
+          });
+        }
         subs.forEach((fn) => { try { fn(state); } catch (e) { /* abaikan */ } });
       },
 
@@ -237,7 +254,10 @@
        */
       releaseDevice() {
         if (state.source !== 'device') return;
-        state.source = 'sim';
+        state.source = SIM() ? 'sim' : 'none';
+        // Tanpa simulasi, angka alat tidak dibiarkan membeku di layar setelah
+        // alat lepas: vital kembali kosong ("—").
+        if (!SIM()) Object.keys(dariAlat).forEach((k) => { state[k] = null; });
         Object.keys(dariAlat).forEach((k) => { delete dariAlat[k]; });
         state.updatedAt = Date.now();
         subs.forEach((fn) => { try { fn(state); } catch (e) { /* abaikan */ } });
@@ -245,14 +265,18 @@
 
       /** 'sim' atau 'device' — dipakai UI untuk menandai asal angka. */
       source() { return state.source; },
+      /** Angka bulat per metrik; null bila metrik itu belum terukur. */
       snapshot() {
+        const bulat = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x) : null);
         return {
-          hr: Math.round(state.hr), spo2: Math.round(state.spo2),
-          temp: +state.temp.toFixed(1), sys: Math.round(state.sys),
-          dia: Math.round(state.dia), stress: Math.round(state.stress),
-          hrv: state.hrv, glucose: Math.round(state.glucose), at: Date.now()
+          hr: bulat(state.hr), spo2: bulat(state.spo2),
+          temp: typeof state.temp === 'number' ? +state.temp.toFixed(1) : null,
+          sys: bulat(state.sys), dia: bulat(state.dia), stress: bulat(state.stress),
+          hrv: state.hrv, glucose: bulat(state.glucose), at: state.updatedAt || Date.now()
         };
       },
+      /** Benar bila ada setidaknya satu metrik yang sedang datang dari alat. */
+      adaDariAlat() { return Object.keys(dariAlat).length > 0; },
       stressLabel(v) {
         const s = v == null ? state.stress : v;
         if (s >= 66) return { t: 'Tinggi', c: 'r' };
@@ -429,8 +453,8 @@
             const d = s.devices.find((x) => x.id === dev.id);
             if (d) d.connected = false;
           });
-          Store.notify('Perangkat terputus',
-            dev.name + ' lepas dari Bluetooth. Vital kembali ke simulasi.', 'warn');
+          Store.notify('Perangkat terputus', dev.name + ' lepas dari Bluetooth.' +
+            (TC.FITUR.simulasi ? ' Vital kembali ke simulasi.' : ''), 'warn');
         },
         onLog(m) { console.info('[TeleCare BLE]', m); }
       });
@@ -479,7 +503,7 @@
         s.devices = s.devices.filter((d) => d.code !== dev.code);
         s.devices.push(dev);
         s.activeDeviceId = dev.id;
-        s.pendingSamples = rint(0, 40);
+        if (TC.FITUR.simulasi) s.pendingSamples = rint(0, 40);
       });
       Store.notify('Perangkat tersambung', dev.name + ' · ' + dev.code, 'ok');
       startBuffer();
@@ -531,7 +555,8 @@
 
     /** Buffer jam bertambah selama belum disinkronkan. */
     function startBuffer() {
-      if (syncTimer) return;
+      // Buffer jam ini buatan (sampel bertambah sendiri); tanpa simulasi tidak ada.
+      if (syncTimer || !TC.FITUR.simulasi) return;
       syncTimer = setInterval(() => {
         const s = Store.state;
         // Perangkat sungguhan mengalirkan nilai langsung lewat notifikasi GATT,
@@ -639,8 +664,79 @@
       return Math.round(clamp(raw * clamp(giFactor, 0.7, 1.6), 8, 78));
     }
 
+    /* ---------------- sesi makan dari pengukuran sungguhan ----------------
+       Tanpa simulasi, setiap titik gula darah punya JENDELA waktu, dan hanya
+       diisi oleh hasil ukur TeleBand (paket HASIL berisi glukosa) yang selesai
+       di dalam jendela itu. Jendela yang lewat tanpa pengukuran ditandai
+       `terlewat` — tidak pernah diisi angka karangan. Glukosa TeleBand sendiri
+       hanya estimasi eksperimental, jadi seluruh kurva ikut berlabel begitu. */
+    const MIN = 60000;
+    const TITIK_NYATA = [
+      { key: 'baseline', label: 'Sebelum makan', offset: 0,        dari: -30 * MIN, sampai: 15 * MIN },
+      { key: 'h1',       label: '+1 jam',        offset: HOUR,     dari: 45 * MIN,  sampai: 80 * MIN },
+      { key: 'h2',       label: '+2 jam',        offset: 2 * HOUR, dari: 105 * MIN, sampai: 140 * MIN }
+    ];
+
+    /** Glukosa terbaru dari TeleBand yang selesai dalam [t0, t1], atau null. */
+    function glukosaAlatAntara(t0, t1) {
+      const r = Readings.list().find((x) => {
+        const t = x.waktu ? x.waktu + (x.durasi || 0) * 1000 : x.diterima;
+        return x.glukosa != null && t >= t0 && t <= t1;
+      });
+      return r ? r.glukosa : null;
+    }
+
+    function createNyata(items, photo) {
+      const now = Date.now();
+      const meal = {
+        id: uid('meal'), v: 2, at: now, photo: photo || null,
+        kind: mealKind(new Date(now)).name,
+        items, nutrition: nutrition(items), speed: 1,
+        baseline: null, status: 'running', sumber: 'teleband',
+        points: TITIK_NYATA.map((t) => Object.assign({ value: null, done: false }, t))
+      };
+      // Pengukuran yang baru saja dilakukan sebelum sesi dibuat ikut dipakai
+      // sebagai titik "sebelum makan".
+      const awal = glukosaAlatAntara(now + meal.points[0].dari, now);
+      if (awal != null) Object.assign(meal.points[0], { value: awal, done: true });
+      meal.baseline = meal.points[0].value;
+      Store.update((s) => { s.activeMeal = meal; });
+      return meal;
+    }
+
+    /**
+     * Dipanggil TeleBandLink setiap kali hasil ukur berisi glukosa masuk.
+     * Mengisi titik sesi berjalan yang jendelanya memuat waktu `t`.
+     */
+    function isiGlukosa(nilai, t) {
+      const m = Store.state.activeMeal;
+      if (!m || m.v !== 2 || m.status !== 'running' || nilai == null) return false;
+      // Titik yang sempat ditandai terlewat masih boleh terisi selama sesi
+      // berjalan: hasil ukur bisa tiba terlambat lewat sinkronisasi alat,
+      // tetapi waktunya tetap waktu pengukuran di alat.
+      const p = m.points.find((x) => (!x.done || x.terlewat) &&
+        t >= m.at + x.dari && t <= m.at + x.sampai);
+      if (!p) return false;
+      p.value = Math.round(nilai);
+      p.done = true;
+      p.terlewat = false;
+      if (p.key === 'baseline') m.baseline = p.value;
+      if (m.points.every((x) => x.done)) finish(m);
+      else Store.save();
+      return true;
+    }
+
+    /** Status satu titik untuk tampilan: 'terisi' | 'terlewat' | 'sekarang' | 'nanti'. */
+    function statusTitik(m, p, now) {
+      if (p.done) return p.value != null ? 'terisi' : 'terlewat';
+      const t = now || Date.now();
+      if (m.v !== 2) return 'nanti';
+      return t >= m.at + p.dari ? 'sekarang' : 'nanti';
+    }
+
     /** Membuat sesi baru; titik pengukuran dipercepat pada mode demo. */
     function create(items, photo, opts) {
+      if (!TC.FITUR.simulasi) return createNyata(items, photo);
       opts = opts || {};
       const now = Date.now();
       const n = nutrition(items);
@@ -687,6 +783,17 @@
       if (!m || m.status !== 'running') return;
       let changed = false;
       const now = Date.now();
+      if (m.v === 2) {
+        // Jendela yang sudah lewat tanpa pengukuran: terlewat, tanpa angka.
+        m.points.forEach((p) => {
+          if (!p.done && now > m.at + p.sampai) { p.done = true; p.terlewat = true; changed = true; }
+        });
+        if (changed) {
+          if (m.points.every((p) => p.done)) finish(m);
+          else Store.save();
+        }
+        return changed;
+      }
       m.points.forEach((p) => {
         if (p.done || p.offset < 0) return;
         if (now >= pointDue(m, p)) {
@@ -703,6 +810,7 @@
     }
 
     function finish(m) {
+      if (m.v === 2) return finishNyata(m);
       const measured = m.points.filter((p) => p.done && p.value != null);
       const peakP = measured.reduce((a, b) => (b.value > a.value ? b : a), measured[0]);
       m.peak = peakP.value;
@@ -721,6 +829,41 @@
         `${m.kind} · puncak ${m.peak} mg/dL (+${m.delta} dari baseline)`, 'ok');
     }
 
+    /**
+     * Ringkasan dari titik yang benar-benar terukur. Kenaikan hanya dihitung
+     * bila titik "sebelum makan" DAN minimal satu titik sesudah makan ada;
+     * selain itu sesi tetap tersimpan (gizinya nyata) tetapi tanpa angka kurva.
+     */
+    function finishNyata(m) {
+      const base = m.points[0].value;
+      const sesudah = m.points.slice(1).filter((p) => p.value != null);
+      m.baseline = base;
+      if (base != null && sesudah.length) {
+        const puncak = sesudah.reduce((a, b) => (b.value > a.value ? b : a));
+        m.peak = puncak.value;
+        m.peakAt = puncak.label;
+        m.delta = m.peak - base;
+        m.category = m.delta > 45 ? 'Tinggi' : m.delta > 28 ? 'Sedang' : 'Landai';
+        const h2 = m.points[2].value;
+        // "Pulih dalam 2 jam" hanya bisa dinilai bila titik +2 jam terukur.
+        m.pulih2jam = h2 == null ? null : h2 - base <= 10;
+      } else {
+        m.peak = null; m.peakAt = null; m.delta = null; m.pulih2jam = null;
+        m.category = 'Data kurang';
+      }
+      m.recovery = null;
+      m.status = 'done';
+      m.doneAt = Date.now();
+      Store.update((s) => {
+        s.meals.unshift(m);
+        s.meals = s.meals.slice(0, 60);
+        s.activeMeal = null;
+      });
+      Store.notify('Sesi selesai', m.delta != null
+        ? `${m.kind} · puncak ${m.peak} mg/dL (+${m.delta} dari sebelum makan) · estimasi TeleBand`
+        : `${m.kind} · gizi tercatat; titik gula darah belum cukup untuk menghitung kenaikan`, 'ok');
+    }
+
     function cancel() {
       Store.update((s) => { s.activeMeal = null; });
     }
@@ -737,7 +880,12 @@
     /** Ringkasan hari ini dari seluruh sesi. */
     function today() {
       const start = new Date(); start.setHours(0, 0, 0, 0);
-      const list = Store.state.meals.filter((m) => m.at >= start.getTime());
+      // Sesi yang masih berjalan ikut dihitung: makanannya sudah disantap.
+      // Dulu sesi baru masuk hitungan setelah selesai (±2 jam kemudian),
+      // sehingga asupan hari ini tampak lebih kecil dari kenyataannya.
+      const active = Store.state.activeMeal;
+      const list = Store.state.meals.concat(active ? [active] : [])
+        .filter((m) => m.at >= start.getTime());
       const t = { kcal: 0, carb: 0, protein: 0, fat: 0, count: list.length };
       list.forEach((m) => {
         t.kcal += m.nutrition.kcal; t.carb += m.nutrition.carb;
@@ -747,8 +895,38 @@
       return t;
     }
 
+    /**
+     * Capaian target gizi hari ini (Profil → Tujuan Kesehatan).
+     * Satu butir per zat gizi: { key, label, unit, nilai, target, pct, status, teks }.
+     * status: 'sisa' (< 90% target), 'tercapai' (90–110%), 'lebih' (> 110%).
+     * Rentang ±10% dipakai karena porsi rumahan tidak pernah persis.
+     */
+    const ZAT = [
+      { key: 'kcal', label: 'Kalori', unit: 'kkal' },
+      { key: 'carb', label: 'Karbohidrat', unit: 'g' },
+      { key: 'protein', label: 'Protein', unit: 'g' },
+      { key: 'fat', label: 'Lemak', unit: 'g' }
+    ];
+    function progresTarget() {
+      const t = today();
+      const target = Store.profile().targets;
+      const butir = ZAT.map((z) => {
+        const nilai = t[z.key], tg = target[z.key] || 0;
+        const pct = tg ? nilai / tg : 0;
+        const status = pct > 1.1 ? 'lebih' : pct >= 0.9 ? 'tercapai' : 'sisa';
+        const teks = status === 'tercapai' ? 'tercapai'
+          : status === 'lebih' ? 'lebih ' + Math.round(nilai - tg) + ' ' + z.unit
+          : 'sisa ' + Math.round(tg - nilai) + ' ' + z.unit;
+        return Object.assign({ nilai, target: tg, pct, status, teks }, z);
+      });
+      return {
+        butir, sesi: t.count,
+        tercapai: butir.filter((b) => b.status === 'tercapai').length
+      };
+    }
+
     function peakTrend(n) {
-      return Store.state.meals.filter((m) => m.status === 'done')
+      return Store.state.meals.filter((m) => m.status === 'done' && m.peak != null)
         .slice(0, n || 6).map((m) => m.peak).reverse();
     }
 
@@ -765,9 +943,98 @@
     }
 
     return {
-      create, tick, cancel, finish, nutrition, predictDelta, valueAt,
-      pointDue, currentGlucose, today, peakTrend, recognize, mealKind
+      create, tick, cancel, finish, nutrition, predictDelta, valueAt, isiGlukosa, statusTitik,
+      pointDue, currentGlucose, today, progresTarget, peakTrend, recognize, mealKind
     };
+  })();
+
+  /* ============================================================
+     4b. TARGET GIZI DARI PROFIL
+     ============================================================
+     Target harian dihitung dari profil pengguna, bukan paket tetap:
+       1. Energi basal (BMR) — persamaan Mifflin-St Jeor (1990):
+            10·berat(kg) + 6,25·tinggi(cm) − 5·usia + 5   (laki-laki)
+            10·berat(kg) + 6,25·tinggi(cm) − 5·usia − 161 (perempuan)
+       2. Kebutuhan harian = BMR × faktor aktivitas, lalu disesuaikan
+          tujuan (turun berat −500, tambah massa otot +300, bulking +500 kkal).
+          Tidak pernah di bawah BMR maupun 1200/1500 kkal (P/L).
+       3. Protein per kg berat badan, lemak sebagai persen energi,
+          karbohidrat mengisi sisanya (4 kkal/g karbo & protein, 9 kkal/g
+          lemak). Hasilnya berada dalam rentang AMDR: karbo 45–65%,
+          protein 10–35%, lemak 20–35% energi.
+     Bila profil belum lengkap, paket tetap D.GOALS dipakai sebagai cadangan.
+     ============================================================ */
+  const Gizi = (function () {
+    const AKTIVITAS = [
+      { id: 'sedentari', nama: 'Jarang bergerak', desc: 'Kerja duduk, hampir tanpa olahraga', f: 1.2 },
+      { id: 'ringan', nama: 'Aktivitas ringan', desc: 'Olahraga ringan 1–3 hari per minggu', f: 1.375 },
+      { id: 'sedang', nama: 'Aktivitas sedang', desc: 'Olahraga 3–5 hari per minggu', f: 1.55 },
+      { id: 'berat', nama: 'Aktivitas berat', desc: 'Olahraga berat 6–7 hari per minggu atau kerja fisik', f: 1.725 }
+    ];
+    const TUJUAN = {
+      'jaga-berat':  { kkal: 0,    proteinPerKg: 0.8, lemakPct: 0.30, teks: 'sesuai kebutuhan harian' },
+      'turun-berat': { kkal: -500, proteinPerKg: 1.2, lemakPct: 0.25, teks: 'defisit 500 kkal' },
+      'gula-stabil': { kkal: 0,    proteinPerKg: 1.0, lemakPct: 0.35, teks: 'karbohidrat lebih rendah' },
+      'naik-massa':  { kkal: 300,  proteinPerKg: 1.6, lemakPct: 0.25, teks: 'surplus 300 kkal' },
+      'bulking':     { kkal: 500,  proteinPerKg: 1.8, lemakPct: 0.25, teks: 'surplus 500 kkal' }
+    };
+    const aktivitas = (id) => AKTIVITAS.find((a) => a.id === id) || null;
+
+    /** Data profil yang masih kurang untuk menghitung, [] bila lengkap. */
+    function kurang(p) {
+      const k = [];
+      if (p.gender !== 'perempuan' && p.gender !== 'laki-laki') k.push('jenis kelamin');
+      if (!p.age) k.push('usia');
+      if (!p.height) k.push('tinggi badan');
+      if (!p.weight) k.push('berat badan');
+      if (!aktivitas(p.aktivitas)) k.push('tingkat aktivitas');
+      return k;
+    }
+
+    /** Target dan rincian hitungannya, atau null bila profil belum lengkap. */
+    function hitung(p, goalId) {
+      if (kurang(p).length) return null;
+      const t = TUJUAN[goalId] || TUJUAN['jaga-berat'];
+      const lk = p.gender === 'laki-laki';
+      const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (lk ? 5 : -161);
+      const akt = aktivitas(p.aktivitas);
+      const tdee = bmr * akt.f;
+      const lantai = Math.max(bmr, lk ? 1500 : 1200);
+      const kcal = Math.round(Math.max(tdee + t.kkal, lantai));
+      const protein = Math.round(p.weight * t.proteinPerKg);
+      const fat = Math.round((kcal * t.lemakPct) / 9);
+      const carb = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
+      return {
+        targets: { kcal, carb, protein, fat },
+        bmr: Math.round(bmr), tdee: Math.round(tdee), aktivitas: akt,
+        penyesuaian: t.kkal, dilantai: kcal === Math.round(lantai) && tdee + t.kkal < lantai,
+        tujuan: t,
+        persen: {
+          carb: Math.round((carb * 4 / kcal) * 100),
+          protein: Math.round((protein * 4 / kcal) * 100),
+          fat: Math.round((fat * 9 / kcal) * 100)
+        }
+      };
+    }
+
+    /** Target untuk profil & tujuan: hasil hitungan, atau paket tetap sebagai cadangan. */
+    function targetUntuk(p, goalId) {
+      const h = hitung(p, goalId);
+      return h ? h.targets : Object.assign({}, D.goal(goalId).targets);
+    }
+
+    /**
+     * Menulis ulang profile.targets dari profil — kecuali pengguna sedang
+     * memakai target yang ia ketik sendiri (targetManual).
+     */
+    function terapkan(profil, paksa) {
+      if (profil.targetManual && !paksa) return false;
+      profil.targets = targetUntuk(profil, profil.goal);
+      if (paksa) profil.targetManual = false;
+      return true;
+    }
+
+    return { AKTIVITAS, TUJUAN, aktivitas, kurang, hitung, targetUntuk, terapkan };
   })();
 
   /* ============================================================
@@ -1277,6 +1544,10 @@
       }
       const ok = await Readings.terima(r, i || info);
       if (ok) ubahPerangkat({ lastSync: Date.now() });
+      // Glukosa hasil ukur mengisi titik sesi makan yang sedang berjalan.
+      if (r.glukosa != null) {
+        Meals.isiGlukosa(r.glukosa, r.waktuValid ? (r.epoch + r.durasi) * 1000 : Date.now());
+      }
       emit();
       return ok;
     }
@@ -1288,8 +1559,8 @@
       ubahPerangkat({ connected: false });
       Vitals.releaseDevice();
       if (!diputusPengguna) {
-        Store.notify('TeleBand terputus',
-          (nama || 'TeleBand') + ' lepas dari Bluetooth. Vital kembali ke simulasi.', 'warn');
+        Store.notify('TeleBand terputus', (nama || 'TeleBand') + ' lepas dari Bluetooth.' +
+          (TC.FITUR.simulasi ? ' Vital kembali ke simulasi.' : ''), 'warn');
       }
       emit();
     }
@@ -1435,7 +1706,64 @@
    * ukurannya, dan `ada: false` — pemanggil wajib menanganinya, bukan
    * menggantinya dengan angka.
    */
+  /**
+   * Tren 7 hari dari daftar hasil ukur: [{ t, bpm, spo2 }].
+   * Detak istirahat didekati dengan bpm terendah hari itu, saturasi dengan
+   * SpO₂ terendah. Hari tanpa hasil ukur: `ada: false`, nilai null.
+   * Dipakai layar Analisis pasien dan layar dokter (hasil dari server).
+   */
+  function trenDariHasil(hasil) {
+    const out = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      const t0 = d.getTime(), t1 = t0 + 86400000;
+      const hari = (hasil || []).filter((x) => x.t >= t0 && x.t < t1);
+      const bpm = hari.map((x) => x.bpm).filter((v) => typeof v === 'number');
+      const spo2 = hari.map((x) => x.spo2).filter((v) => typeof v === 'number');
+      out.push({
+        label: TC.DAYS[d.getDay()].slice(0, 3),
+        ada: bpm.length + spo2.length > 0,
+        n: hari.length,
+        rhr: bpm.length ? Math.min.apply(null, bpm) : null,
+        spo2: spo2.length ? Math.min.apply(null, spo2) : null,
+        stress: null, steps: 0,
+        sumber: hari.length ? 'device' : null
+      });
+    }
+    return out;
+  }
+
+  /** Hasil ukur lokal (TeleBand) dalam bentuk { t, bpm, spo2, ... }. */
+  function hasilLokal() {
+    return Readings.list().map((x) => ({
+      t: x.waktu || x.diterima, bpm: x.bpm, spo2: x.spo2,
+      glukosa: x.glukosa, sis: x.sis, dia: x.dia
+    }));
+  }
+
+  /** Baris tabel device_readings (server) dalam bentuk yang sama. */
+  function hasilDariBaris(rows) {
+    return (rows || []).map((r) => ({
+      t: new Date(r.measured_at || r.received_at).getTime(),
+      bpm: r.bpm, spo2: r.spo2, glukosa: r.glucose_est, sis: r.sys_est, dia: r.dia_est
+    })).sort((a, b) => b.t - a.t);
+  }
+
+  /**
+   * Status triase satu hasil ukur, memakai ambang yang sama dengan
+   * eskalasi (push.js). Tensi dan glukosa TeleBand tidak dipakai: keduanya
+   * estimasi eksperimental.
+   */
+  function statusHasil(x) {
+    if (!x || (x.bpm == null && x.spo2 == null)) return 'none';
+    const hr = x.bpm, sp = x.spo2;
+    if ((sp != null && sp < 90) || (hr != null && (hr > 130 || hr < 45))) return 'crit';
+    if ((sp != null && sp < 94) || (hr != null && (hr > 110 || hr < 50))) return 'warn';
+    return 'ok';
+  }
+
   function weekTrend() {
+    if (!TC.FITUR.simulasi) return trenDariHasil(hasilLokal());
     const dv = Store.state.dailyVitals || {};
     const out = [];
     for (let i = 6; i >= 0; i--) {
@@ -1468,6 +1796,7 @@
   TC.Vitals = Vitals;
   TC.Devices = Devices;
   TC.Meals = Meals;
+  TC.Gizi = Gizi;
   TC.Consult = Consult;
   TC.Notes = Notes;
   TC.Readings = Readings;
@@ -1476,4 +1805,8 @@
   TC.EcgRenderer = EcgRenderer;
   TC.ecgAt = ecgAt;
   TC.weekTrend = weekTrend;
+  TC.trenDariHasil = trenDariHasil;
+  TC.hasilLokal = hasilLokal;
+  TC.hasilDariBaris = hasilDariBaris;
+  TC.statusHasil = statusHasil;
 })(window.TC);
