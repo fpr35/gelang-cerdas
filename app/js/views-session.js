@@ -434,10 +434,10 @@
         Seluruh nilai dihitung dari sensor dan catatan asupan Anda, bukan laboratorium.
         Tidak dapat dipakai untuk menegakkan diagnosis maupun mengubah pengobatan.</div></div>
 
-      <div class="grid2 mt2">
+      ${TC.FITUR.konsultasi ? `<div class="grid2 mt2">
         <a class="btn btn--primary btn--block" href="#/konsultasi">Diskusikan ke dokter ${icon('arrow')}</a>
         <button class="btn btn--ghost btn--block" data-share>${icon('link')} Lampirkan ke konsultasi</button>
-      </div>
+      </div>` : ''}
     `);
 
     const cv = $('#cResp');
@@ -447,7 +447,8 @@
       { data: vals.map(() => m.baseline), color: '#A9E5C8', dash: [5, 5], smooth: false }
     ], { xLabels: m.points.map((p) => p.label) });
 
-    $('[data-share]').onclick = () => {
+    const share = $('[data-share]');
+    if (share) share.onclick = () => {
       sessionStorage.setItem('tc.attachMeal', m.id);
       toast('Sesi akan dilampirkan pada konsultasi berikutnya.');
       Router.navigate('/konsultasi');

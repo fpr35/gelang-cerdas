@@ -97,34 +97,40 @@
   const SLIDES = [
     { art: artHub, title: 'Semua perangkat, satu platform',
       body: 'TeleBand, TeleRing, sabuk EKG, tensimeter, hingga timbangan — semuanya mengalir ke satu riwayat kesehatan yang sama.' },
-    { art: artConsult, title: 'Dari data langsung ke dokter',
+    { art: artConsult, title: 'Dari data langsung ke dokter', fitur: 'konsultasi',
       body: 'Bila ada yang perlu ditanyakan, mulai konsultasi chat atau video call dengan konteks vital Anda sudah terlampir.' }
   ];
 
   function viewOnboard() {
     setTopbar('');
     let i = 0;
+    // Slide untuk fitur yang sedang disembunyikan tidak ditampilkan.
+    const SLIDES_AKTIF = SLIDES.filter((s) => !s.fitur || TC.FITUR[s.fitur]);
 
     function draw() {
-      const s = SLIDES[i];
+      const s = SLIDES_AKTIF[i];
+      const terakhir = i === SLIDES_AKTIF.length - 1;
       setView(`<div class="onb">
         <div class="onb__art">${s.art()}</div>
         <h1>${esc(s.title)}</h1>
         <p>${esc(s.body)}</p>
-        <div class="onb__dots">${SLIDES.map((_, k) =>
+        <div class="onb__dots">${SLIDES_AKTIF.map((_, k) =>
           `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
         <div class="onb__act">
           <button class="btn btn--primary btn--lg btn--block" data-next>
-            ${i < SLIDES.length - 1 ? 'Lanjut' : 'Mulai Sekarang'} ${icon('arrow')}</button>
-          <button class="btn btn--ghost btn--block" data-login>Masuk ke Akun</button>
+            ${!terakhir ? 'Lanjut' : 'Mulai Sekarang'} ${icon('arrow')}</button>
+          ${terakhir && !TC.FITUR.daftarAkun ? '' :
+            '<button class="btn btn--ghost btn--block" data-login>Masuk ke Akun</button>'}
         </div>
       </div>`, { cls: 'view view--full' });
 
       $('[data-next]').onclick = () => {
-        if (i < SLIDES.length - 1) { i++; draw(); }
-        else { Store.update((st) => { st.onboarded = true; }); Router.navigate('/daftar'); }
+        if (!terakhir) { i++; draw(); return; }
+        Store.update((st) => { st.onboarded = true; });
+        Router.navigate(TC.FITUR.daftarAkun ? '/daftar' : '/masuk');
       };
-      $('[data-login]').onclick = () => {
+      const login = $('[data-login]');
+      if (login) login.onclick = () => {
         Store.update((st) => { st.onboarded = true; });
         Router.navigate('/masuk');
       };
@@ -192,13 +198,15 @@
         <p class="tiny muted tc" style="margin-top:8px">
           Memakai akun demo berisi riwayat contoh. Anda dapat memilih perannya.</p>
 
-        <div class="auth__foot">Belum punya akun? <b data-go-daftar>Daftar sekarang</b></div>
+        ${TC.FITUR.daftarAkun
+          ? '<div class="auth__foot">Belum punya akun? <b data-go-daftar>Daftar sekarang</b></div>' : ''}
       </div>
     </div>`, { cls: 'view view--full' });
 
     bindEye();
     $('[data-back-onb]').onclick = () => Router.navigate('/mulai');
-    $('[data-go-daftar]').onclick = () => Router.navigate('/daftar');
+    const daftar = $('[data-go-daftar]');
+    if (daftar) daftar.onclick = () => Router.navigate('/daftar');
     // Tombol Apple dan nomor telepon dihapus, bukan disembunyikan: keduanya
     // hanya memunculkan pesan "belum tersedia" dan tidak pernah bisa bekerja
     // tanpa penyedia yang diaktifkan. Tombol yang tidak melakukan apa pun lebih

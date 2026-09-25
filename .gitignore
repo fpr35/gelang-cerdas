@@ -16,6 +16,10 @@ Desktop.ini
 # Editor
 .vscode/
 .idea/
+# Salinan firmware TeleBand dari teknisi IoT — repo terpisah, jangan ikut
+# ke repo web publik.
+New folder/
+*.zip
 # Berkas lingkungan / rahasia
 .env
 .env.*

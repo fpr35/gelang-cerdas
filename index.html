@@ -224,8 +224,8 @@
         <div><b>98 <small style="font-size:.6em;font-weight:600">%</small></b><span>SpO₂ perifer</span></div>
       </div>
       <div class="float-card fc-3">
-        <span class="float-card__ico" style="background:rgba(108,92,231,.24);color:#B7ADFF"><svg width="18" height="18"><use href="#i-brain"/></svg></span>
-        <div><b>Rendah</b><span>Indeks stres</span></div>
+        <span class="float-card__ico" style="background:rgba(108,92,231,.24);color:#B7ADFF"><svg width="18" height="18"><use href="#i-bp"/></svg></span>
+        <div><b>118/76</b><span>Tekanan darah</span></div>
       </div>
     </div>
   </div>
@@ -245,13 +245,13 @@
       <span class="eyebrow"><i class="dot"></i> Latar belakang</span>
       <h2 class="h1">Penyakit kronis tumbuh diam-diam,<br>jauh sebelum gejala terlihat.</h2>
       <p class="lead">
-        Hipertensi, gangguan jantung, dan stres kronis berkembang bertahun-tahun tanpa keluhan.
+        Hipertensi, gangguan jantung, dan diabetes berkembang bertahun-tahun tanpa keluhan.
         Institusi dengan populasi terkonsentrasi — perusahaan, pesantren, sekolah berasrama, dan
         panti jompo — memikul risiko terbesar karena pemeriksaan hanya berlangsung berkala dan manual.
       </p>
     </div>
 
-    <div class="grid g-4" style="margin-bottom:26px">
+    <div class="grid g-3" style="margin-bottom:26px">
       <article class="stat-card reveal scanline"><i class="stat-card__bar"></i>
         <b>34,1<small>%</small></b>
         <p>Prevalensi hipertensi pada penduduk berusia di atas 18 tahun berdasarkan pengukuran
@@ -272,13 +272,6 @@
            pengukuran 34,1% — inilah celah deteksi yang hendak dipersempit.</p>
         <cite>Riskesdas 2018, Kemenkes RI <a href="#sumber-urgensi">[1]</a></cite>
         <svg class="stat-card__spark" viewBox="0 0 74 34" fill="none"><path d="M1 20h16M25 20h16M49 20h16" stroke="#6C5CE7" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="20" r="3" fill="#6C5CE7"/><circle cx="33" cy="20" r="3" fill="#6C5CE7"/><circle cx="57" cy="20" r="3" fill="#6C5CE7"/></svg>
-      </article>
-      <article class="stat-card reveal scanline" data-d="3"><i class="stat-card__bar" style="background:var(--coral-500)"></i>
-        <b>Stres</b>
-        <p>Pemicu yang menaikkan tekanan darah, mengganggu tidur, dan mempercepat progresi penyakit
-           kronis — menjadi fokus pemantauan tahap awal TeleCare.</p>
-        <cite>Fokus penelitian, bukan angka survei</cite>
-        <svg class="stat-card__spark" viewBox="0 0 74 34" fill="none"><path d="M1 24c8 0 8-16 16-16s8 20 16 20 8-18 16-18 8 12 24 12" stroke="#E2543F" stroke-width="2" stroke-linecap="round"/></svg>
       </article>
     </div>
 
@@ -304,7 +297,7 @@
         <div class="card__ico"><svg><use href="#i-chart"/></svg></div>
         <h3 class="h3">Data terlalu jarang</h3>
         <p>Satu pengukuran per tahun tidak menangkap dinamika harian tekanan darah, ritme jantung,
-           maupun beban stres. Tren yang bermakna klinis hilang di antara jeda pemeriksaan.</p>
+           maupun saturasi oksigen. Tren yang bermakna klinis hilang di antara jeda pemeriksaan.</p>
         <div class="card__tags"><span class="tag">Snapshot</span><span class="tag">Bias waktu</span></div>
       </article>
       <article class="card reveal hud scanline" data-d="1">
@@ -473,7 +466,7 @@
              cocok untuk pemantauan berkelanjutan tanpa mengganggu aktivitas.</p>
           <ul class="cmp__list">
             <li><svg><use href="#i-heart"/></svg> Detak jantung, HRV, SpO₂, suhu</li>
-            <li><svg><use href="#i-brain"/></svg> Pola tidur &amp; indeks stres</li>
+            <li><svg><use href="#i-brain"/></svg> Pola tidur</li>
             <li><svg><use href="#i-chip"/></svg> Konsumsi daya sangat rendah</li>
             <li><svg><use href="#i-shield"/></svg> Tanpa layar, minim gangguan</li>
           </ul>
@@ -602,7 +595,7 @@
       <g>
         <rect x="652" y="78" width="248" height="112" rx="20" fill="url(#ag3)" stroke="#DDD7FB"/>
         <text x="676" y="112" font-size="16" font-weight="700" fill="#6C5CE7">Mesin Inferensi</text>
-        <text x="676" y="134" font-size="11.5" fill="#5F8477">Klasifikasi stres &amp; anomali ritme</text>
+        <text x="676" y="134" font-size="11.5" fill="#5F8477">Deteksi anomali ritme &amp; triase</text>
         <g transform="translate(676,148)" font-size="10" fill="#6C5CE7">
           <rect width="70" height="20" rx="10" fill="#fff" stroke="#DDD7FB"/><text x="35" y="14" text-anchor="middle">HRV</text>
           <rect x="78" width="70" height="20" rx="10" fill="#fff" stroke="#DDD7FB"/><text x="113" y="14" text-anchor="middle">Tren 7 hari</text>
@@ -862,39 +855,19 @@
             <div class="ecg-meta" style="margin-top:8px">
               <div><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#049A5B;margin-right:6px"></i>Detak jantung istirahat</div>
               <div><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#0E7FB8;margin-right:6px"></i>Kualitas tidur</div>
-              <div><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#6C5CE7;margin-right:6px"></i>Indeks stres</div>
             </div>
           </div>
         </div>
 
         <!-- aside -->
         <aside class="dash-aside">
-          <div class="panel">
-            <div class="panel__head"><h4>Indeks stres</h4><span class="push"></span><span class="chip" id="stressChip">RENDAH</span></div>
-            <figure class="gauge-wrap" style="margin:0">
-              <svg viewBox="0 0 200 118" style="width:100%">
-                <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
-                  <stop stop-color="#049A5B"/><stop offset=".55" stop-color="#E09B12"/><stop offset="1" stop-color="#E2543F"/>
-                </linearGradient></defs>
-                <path d="M18 106a82 82 0 0 1 164 0" fill="none" stroke="#EFF6F2" stroke-width="16" stroke-linecap="round"/>
-                <path d="M18 106a82 82 0 0 1 164 0" fill="none" stroke="url(#gg)" stroke-width="16" stroke-linecap="round"
-                      stroke-dasharray="258" stroke-dashoffset="180" id="gaugeArc"/>
-                <g id="gaugeNeedle" transform="rotate(-58 100 106)">
-                  <path d="M100 106 L100 40" stroke="#08201A" stroke-width="3.4" stroke-linecap="round"/>
-                  <circle cx="100" cy="106" r="7" fill="#08201A"/><circle cx="100" cy="106" r="3" fill="#fff"/>
-                </g>
-              </svg>
-              <figcaption><b id="stressVal">28</b><span>dari 100</span></figcaption>
-            </figure>
-          </div>
-
           <div class="ai-card">
             <div class="ai-card__glow"></div>
             <div class="ai-card__tag"><svg width="13" height="13"><use href="#i-sparkle"/></svg> TeleCare AI</div>
-            <h5>Pola stres berulang terdeteksi</h5>
-            <p>Kenaikan detak jantung istirahat dan penurunan HRV berulang pada jam 14.00–16.00
-               selama 5 hari terakhir. Disarankan sesi konseling singkat dan penyesuaian jadwal istirahat.</p>
-            <a href="#kontak" class="btn btn--primary btn--sm">Rujuk ke psikolog <svg><use href="#i-arrow"/></svg></a>
+            <h5>Detak jantung istirahat naik bertahap</h5>
+            <p>Detak jantung istirahat naik berulang pada jam 14.00–16.00 selama 5 hari terakhir,
+               disertai penurunan HRV. Disarankan penyesuaian jadwal istirahat dan pemeriksaan lanjutan.</p>
+            <a href="#kontak" class="btn btn--primary btn--sm">Tindak lanjut <svg><use href="#i-arrow"/></svg></a>
           </div>
 
           <div class="panel">
@@ -1045,8 +1018,8 @@
         <div class="seg-card__content">
           <h3 class="h3">Sekolah Berasrama</h3>
           <p>Pemantauan siswa selama kegiatan akademik dan fisik, dengan perhatian khusus pada
-             stres ujian dan pola tidur.</p>
-          <div class="seg-card__stats"><div><b>Tidur</b>Kualitas</div><div><b>Stres</b>Akademik</div></div>
+             kebugaran dan pola tidur.</p>
+          <div class="seg-card__stats"><div><b>Tidur</b>Kualitas</div><div><b>Kebugaran</b>Aktivitas fisik</div></div>
         </div>
       </article>
 
@@ -1096,9 +1069,9 @@
           <div class="flow-item reveal">
             <span class="flow-item__no">TAHAP 03</span>
             <div><h3 class="h3">Analisis &amp; triase</h3>
-              <p>Model menilai tren HRV, ritme, saturasi, dan suhu untuk menghasilkan indeks stres
-                 serta status Normal / Waspada / Kritis per individu.</p>
-              <div class="flow-item__pills"><span class="tag tag--v">Indeks stres</span><span class="tag">Deteksi anomali</span></div></div>
+              <p>Model menilai tren detak jantung, HRV, ritme, dan saturasi untuk menghasilkan
+                 status Normal / Waspada / Kritis per individu.</p>
+              <div class="flow-item__pills"><span class="tag tag--v">Triase</span><span class="tag">Deteksi anomali</span></div></div>
           </div>
           <div class="flow-item reveal">
             <span class="flow-item__no">TAHAP 04</span>
@@ -1112,9 +1085,9 @@
 
       <div>
         <span class="eyebrow"><i class="dot"></i> Peta pengembangan</span>
-        <h2 class="h2" style="margin-bottom:22px">Bertahap, dimulai dari pemantauan stres.</h2>
+        <h2 class="h2" style="margin-bottom:22px">Bertahap, dimulai dari detak jantung &amp; SpO₂.</h2>
         <div class="roadmap">
-          <div class="rm"><em>FASE 1</em><b>Pemantauan stres</b><p>Fokus awal: HRV, detak jantung istirahat, dan pola tidur dengan integrasi psikolog.</p></div>
+          <div class="rm"><em>FASE 1</em><b>Detak jantung &amp; SpO₂</b><p>Fokus awal: pengukuran PPG lewat TeleBand, hasil tiap sesi tersimpan dan dapat ditelusuri.</p></div>
           <div class="rm"><em>FASE 2</em><b>Vital lengkap</b><p>SpO₂, suhu, dan EKG lead-I aktif penuh dengan aturan eskalasi klinis.</p></div>
           <div class="rm"><em>FASE 3</em><b>Estimasi tekanan darah</b><p>Validasi PTT/PPG terhadap alat acuan pada populasi uji institusi.</p></div>
           <div class="rm"><em>FASE 4</em><b>Skala institusi</b><p>Penerapan multi-unit dengan analitik populasi dan laporan kesehatan berkala.</p></div>

@@ -14,7 +14,7 @@
   const R = [
     ['/mulai',        V.onboard,   { guard: 'guest', chrome: false }],
     ['/masuk',        V.login,     { guard: 'guest', chrome: false }],
-    ['/daftar',       V.register,  { guard: 'guest', chrome: false }],
+    ['/daftar',       V.register,  { guard: 'guest', chrome: false, fitur: 'daftarAkun' }],
     ['/lupa',         V.forgot,    { guard: 'guest', chrome: false }],
     ['/lengkapi',     V.complete,  { guard: 'auth',  chrome: false }],
 
@@ -32,12 +32,13 @@
     ['/sesi/berjalan', V.running,  { guard: 'auth', roles: ['pasien'], tab: 'catat' }],
     ['/sesi/:id',      V.summary,  { guard: 'auth', roles: ['pasien'], tab: 'riwayat' }],
 
-    ['/konsultasi',                 V.consult,   { guard: 'auth', tab: 'konsultasi' }],
-    ['/konsultasi/spesialis/:id',   V.specialty, { guard: 'auth', tab: 'konsultasi' }],
-    ['/dokter/:id',                 V.doctor,    { guard: 'auth', tab: 'konsultasi' }],
-    ['/chat/:id',                   V.chat,      { guard: 'auth', chrome: false }],
-    ['/call/:id',                   V.call,      { guard: 'auth', chrome: false }],
-    ['/jadwal',                     V.schedule,  { guard: 'auth', tab: 'konsultasi' }],
+    // Konsultasi & janji temu — disembunyikan lewat TC.FITUR.konsultasi.
+    ['/konsultasi',                 V.consult,   { guard: 'auth', tab: 'konsultasi', fitur: 'konsultasi' }],
+    ['/konsultasi/spesialis/:id',   V.specialty, { guard: 'auth', tab: 'konsultasi', fitur: 'konsultasi' }],
+    ['/dokter/:id',                 V.doctor,    { guard: 'auth', tab: 'konsultasi', fitur: 'konsultasi' }],
+    ['/chat/:id',                   V.chat,      { guard: 'auth', chrome: false, fitur: 'konsultasi' }],
+    ['/call/:id',                   V.call,      { guard: 'auth', chrome: false, fitur: 'konsultasi' }],
+    ['/jadwal',                     V.schedule,  { guard: 'auth', tab: 'konsultasi', fitur: 'konsultasi' }],
 
     ['/perangkat',        V.devices,      { guard: 'auth', tab: 'profil' }],
     ['/perangkat/pindai', V.scan,         { guard: 'auth', tab: 'profil' }],
@@ -47,7 +48,7 @@
 
     // ---- peran: dokter ----
     ['/klinik',              V.clinic,        { guard: 'auth', roles: ['dokter'], tab: 'k-home' }],
-    ['/klinik/antrean',      V.queue,         { guard: 'auth', roles: ['dokter'], tab: 'k-antrean' }],
+    ['/klinik/antrean',      V.queue,         { guard: 'auth', roles: ['dokter'], tab: 'k-antrean', fitur: 'konsultasi' }],
     ['/klinik/pasien',       V.patients,      { guard: 'auth', roles: ['dokter'], tab: 'k-pasien' }],
     ['/klinik/pasien/:id',   V.patientDetail, { guard: 'auth', roles: ['dokter'], tab: 'k-pasien' }],
 
@@ -80,6 +81,12 @@
   function wrap(handler, opts) {
     return function (params) {
       opts = opts || {};
+      // Fitur yang disembunyikan: rutenya ada, tetapi dialihkan ke beranda
+      // (atau layar masuk bila belum masuk) — termasuk tautan lama/undangan.
+      if (opts.fitur && !TC.FITUR[opts.fitur]) {
+        Router.navigate(Store.user() ? TC.DATA.role(Store.role()).home : '/masuk', true);
+        return;
+      }
       // Rute yang dibatasi peran mengalihkan ke beranda peran pengguna.
       if (opts.roles && opts.roles.indexOf(Store.role()) === -1) {
         Router.navigate(TC.DATA.role(Store.role()).home, true);
@@ -110,14 +117,14 @@
       { id: 'home',       label: 'Beranda',    icon: 'home',  href: '#/home' },
       { id: 'analisis',   label: 'Analisis',   icon: 'chart', href: '#/analisis' },
       { id: 'catat',      label: 'Catat',      icon: 'cam',   href: '#/sesi/kamera', fab: true },
-      { id: 'konsultasi', label: 'Konsultasi', icon: 'chat',  href: '#/konsultasi' },
+      { id: 'konsultasi', label: 'Konsultasi', icon: 'chat',  href: '#/konsultasi', fitur: 'konsultasi' },
       { id: 'profil',     label: 'Profil',     icon: 'user',  href: '#/profil' }
     ],
     'dokter': [
       { id: 'k-home',    label: 'Klinik',   icon: 'home',   href: '#/klinik' },
-      { id: 'k-antrean', label: 'Antrean',  icon: 'inbox',  href: '#/klinik/antrean' },
+      { id: 'k-antrean', label: 'Antrean',  icon: 'inbox',  href: '#/klinik/antrean', fitur: 'konsultasi' },
       { id: 'k-pasien',  label: 'Pasien',   icon: 'users',  href: '#/klinik/pasien' },
-      { id: 'jadwal',    label: 'Jadwal',   icon: 'cal',    href: '#/jadwal' },
+      { id: 'jadwal',    label: 'Jadwal',   icon: 'cal',    href: '#/jadwal', fitur: 'konsultasi' },
       { id: 'profil',    label: 'Profil',   icon: 'user',   href: '#/profil' }
     ],
     'admin-faskes': [
@@ -136,7 +143,8 @@
     ]
   };
 
-  const tabsFor = (role) => TABS_BY_ROLE[role] || TABS_BY_ROLE.pasien;
+  const aktif = (t) => !t.fitur || TC.FITUR[t.fitur];
+  const tabsFor = (role) => (TABS_BY_ROLE[role] || TABS_BY_ROLE.pasien).filter(aktif);
 
   function drawTabbar() {
     const tabs = tabsFor(Store.role());
@@ -157,7 +165,7 @@
     const role = Store.role();
     const EXTRA = {
       'pasien': [
-        { id: 'jadwal', label: 'Janji Temu', icon: 'cal', href: '#/jadwal' },
+        { id: 'jadwal', label: 'Janji Temu', icon: 'cal', href: '#/jadwal', fitur: 'konsultasi' },
         { id: 'perangkat', label: 'Perangkat', icon: 'watch', href: '#/perangkat' },
         { id: 'riwayat', label: 'Riwayat', icon: 'doc', href: '#/riwayat' }
       ],
@@ -174,7 +182,7 @@
     const SIDE = tabsFor(role)
       .filter((t) => t.id !== 'profil')
       .map((t) => ({ id: t.id, label: t.label, icon: t.icon, href: t.href }))
-      .concat(EXTRA[role] || [])
+      .concat((EXTRA[role] || []).filter(aktif))
       .concat([{ id: 'notif', label: 'Notifikasi', icon: 'bell', href: '#/notifikasi', badge: unread }]);
     $('#sidebar').innerHTML = `
       <a class="side-brand" href="${TC.DATA.role(role).home.replace('/', '#/')}">
@@ -301,11 +309,13 @@
       if (TC.Push.permission() === 'granted') TC.Push.daftarWebPush().catch(() => {});
     }
     
-    if (TC.Consult && TC.Consult.syncFromServer && Store.user()) {
+    if (TC.FITUR.konsultasi && TC.Consult && TC.Consult.syncFromServer && Store.user()) {
       TC.Consult.syncFromServer().then(() => Router.render());
     }
 
-    if (TC.Ring) {
+    // Tanpa fitur konsultasi, perangkat dokter tidak mendaftar jaga dan tidak
+    // berdering — pasien memang tidak punya cara memanggilnya.
+    if (TC.Ring && TC.FITUR.konsultasi) {
       // Membuka kunci audio pada interaksi pertama, supaya dering berikutnya
       // sudah boleh berbunyi tanpa diblokir peramban.
       TC.Ring.nada.siapkanIzin();

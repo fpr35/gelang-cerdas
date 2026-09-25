@@ -104,6 +104,19 @@ app/js/app.js           daftar rute, navigasi per peran, boot
 app/sw.js               service worker (PWA + penerima push)
 ```
 
+**Fitur yang disembunyikan** — `TC.FITUR` di [app/js/core.js](app/js/core.js). Kodenya tetap utuh;
+yang disembunyikan hanya titik masuknya (tab, tombol, tautan), dan rutenya dialihkan ke beranda.
+Ubah ke `true` untuk memunculkannya kembali.
+
+| Sakelar | Saat `false` |
+| --- | --- |
+| `daftarAkun` | layar `/daftar` dan tautan "Daftar sekarang" hilang; masuk hanya lewat Google atau Tamu |
+| `konsultasi` | konsultasi, chat, panggilan, janji temu, antrean dokter, dan dering panggilan dokter hilang |
+
+Halaman **Pindai Perangkat** kini hanya punya satu jalur: TeleBand fisik. Pemindaian simulasi
+(`Devices.simulateScan`) dan BLE generik (`Devices.realScan`, `ble.js`) masih ada di kode, tetapi
+tidak lagi ditawarkan di layar.
+
 `supabase.js` menggantikan `firebase.js` lama dan **sengaja mempertahankan nama API**
 `TC.FB` / `TC.Chat` / `TC.RTC`, supaya layar-layar tidak perlu diubah saat migrasi. Nama `FB`
 itu sekarang hanya nama, isinya Supabase.

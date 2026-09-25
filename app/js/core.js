@@ -89,6 +89,15 @@ window.TC = window.TC || {};
   const initials = (name) => String(name || '?').trim().split(/\s+/)
     .map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
+  /* ---------------- 1b. SAKELAR FITUR ----------------
+     Fitur yang DISEMBUNYIKAN, bukan dihapus: kodenya tetap utuh, hanya titik
+     masuknya (tombol, tab, tautan) tidak ditampilkan dan rutenya dialihkan.
+     Ubah ke `true` untuk memunculkannya kembali. */
+  const FITUR = {
+    daftarAkun: false,   // layar Daftar (/daftar) dan tautan "Daftar sekarang"
+    konsultasi: false    // konsultasi dokter, chat, panggilan, janji temu, dering panggilan
+  };
+
   /* ---------------- 2. STORE ---------------- */
   // Seluruh data aplikasi tersimpan di localStorage perangkat ini.
   const KEY = 'telecare.app.v1';
@@ -612,7 +621,7 @@ window.TC = window.TC || {};
   Object.assign(TC, {
     $, $$, clamp, lerp, rnd, rint, pick, uid, secureId, esc, icon, rupiah,
     pad2, hhmm, fullDate, shortDate, relTime, countdown, greeting, initials,
-    DAYS, MONTHS,
+    DAYS, MONTHS, FITUR,
     Store, Router,
     setView, setTopbar, topbar, toast, sheet, closeSheet: close, confirmSheet,
     fitCanvas, sparkline, lineChart, barChart, gaugeSvg, ringSvg

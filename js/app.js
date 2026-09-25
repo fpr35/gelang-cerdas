@@ -1,7 +1,7 @@
 /* ============================================================
    TeleCare — app.js
    Navigasi, animasi reveal, dan seluruh logika dashboard:
-   EKG sintetis, sparkline, tren 24 jam, gauge stres.
+   EKG sintetis, sparkline, tren 24 jam.
    Sumber data: Firebase Realtime DB (bila ada) → fallback simulasi.
    ============================================================ */
 (function () {
@@ -43,7 +43,7 @@
     ['i-temp', 'Suhu tubuh terkompensasi ambien'],
     ['i-ecg', 'Sinyal EKG lead-I 250 Hz'],
     ['i-bp', 'Estimasi tekanan darah berbasis PPG'],
-    ['i-brain', 'Indeks stres & pola tidur'],
+    ['i-brain', 'Pola tidur'],
     ['i-cloud', 'Sinkronisasi cloud terenkripsi'],
     ['i-doctor', 'Teleconsult dokter & psikolog'],
     ['i-shield', 'Privasi data per unit institusi'],
@@ -274,8 +274,7 @@
     const mk = (fn) => Array.from({ length: N }, (_, i) => fn(i / (N - 1)));
     return {
       hr:   mk(t => 62 + 14 * Math.sin((t - 0.18) * Math.PI * 2) + 4 * Math.sin(t * Math.PI * 6) + rnd(-1.5, 1.5)),
-      sleep: mk(t => 46 + 44 * Math.exp(-Math.pow((t - 0.12) / 0.16, 2)) + 10 * Math.exp(-Math.pow((t - 0.55) / 0.07, 2)) + rnd(-2, 2)),
-      stress: mk(t => 22 + 34 * Math.exp(-Math.pow((t - 0.62) / 0.12, 2)) + 16 * Math.exp(-Math.pow((t - 0.36) / 0.09, 2)) + rnd(-2, 2))
+      sleep: mk(t => 46 + 44 * Math.exp(-Math.pow((t - 0.12) / 0.16, 2)) + 10 * Math.exp(-Math.pow((t - 0.55) / 0.07, 2)) + rnd(-2, 2))
     };
   })();
 
@@ -328,7 +327,6 @@
     };
 
     plot(trendSeries.sleep, '#0E7FB8', true);
-    plot(trendSeries.stress, '#6C5CE7', false);
     plot(trendSeries.hr, '#049A5B', true);
   }
   drawTrend();
@@ -362,8 +360,6 @@
   const el = {
     hr: $('#kpiHr'), spo: $('#kpiSpo'), tmp: $('#kpiTmp'), bp: $('#kpiBp'),
     rr: $('#mRR'), hrv: $('#mHRV'),
-    stressVal: $('#stressVal'), stressChip: $('#stressChip'),
-    needle: $('#gaugeNeedle'), arc: $('#gaugeArc'),
     pill: $('#livePill'), pillLabel: $('#liveLabel')
   };
 
@@ -376,21 +372,8 @@
 
     const rrMs = Math.round(60000 / vitals.hr);
     el.rr.textContent  = rrMs + ' ms';
+    // `stress` hanya beban internal simulasi untuk menurunkan HRV; tidak ditampilkan.
     el.hrv.textContent = Math.round(clamp(96 - vitals.stress * 0.62, 14, 92)) + ' ms';
-
-    const s = Math.round(vitals.stress);
-    el.stressVal.textContent = s;
-    // busur 0–100 dipetakan ke dasharray 258 (setengah lingkaran)
-    el.arc.setAttribute('stroke-dashoffset', String(Math.round(258 - (s / 100) * 258)));
-    el.needle.setAttribute('transform', `rotate(${(-90 + (s / 100) * 180).toFixed(1)} 100 106)`);
-
-    let label = 'RENDAH', col = 'var(--green-50)', fg = 'var(--green-600)', bd = 'var(--green-100)';
-    if (s >= 66) { label = 'TINGGI'; col = 'var(--coral-100)'; fg = 'var(--coral-500)'; bd = '#FBD3CC'; }
-    else if (s >= 34) { label = 'SEDANG'; col = 'var(--amber-100)'; fg = '#8A5D00'; bd = '#F6DFAE'; }
-    el.stressChip.textContent = label;
-    el.stressChip.style.background = col;
-    el.stressChip.style.color = fg;
-    el.stressChip.style.borderColor = bd;
   }
 
   function setStatus(text, offline) {

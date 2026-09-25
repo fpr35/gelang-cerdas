@@ -75,6 +75,7 @@
     const active = consults.filter((c) => c.status === 'active');
     const attention = D.PATIENTS.filter((p) => p.status !== 'ok');
     const online = Store.state.settings.doctorOnline !== false;
+    const K = TC.FITUR.konsultasi;   // bagian konsultasi & janji temu disembunyikan bila mati
 
     setTopbar('');
     setView(`
@@ -89,7 +90,7 @@
           ${icon('bell')}</button>
       </div>
 
-      <div class="card">
+      ${K ? `<div class="card">
         <div style="display:flex;align-items:center;gap:12px">
           <span class="row__ico" style="background:${online ? 'var(--green-50)' : 'var(--canvas-2)'};
             color:${online ? 'var(--green-600)' : 'var(--faint)'}">${icon('stetho')}</span>
@@ -102,15 +103,16 @@
             <input type="checkbox" id="tOnline" ${online ? 'checked' : ''}
                    style="width:22px;height:22px;accent-color:var(--green-500)"></label>
         </div>
-      </div>
+      </div>` : ''}
 
       <div class="stat-row mt">
-        <div><b>${active.length}</b><span>Antrean aktif</span></div>
+        ${K ? `<div><b>${active.length}</b><span>Antrean aktif</span></div>` : ''}
         <div><b>${D.PATIENTS.length}</b><span>Pasien binaan</span></div>
-        <div><b>${Store.state.appointments.length}</b><span>Janji temu</span></div>
+        ${K ? `<div><b>${Store.state.appointments.length}</b><span>Janji temu</span></div>`
+            : `<div><b>${attention.length}</b><span>Perlu perhatian</span></div>`}
       </div>
 
-      <div class="section-title">${icon('inbox')} Antrean konsultasi
+      ${K ? `<div class="section-title">${icon('inbox')} Antrean konsultasi
         <span class="push"></span><a class="link" href="#/klinik/antrean">Lihat semua</a></div>
       ${active.length ? `<div class="list">${active.slice(0, 4).map((c) => {
         const last = c.messages[c.messages.length - 1];
@@ -125,7 +127,7 @@
         </a>`;
       }).join('')}</div>` : `
         <div class="card"><div class="empty" style="padding:24px 10px">${icon('inbox')}
-          <b>Antrean kosong</b><p>Konsultasi yang masuk akan muncul di sini.</p></div></div>`}
+          <b>Antrean kosong</b><p>Konsultasi yang masuk akan muncul di sini.</p></div></div>`}` : ''}
 
       <div class="section-title">${icon('alert')} Pasien perlu perhatian
         <span class="push"></span><span class="chip chip--a">${attention.length}</span></div>
@@ -133,7 +135,7 @@
         ${attention.map((p) => patientRow(p, '#/klinik/pasien/' + p.id)).join('')}
       </div>
 
-      <div class="card mt">
+      ${K ? `<div class="card mt">
         <div class="card__head">${icon('chart')}<h3>Konsultasi 7 hari terakhir</h3>
           <span class="push"></span><span class="chip">angka contoh</span></div>
         <div class="chart-wrap"><canvas id="cDocWeek" style="height:150px"></canvas></div>
@@ -147,13 +149,15 @@
           <div class="row"><span class="row__ico">${icon('cal')}</span>
             <div><b>${esc(shortDate(new Date(a.at)))} · ${esc(a.slot)}</b>
               <small>${esc(a.note || 'Tanpa catatan keluhan')}</small></div></div>`).join('')}
-      </div>` : `<div class="card"><p class="small muted tc" style="padding:14px">Belum ada janji temu terjadwal.</p></div>`}
+      </div>` : `<div class="card"><p class="small muted tc" style="padding:14px">Belum ada janji temu terjadwal.</p></div>`}` : ''}
     `);
 
     const w = series7('docWeek', 3, 18);
-    TC.barChart($('#cDocWeek'), w.map((d) => d.v), w.map((d) => d.label), '#0E7FB8');
+    const cWeek = $('#cDocWeek');
+    if (cWeek) TC.barChart(cWeek, w.map((d) => d.v), w.map((d) => d.label), '#0E7FB8');
 
-    $('#tOnline').onchange = (e) => {
+    const tOnline = $('#tOnline');
+    if (tOnline) tOnline.onchange = (e) => {
       Store.update((s) => { s.settings.doctorOnline = e.target.checked; });
       // Status jaga di server ikut berubah: kalau tidak, pasien masih dapat
       // mendering perangkat yang pemiliknya sudah menyatakan tidak menerima.
@@ -373,10 +377,10 @@
           <div><b>Unit</b><small>${esc(fac.name)} · ${esc(fac.city)}</small></div></div>
       </div>
 
-      <div class="section-title">${icon('stetho')} Riwayat konsultasi
+      ${TC.FITUR.konsultasi ? `<div class="section-title">${icon('stetho')} Riwayat konsultasi
         <span class="push"></span>
         <span class="chip">${riwayat.length}</span></div>
-      <div id="patRiwayat">${gambarRiwayat(riwayat)}</div>
+      <div id="patRiwayat">${gambarRiwayat(riwayat)}</div>` : ''}
 
       <div class="section-title">${icon('doc')} Catatan klinis
         <span class="push"></span>
@@ -404,8 +408,8 @@
         <span class="chip" data-esc-count>${eskalasi.length}</span></div>
       <div id="patEsk">${gambarEskalasi(p.id)}</div>
 
-      <div class="grid2 mt2">
-        <button class="btn btn--primary btn--block" data-chat>${icon('chat')} Mulai konsultasi</button>
+      <div class="${TC.FITUR.konsultasi ? 'grid2' : ''} mt2">
+        ${TC.FITUR.konsultasi ? `<button class="btn btn--primary btn--block" data-chat>${icon('chat')} Mulai konsultasi</button>` : ''}
         <button class="btn btn--ghost btn--block" data-esc>${icon('alert')} Tandai eskalasi</button>
       </div>
 
@@ -459,7 +463,8 @@
       };
     }
 
-    $('[data-chat]').onclick = () => {
+    const chatBtn = $('[data-chat]');
+    if (chatBtn) chatBtn.onclick = () => {
       const doc = D.doctor(Store.user().doctorId) || D.DOCTORS[0];
       // patientId dikirim agar percakapan ini ikut terkumpul di riwayat pasien.
       const c = TC.Consult.start(doc.id, 'chat', p.id);
@@ -805,10 +810,10 @@
           <span class="vital__val">${totalDevices.toLocaleString('id-ID')}</span></div>
       </div>
 
-      <div class="card mt">
+      ${TC.FITUR.konsultasi ? `<div class="card mt">
         <div class="card__head">${icon('chart')}<h3>Konsultasi harian platform</h3></div>
         <div class="chart-wrap"><canvas id="cSys" style="height:160px"></canvas></div>
-      </div>
+      </div>` : ''}
 
       <div class="section-title">${icon('verify')} Menunggu verifikasi
         <span class="push"></span>
@@ -853,7 +858,8 @@
     `);
 
     const w = series7('sysWeek', 120, 420);
-    TC.lineChart($('#cSys'), [{ data: w.map((d) => d.v), color: '#E09B12', fill: true, dots: true }],
+    const cSys = $('#cSys');
+    if (cSys) TC.lineChart(cSys, [{ data: w.map((d) => d.v), color: '#E09B12', fill: true, dots: true }],
       { xLabels: w.map((d) => d.label) });
 
     $('[data-notif]').onclick = () => Router.navigate('/notifikasi');

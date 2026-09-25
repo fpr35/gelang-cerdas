@@ -12,3 +12,7 @@ functions/
 database.rules.json
 **/*.py
 **/*.md
+New folder/
+*.zip
+supabase/
+.claude/

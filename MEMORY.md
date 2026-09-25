@@ -61,7 +61,7 @@ Legenda: ✅ selesai & terverifikasi · 🟡 berjalan, ada batasan · ⬜ belum 
 | Sesi anonim otomatis | ✅ | Supabase Anonymous Sign-ins |
 | Masuk sebagai Tamu, 4 peran | ✅ | pasien · dokter · admin-faskes · admin |
 | Hub perangkat AIoT | ✅ | 6 jenis simulasi + TeleBand fisik |
-| **TeleBand fisik (protokol BLE tim)** | 🟡 | `teleband-ble.js` + layar `#/teleband`; 55 uji dengan alat tiruan lulus. **Belum diuji dengan alat fisik**; migrasi `device_readings` perlu dijalankan |
+| **TeleBand fisik (protokol BLE tim)** | ✅ | `teleband-ble.js` + layar `#/teleband`. **Terkonfirmasi jalan dengan alat fisik** di Android lewat situs Vercel (25 Sep 2026), setelah firmware yang menghapus bond basi |
 | Web Bluetooth GATT standar (generik) | 🟡 | Parser terverifikasi, belum diuji perangkat fisik |
 | Vital + EKG langsung | 🟡 | Asal angka dilacak **per metrik** dan dilabeli per kartu (alat / estimasi eksperimental / simulasi) |
 | Sesi makan 4 titik, analisis | ✅ | |
@@ -118,6 +118,21 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     `tools/web-test/index.html`). Modul protokol baru `teleband-ble.js` (ble.js tidak disentuh),
     `TeleBandLink` + `Readings` di engine.js, layar `#/teleband`, tabel `device_readings`,
     Vitals per metrik, label asal per kartu vital. Keputusan 4A–4D di §4.
+23. **TeleBand teruji dengan alat fisik** (25 Sep). Gejala awal: alat "terhubung" tetapi beranda
+    tetap dummy. Dua sebab ditutup: (1) TeleBand bisa dipilih lewat pemindaian BLE *generik*
+    (`ble.js`, `acceptAllDevices`) — tampak tersambung tanpa pernah mengirim angka; kini ditolak dan
+    diarahkan ke `#/teleband`. (2) Hasil yang baru selesai (≤ 10 menit) ikut mengisi Vitals,
+    untuk pengukuran yang selesai sebelum LIVE stabil. Di sisi alat, teknisi memperbarui
+    `tc_ble.cpp` (protokol tidak berubah): diagnosa GAP di Serial, dan bond basi dihapus otomatis
+    saat enkripsi gagal — pairing lama di HP yang sudah "dilupakan" sebelumnya menggagalkan sambungan.
+24. **Penyederhanaan tampilan** (25 Sep, permintaan user). Sakelar `TC.FITUR` (core.js):
+    `daftarAkun` dan `konsultasi` = false — **disembunyikan, bukan dihapus**; rute dialihkan lewat
+    `opts.fitur` di app.js, tab/sidebar disaring, dering dokter tidak didaftarkan. Halaman pindai
+    hanya menyambung TeleBand. Stres dihapus dari landing page (gauge, kartu Urgensi, legenda tren,
+    roadmap, segmen). Analisis pasien: kartu indeks stres, langkah, dan durasi tidur dihapus.
+    `New folder/` (firmware dari teknisi) dan `*.zip` masuk `.gitignore`/`.vercelignore`.
+    Sengaja belum disentuh: judul "Wawasan AI" di beranda pasien dan detail pasien dokter masih
+    menyebut stres; daftar "Perangkat yang didukung" di hub masih memuat jenis simulasi.
 
 ---
 
@@ -250,7 +265,7 @@ sidik isi; cache-first membuat deploy baru butuh dua kali muat ulang.
   HAPUS hanya untuk hasil yang sampai server; hasil gagal tetap di alat lalu tersimpan saat sambung
   ulang; tanpa duplikat lokal/server; id berulang dengan epoch lain = hasil baru; LIVE sementara
   tidak masuk Vitals; suhu tetap simulasi; putus → simulasi. Plus render 5 rute di Edge headless.
-  **Ini bukan pengganti uji alat fisik** — perilaku pairing, MTU, dan timing radio belum teruji.
+  Uji ini tidak menangkap masalah pairing/bond — itu baru terlihat dengan alat fisik (lihat §3 butir 23).
 - **Memeriksa skema Supabase dari luar:** `GET /rest/v1/messages?select=kind,data&limit=0` dengan
   header `apikey` (anon) — balasan `42703 column ... does not exist` berarti migrasi belum jalan.
 - **Sapuan rute** headless `--dump-dom` per peran, cari `Terjadi kesalahan` dan DOM terlalu pendek.
@@ -279,7 +294,6 @@ Urut dari yang paling perlu diselesaikan.
    [20260925_device_readings.sql](supabase/migrations/20260925_device_readings.sql) (tanpa ini hasil
    TeleBand **tidak pernah** tersimpan ke server, sehingga juga tidak pernah di-HAPUS dari alat;
    alat menampung 64 hasil lalu menimpa yang tertua).
-3a. **TeleBand belum diuji dengan alat fisik.** Semua pemeriksaan memakai alat tiruan.
 3b. **TeleBand tahap 2 belum dikerjakan:** tampilan hasil untuk dokter (RLS sudah mengizinkan lawan
    bicara konsultasi membaca lewat `sekonsultasi_dengan()`), dan UI `SET_KALIBRASI`.
 4. **Dashboard landing page masih Firebase.** [js/firebase-init.js](js/firebase-init.js) membaca
@@ -303,7 +317,7 @@ Urut dari yang paling perlu diselesaikan.
 ## 8. Rencana berikutnya
 
 - [ ] Jalankan migrasi `messages.kind/data` dan `device_readings` di Supabase SQL Editor
-- [ ] **Uji TeleBand dengan alat fisik** (lihat daftar periksa di README bagian TeleBand)
+- [x] Uji TeleBand dengan alat fisik (25 Sep 2026, Android + Vercel)
 - [ ] TeleBand tahap 2: hasil ukur pasien di layar dokter; UI kalibrasi per unit (`SET_KALIBRASI`)
 - [ ] Ekspor skema + RLS + Edge Function `send-push` ke `supabase/` di repo
 - [ ] Ganti kredensial TURN statis dengan kredensial sementara (`fetchFrom`), putar ulang yang lama

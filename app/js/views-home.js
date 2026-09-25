@@ -248,7 +248,9 @@
 
       <div class="section-title">${icon('sparkle')} Aksi cepat</div>
       <div class="quick">
-        <a href="#/konsultasi"><i style="background:#EDF9F2;color:#03804C">${icon('stetho')}</i>Konsultasi</a>
+        ${TC.FITUR.konsultasi
+          ? `<a href="#/konsultasi"><i style="background:#EDF9F2;color:#03804C">${icon('stetho')}</i>Konsultasi</a>`
+          : `<a href="#/teleband"><i style="background:#EDF9F2;color:#03804C">${icon('heart')}</i>Ukur</a>`}
         <a href="#/sesi/kamera"><i style="background:#FFF1D6;color:#8A5D00">${icon('cam')}</i>Catat Sesi</a>
         <a href="#/perangkat"><i style="background:#DCEEF9;color:#075A85">${icon('watch')}</i>Perangkat</a>
         <a href="#/riwayat"><i style="background:#EEEBFD;color:#4A3BB8">${icon('doc')}</i>Riwayat</a>
@@ -291,7 +293,7 @@
         <div class="tag">${icon('sparkle')} TeleCare AI</div>
         <h5>${esc(insightTitle())}</h5>
         <p>${esc(insightBody())}</p>
-        <a class="btn btn--primary btn--sm mt" href="#/konsultasi">Diskusikan dengan dokter ${icon('arrow')}</a>
+        ${TC.FITUR.konsultasi ? `<a class="btn btn--primary btn--sm mt" href="#/konsultasi">Diskusikan dengan dokter ${icon('arrow')}</a>` : ''}
       </div>
 
       <div class="promo mt2">
@@ -459,7 +461,7 @@
         <div><b>Bukan hasil pemeriksaan medis</b>Angka ini perkiraan dari sensor wearable.
         Untuk keputusan klinis, gunakan alat ukur medis dan konsultasikan ke tenaga kesehatan.</div></div>
 
-      <a class="btn btn--primary btn--block mt2" href="#/konsultasi">Tanyakan ke dokter ${icon('arrow')}</a>
+      ${TC.FITUR.konsultasi ? `<a class="btn btn--primary btn--block mt2" href="#/konsultasi">Tanyakan ke dokter ${icon('arrow')}</a>` : ''}
     `);
 
     function paint() {
@@ -511,20 +513,10 @@
     function renderTab(t) {
       const body = $('#tabBody');
       if (t === 'vital') {
-        const stress = Math.round(TC.Vitals.state.stress);
-        const lab = TC.Vitals.stressLabel(stress);
+        // Indeks stres, langkah harian, dan durasi tidur tidak ditampilkan:
+        // TeleBand tidak mengukur satu pun dari ketiganya.
         body.innerHTML = `
           <div class="grid2">
-            <div class="card">
-              <div class="card__head">${icon('brain')}<h3>Indeks stres</h3>
-                <span class="push"></span><span class="chip chip--${lab.c}">${esc(lab.t.toUpperCase())}</span></div>
-              <figure class="gauge" style="margin:0">
-                ${TC.gaugeSvg(stress)}
-                <figcaption><b>${stress}</b><span>dari 100</span></figcaption>
-              </figure>
-              <p class="tiny muted tc mt">Disusun dari HRV, detak jantung istirahat, dan pola tidur.</p>
-            </div>
-
             <div class="card">
               <div class="card__head">${icon('heart')}<h3>Detak jantung istirahat</h3></div>
               <div class="chart-wrap"><canvas id="cRhr" style="height:150px"></canvas></div>
@@ -536,22 +528,6 @@
               <div class="chart-wrap"><canvas id="cSpo2" style="height:150px"></canvas></div>
               <div class="legend"><div><i style="background:#0E7FB8"></i>SpO₂ terendah (%)</div></div>
             </div>
-
-            <div class="card">
-              <div class="card__head">${icon('steps')}<h3>Langkah harian</h3></div>
-              <div class="chart-wrap"><canvas id="cSteps" style="height:150px"></canvas></div>
-              <div class="legend"><div><i style="background:#28B87A"></i>langkah</div></div>
-            </div>
-          </div>
-
-          <div class="card mt">
-            <div class="card__head">${icon('moon')}<h3>Durasi tidur</h3>
-              <span class="push"></span><span class="chip">belum tersedia</span></div>
-            <div class="empty" style="padding:22px 10px">${icon('moon')}
-              <b>Tidak ada perangkat yang melaporkan tidur</b>
-              <p>TeleRing mencantumkan kemampuan ini, tetapi aplikasi belum membaca
-                 karakteristik tidur dari perangkat. Grafik akan muncul setelah pembacaannya ada —
-                 bukan diisi angka perkiraan.</p></div>
           </div>
 
           <div class="note note--${hariAda ? 'i' : 'w'} mt">${icon(hariAda ? 'info' : 'alert')}
@@ -574,7 +550,6 @@
           { xLabels: labels });
         TC.lineChart($('#cSpo2'), [{ data: week.map((d) => d.spo2), color: '#0E7FB8', fill: true, dots: true }],
           { xLabels: labels });
-        TC.barChart($('#cSteps'), week.map((d) => d.steps || 0), labels, '#28B87A');
 
       } else if (t === 'gizi') {
         const days = last7Meals();
@@ -690,17 +665,7 @@
     if (rhr != null) bagian.push(`Detak jantung istirahat rata-rata ${Math.round(rhr)} bpm`);
     const spo2 = rerata(week, 'spo2');
     if (spo2 != null) bagian.push(`saturasi terendah rata-rata ${Math.round(spo2)}%`);
-    const langkah = week.map((d) => d.steps || 0);
-    const totalLangkah = langkah.reduce((a, x) => a + x, 0);
-    if (totalLangkah > 0) {
-      const hariJalan = langkah.filter((x) => x > 0).length;
-      bagian.push(`${Math.round(totalLangkah / hariJalan).toLocaleString('id-ID')} langkah per hari aktif`);
-    }
-    const tinggi = week.filter((d) => d.stress != null && d.stress > 55).length;
-    const ekor = tinggi
-      ? ` Ada ${tinggi} hari dengan indeks stres tinggi — perhatikan pemicunya pada hari-hari tersebut.`
-      : ' Tidak ada hari dengan indeks stres tinggi pada periode ini.';
-    return (bagian.length ? bagian.join(', ') + '.' : 'Belum ada ukuran yang terkumpul.') + ekor;
+    return bagian.length ? bagian.join(', ') + '.' : 'Belum ada ukuran yang terkumpul.';
   }
 
   function last7Meals() {
@@ -726,7 +691,7 @@
     setView(`
       <div class="seg">
         <button data-h="sesi" class="is-active">Sesi Makan</button>
-        <button data-h="konsul">Konsultasi</button>
+        ${TC.FITUR.konsultasi ? '<button data-h="konsul">Konsultasi</button>' : ''}
         <button data-h="sync">Sinkronisasi</button>
       </div>
       <div id="hBody" class="mt"></div>`);
@@ -838,8 +803,8 @@
       <p style="color:var(--ink-2);font-size:.95rem;line-height:1.7">${esc(a.body)}</p>
       <p style="color:var(--ink-2);font-size:.95rem;line-height:1.7;margin-top:14px">
         Bacaan ini bersifat edukatif dan tidak menggantikan penilaian tenaga kesehatan.
-        Bila keluhan Anda menetap atau memberat, mulailah konsultasi agar dapat dinilai secara langsung.</p>
-      <a class="btn btn--primary btn--block mt2" href="#/konsultasi">Konsultasi sekarang ${icon('arrow')}</a>`);
+        Bila keluhan Anda menetap atau memberat, periksakan diri ke tenaga kesehatan.</p>
+      ${TC.FITUR.konsultasi ? `<a class="btn btn--primary btn--block mt2" href="#/konsultasi">Konsultasi sekarang ${icon('arrow')}</a>` : ''}`);
   }
 
   TC.views = TC.views || {};

@@ -35,7 +35,9 @@
       <div class="stat-row mt">
         <div><b>${Store.state.meals.length}</b><span>Sesi tercatat</span></div>
         <div><b>${devs.length}</b><span>Perangkat</span></div>
-        <div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>
+        ${TC.FITUR.konsultasi
+          ? `<div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>`
+          : `<div><b>${TC.Readings.list().length}</b><span>Hasil ukur</span></div>`}
       </div>
 
       <div class="section-title">${icon('user')} ${(u.role && u.role !== 'pasien') ? 'Akun' : 'Akun &amp; kesehatan'}</div>
@@ -57,11 +59,11 @@
 
       <div class="section-title">${icon('cal')} Layanan</div>
       <div class="list">
-        <a class="row" href="#/jadwal"><span class="row__ico">${icon('cal')}</span>
+        ${TC.FITUR.konsultasi ? `<a class="row" href="#/jadwal"><span class="row__ico">${icon('cal')}</span>
           <div><b>Janji Temu</b><small>${Store.state.appointments.length} jadwal tersimpan</small></div>
-          ${icon('chev', 'chev')}</a>
+          ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/riwayat"><span class="row__ico">${icon('doc')}</span>
-          <div><b>Riwayat Lengkap</b><small>Sesi makan, konsultasi, dan sinkronisasi</small></div>
+          <div><b>Riwayat Lengkap</b><small>Sesi makan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan sinkronisasi</small></div>
           ${icon('chev', 'chev')}</a>
         <a class="row" href="#/notifikasi"><span class="row__ico">${icon('bell')}</span>
           <div><b>Notifikasi</b><small>${Store.unread()} belum dibaca</small></div>
@@ -419,96 +421,61 @@
   }
 
   /* ---------------- 5. PINDAI PERANGKAT ---------------- */
+  /*
+   * Satu jalur saja: TeleBand sungguhan lewat Web Bluetooth.
+   *
+   * Dulu halaman ini memuat tiga hal sekaligus — daftar perangkat simulasi,
+   * pemindaian BLE generik (ble.js), dan tautan ke TeleBand — dan pengguna
+   * memilih jalur yang salah: TeleBand tampak "tersambung" lewat jalur
+   * generik padahal tidak pernah mengirim angka. Pemindaian simulasi
+   * (Devices.simulateScan) dan jalur generik (Devices.realScan) tetap ada di
+   * engine.js, hanya tidak lagi ditawarkan di sini.
+   */
   function viewScan() {
-    TC.topbar('Pindai Perangkat', { sub: 'Mencari perangkat di sekitar' });
-    let found = [];
-    let scanning = true;
+    TC.topbar('Pindai Perangkat', { sub: 'Sambungkan TeleBand lewat Bluetooth' });
+    const L = TC.TeleBandLink;
 
-    function draw() {
-      setView(`
-        ${scanning ? `
-          <div class="scan-pulse"><i></i><i></i><i></i><b>${icon('bt')}</b></div>
-          <p class="tc small muted">Memindai perangkat TeleCare di sekitar…</p>` : `
-          <div class="chip chip--g" style="display:flex;width:max-content;margin:0 auto 14px">
-            ${icon('bt')} ${found.filter((f) => f.supported).length} perangkat ditemukan</div>`}
+    if (L.tersambung()) { Router.navigate('/teleband', true); return; }
 
-        <div class="stack--sm stack mt" id="foundList">
-          ${found.map((f) => {
-            const t = f.supported ? D.deviceType(f.type) : null;
-            return `<button class="dev-card" data-pair="${f.id}" ${f.supported ? '' : 'disabled style="opacity:.55"'}>
-              <span class="dev-card__ico">${icon(t ? t.icon : 'bt')}</span>
-              <span style="min-width:0;flex:1">
-                <b>${esc(f.name)}</b>
-                <small>${f.supported ? esc(f.code) : 'Tidak didukung aplikasi ini'}</small>
-              </span>
-              <span class="signal" data-l="${f.rssi}"><i></i><i></i><i></i><i></i></span>
-              ${f.supported ? icon('chev', 'chev') : ''}
-            </button>`;
-          }).join('')}
-        </div>
+    const didukung = TC.TeleBand.supported();
+    setView(`
+      <div class="scan-pulse"><i></i><i></i><i></i><b>${icon('bt')}</b></div>
+      <p class="tc small muted">Nyalakan TeleBand dan dekatkan ke perangkat ini.</p>
 
-        <button class="btn btn--ghost btn--block mt" data-rescan>${icon('refresh')} Pindai Ulang</button>
-        <p class="tiny muted tc mt">Nyalakan perangkat dan pastikan berada dalam jangkauan.
-          Perangkat yang sedang tersambung ke ponsel lain tidak akan muncul.</p>
+      ${didukung ? `
+        <button class="btn btn--primary btn--lg btn--block mt2" data-pindai>${icon('bt')} Pindai &amp; sambungkan TeleBand</button>
+        <p class="tiny muted tc mt">Pilih <b>TeleCare-…</b> di daftar yang muncul. Saat pertama kali,
+          sistem akan meminta <b>pairing</b> — setujui saja.</p>` : `
+        <div class="note note--w mt2">${icon('alert')}
+          <div><b>Bluetooth tidak tersedia di peramban ini</b>Buka TeleCare di <b>Chrome atau Edge</b>
+          (Android atau komputer). Safari di iPhone/iPad tidak mendukung Web Bluetooth.</div></div>`}
 
-        <a class="btn btn--primary btn--block mt2" href="#/teleband">${icon('watch')} Sambungkan TeleBand (alat fisik)</a>
+      <div class="steps3 mt2">
+        <div class="s"><i>${icon('bt')}</i>1. Aktifkan Bluetooth</div>
+        <div class="ar">${icon('arrow')}</div>
+        <div class="s"><i>${icon('watch')}</i>2. Nyalakan TeleBand</div>
+        <div class="ar">${icon('arrow')}</div>
+        <div class="s"><i>${icon('link')}</i>3. Pindai &amp; pilih</div>
+      </div>
 
-        ${TC.Devices.hasWebBluetooth() ? `
-          <div class="note note--b mt2">${icon('bt')}
-            <div><b>Perangkat kesehatan BLE lain (bukan TeleBand)</b>Untuk wearable pihak ketiga yang
-            memakai profil Bluetooth standar (Heart Rate, Pulse Oximeter, dll.). TeleBand memakai
-            tombol hijau di atas.</div></div>
-          <button class="btn btn--soft btn--block mt" data-real>${icon('bt')} Pindai perangkat BLE generik</button>` : `
-          <div class="note note--i mt2">${icon('info')}
-            <div><b>Pemindaian simulasi</b>Peramban ini tidak menyediakan Web Bluetooth,
-            sehingga daftar di atas dibangkitkan untuk keperluan purwarupa.</div></div>`}
-      `);
+      <p class="tiny muted tc mt">Jangan menyambungkan TeleBand dari pengaturan Bluetooth ponsel —
+        cukup dari tombol di atas. TeleBand yang sedang tersambung ke ponsel lain tidak akan muncul.</p>
+    `);
 
-      $$('[data-pair]').forEach((b) => {
-        b.onclick = () => {
-          const f = found.find((x) => x.id === b.dataset.pair);
-          if (!f || !f.supported) return;
-          b.classList.add('is-on');
-          b.querySelector('small').textContent = 'Menyambungkan…';
-          setTimeout(() => {
-            TC.Devices.pair(f);
-            toast('Tersambung ke ' + f.name + '.');
-            Router.navigate('/perangkat', true);
-          }, 1000);
-        };
+    const b = $('[data-pindai]');
+    if (b) b.onclick = () => {
+      b.disabled = true;
+      b.innerHTML = icon('sync') + ' Menyambungkan…';
+      L.sambung().then(() => {
+        toast('TeleBand tersambung.');
+        Router.navigate('/teleband', true);
+      }).catch((e) => {
+        if (e && e.name === 'NotFoundError') toast('Tidak ada TeleBand dipilih.', 'err');
+        else toast('Gagal menyambung: ' + ((e && e.message) || e) + ' — coba sekali lagi.', 'err');
+        b.disabled = false;
+        b.innerHTML = icon('bt') + ' Pindai &amp; sambungkan TeleBand';
       });
-
-      $('[data-rescan]').onclick = start;
-
-      const real = $('[data-real]');
-      if (real) {
-        real.onclick = async () => {
-          try {
-            const dev = await TC.Devices.realScan();
-            TC.Devices.pair(dev);
-            toast('Perangkat nyata tersambung: ' + dev.name);
-            Router.navigate('/perangkat', true);
-          } catch (e) {
-            if (e && e.name === 'TeleBandSalahJalur') {
-              toast(e.message, 'err');
-              Router.navigate('/teleband');
-            } else if (e && e.name === 'NotFoundError') toast('Tidak ada perangkat dipilih.', 'err');
-            else toast('Pemindaian BLE dibatalkan atau tidak didukung.', 'err');
-          }
-        };
-      }
-    }
-
-    function start() {
-      scanning = true; found = []; draw();
-      const t = setTimeout(() => {
-        found = TC.Devices.simulateScan();
-        scanning = false;
-        draw();
-      }, 1800);
-      Router.onLeave(() => clearTimeout(t));
-    }
-    start();
+    };
   }
 
   /* ---------------- 6. DETAIL PERANGKAT ---------------- */
@@ -672,7 +639,7 @@
         <label class="row">
           <span class="row__ico">${icon('bell')}</span>
           <div style="min-width:0"><b>Peringatan eskalasi</b>
-            <small>Vital yang menembus ambang, peringatan perangkat, dan pengingat konsultasi.</small></div>
+            <small>Vital yang menembus ambang dan peringatan perangkat.</small></div>
           <input type="checkbox" id="tNotif" ${s.notif ? 'checked' : ''}
                  style="margin-left:auto;width:20px;height:20px;accent-color:var(--green-500)">
         </label>
@@ -696,6 +663,7 @@
           purwarupa, bukan kriteria diagnostik. Jangan dijadikan dasar keputusan medis.</div></div>
       </div>
 
+      <div ${TC.FITUR.konsultasi ? '' : 'hidden'}>
       <div class="section-title">${icon('video')} Panggilan (TURN)</div>
       <div class="card">
         <p class="small" style="color:var(--ink-2)">Panggilan memakai STUN publik. Di balik NAT
@@ -732,6 +700,7 @@
              background:var(--canvas);border:1px solid var(--line);border-radius:12px;padding:12px;
              color:var(--ink-2);margin:0"></pre>
       </div>
+      </div>
 
       <div class="section-title">${icon('shield')} Data di perangkat ini</div>
       <div class="card">
@@ -740,7 +709,9 @@
         Tidak ada data yang dikirim ke server.</p>
         <div class="stat-row mt">
           <div><b>${Store.state.meals.length}</b><span>Sesi</span></div>
-          <div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>
+          ${TC.FITUR.konsultasi
+            ? `<div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>`
+            : `<div><b>${TC.Readings.list().length}</b><span>Hasil ukur</span></div>`}
           <div><b>${Store.state.vitalsHistory.length}</b><span>Rekaman vital</span></div>
         </div>
         <button class="btn btn--ghost btn--block mt" data-export>${icon('doc')} Unduh data saya (JSON)</button>
@@ -943,9 +914,11 @@
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('chat')}</span>
             <div><b style="font-size:.87rem">Supabase (Postgres + Realtime)</b>
-              <small class="tiny muted" style="display:block">Percakapan konsultasi tersinkron antarperangkat secara langsung.</small></div>
+              <small class="tiny muted" style="display:block">${TC.FITUR.konsultasi
+                ? 'Percakapan konsultasi dan hasil ukur TeleBand tersimpan dan tersinkron antarperangkat.'
+                : 'Hasil ukur TeleBand tersimpan di server, bukan hanya di peramban.'}</small></div>
           </div>
-          <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="display:flex;gap:10px;align-items:flex-start" ${TC.FITUR.konsultasi ? '' : 'hidden'}>
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('video')}</span>
             <div><b style="font-size:.87rem">WebRTC peer-to-peer</b>
               <small class="tiny muted" style="display:block">Panggilan suara dan video berjalan langsung antarperangkat, dengan pertukaran sinyal lewat Supabase Realtime dan relai TURN metered.ca bila jalur langsung terhalang.</small></div>
