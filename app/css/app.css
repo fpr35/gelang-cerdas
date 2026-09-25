@@ -397,7 +397,8 @@ ul{margin:0;padding:0;list-style:none}
   transition:width .8s var(--ease-out)}
 .bar i.over{background:var(--amber-500)}
 
-.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+/* Kolom mengikuti jumlah tombol (sebagian tombol ikut tersembunyi bersama fitur). */
+.quick{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:9px}
 .quick a{
   display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;
   border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);

@@ -29,7 +29,7 @@
           </div>
           <div class="cam__note" id="camNote">${SIM()
             ? 'Arahkan seluruh piring ke dalam bingkai, ambil dari atas.'
-            : 'Foto hanya sebagai lampiran catatan. Anda memilih makanannya sendiri di langkah berikut.'}</div>
+            : 'Foto dikenali otomatis (Gemini), lalu hasilnya bisa Anda periksa dan koreksi.'}</div>
         </div>
         <div class="cam__bar">
           <button class="cam__btn" data-gallery aria-label="Ambil dari galeri">${icon('gallery')}</button>
@@ -110,11 +110,7 @@
 
     function analyze(photo) {
       stop();
-      if (!SIM()) {
-        sessionStorage.setItem('tc.draft', JSON.stringify({ items: [], confidence: null, photo: photo || null }));
-        Router.navigate('/sesi/hasil');
-        return;
-      }
+      if (!SIM()) { deteksiNyata(photo); return; }
       const stage = $('#stage');
       if (photo) {
         stage.insertAdjacentHTML('afterbegin', `<img src="${photo}" alt="Foto makanan">`);
@@ -143,6 +139,70 @@
         Router.navigate('/sesi/hasil');
       }, 1500);
     }
+  }
+
+  /** Memperkecil foto (sisi terpanjang ≤ maks px) sebelum dikirim. */
+  function perkecil(dataUrl, maks) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, maks / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
+  /**
+   * Deteksi sungguhan lewat Edge Function `deteksi-makanan` (Google Gemini).
+   * Hasilnya hanya USULAN: pengguna memeriksa dan mengoreksinya di layar
+   * Pilih Makanan sebelum sesi dimulai. Tanpa foto, atau bila deteksi gagal,
+   * pengguna memilih makanan sendiri.
+   */
+  async function deteksiNyata(photo) {
+    const draft = { items: [], confidence: null, photo: photo || null, ai: null };
+    const simpan = () => {
+      sessionStorage.setItem('tc.draft', JSON.stringify(draft));
+      Router.navigate('/sesi/hasil');
+    };
+    if (!photo || !TC.DeteksiDB) { simpan(); return; }
+
+    const stage = $('#stage');
+    if (stage) {
+      stage.insertAdjacentHTML('afterbegin', `<img src="${photo}" alt="Foto makanan">`);
+      const v = $('#camVideo'); if (v) v.style.display = 'none';
+      stage.insertAdjacentHTML('beforeend', `
+        <div class="analyzing"><div>
+          <svg class="ring" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="20" stroke="rgba(255,255,255,.18)" stroke-width="4"/>
+            <circle cx="24" cy="24" r="20" stroke="#6FD3A6" stroke-width="4" stroke-linecap="round" stroke-dasharray="32 100">
+              <animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="1s" repeatCount="indefinite"/>
+            </circle></svg>
+          <b>Mengenali makanan…</b>
+          <p>Foto dikirim ke layanan pengenal gambar (Gemini)</p>
+        </div></div>`);
+    }
+    try {
+      const kecil = (await perkecil(photo, 768)) || photo;
+      draft.photo = kecil;
+      const h = await TC.DeteksiDB.makanan(kecil, D.FOODS);
+      draft.items = (h.makanan || []).map((m) => {
+        const f = D.food(m.nama);
+        return f ? { n: f.n, qty: m.porsi, g: Math.round(f.g * m.porsi) } : null;
+      }).filter(Boolean);
+      const yakin = (h.makanan || []).map((m) => m.yakin).filter((x) => typeof x === 'number');
+      draft.confidence = yakin.length ? Math.round(yakin.reduce((a, x) => a + x, 0) / yakin.length * 100) : null;
+      draft.ai = { lainnya: h.lainnya || [], bukanMakanan: !!h.bukanMakanan };
+      if (h.bukanMakanan) toast('Foto tidak tampak seperti makanan. Pilih makanannya sendiri.', 'err');
+    } catch (e) {
+      draft.ai = { gagal: (e && e.message) || 'Deteksi gagal.' };
+      toast('Deteksi otomatis gagal — pilih makanan sendiri.', 'err');
+    }
+    simpan();
   }
 
   /* ---------------- 2. HASIL ANALISIS & KOREKSI ---------------- */
@@ -235,7 +295,20 @@
         ${draft.photo ? `<img src="${draft.photo}" alt="Foto makanan"
           style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--r-lg);border:1px solid var(--line)">` : ''}
 
-        <div class="card ${draft.photo ? 'mt' : ''}">
+        ${draft.ai && !draft.ai.gagal && !draft.ai.bukanMakanan && draft.items.length ? `
+          <div class="note note--i mt">${icon('sparkle')}
+            <div><b>Usulan dari deteksi foto${draft.confidence != null ? ' · keyakinan ' + draft.confidence + '%' : ''}</b>
+            Dikenali otomatis oleh Gemini. Periksa setiap baris dan ubah porsinya bila keliru — gizi
+            dihitung dari daftar di bawah, bukan dari foto.</div></div>` : ''}
+        ${draft.ai && draft.ai.lainnya && draft.ai.lainnya.length ? `
+          <div class="note note--w mt">${icon('alert')}
+            <div><b>Terlihat tetapi tidak ada di daftar makanan</b>${esc(draft.ai.lainnya.join(', '))}.
+            Tambahkan padanan yang paling mirip lewat tombol Tambah makanan.</div></div>` : ''}
+        ${draft.ai && draft.ai.gagal ? `
+          <div class="note note--w mt">${icon('alert')}
+            <div><b>Deteksi otomatis tidak berhasil</b>${esc(draft.ai.gagal)} Silakan pilih makanan sendiri.</div></div>` : ''}
+
+        <div class="card mt">
           <div class="card__head">${icon('food')}<h3>Makanan yang Anda santap</h3>
             <span class="push"></span><span class="chip">${draft.items.length} item</span></div>
           ${kosong ? `<p class="small muted">Belum ada makanan. Tambahkan satu per satu beserta porsinya —

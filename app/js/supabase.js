@@ -185,6 +185,44 @@
       .catch(() => null);
   };
 
+  /* ---------------- Masuk admin (email + kata sandi) ----------------
+     Admin = pengguna Supabase Auth yang tercatat di tabel `admins`
+     (supabase/migrations/20260927_admins.sql). Status admin selalu
+     ditanyakan ke server (saya_admin); akun yang bukan admin langsung
+     dikeluarkan lagi supaya sesinya tidak tertinggal. */
+  FB.signInAdmin = async function (email, pass) {
+    const sb = await sbClient();
+    FB.sb = sb;
+    const { data, error } = await sb.auth.signInWithPassword({ email: String(email || '').trim(), password: pass });
+    if (error) throw error;
+    const { data: admin, error: e2 } = await sb.rpc('saya_admin');
+    if (e2 || !admin) {
+      await sb.auth.signOut();
+      FB._authOnce = null;
+      FB.ensureAuth().catch(() => null);
+      if (e2) throw e2;
+      const e = new Error('Akun ini bukan akun admin.');
+      e.code = 'BUKAN_ADMIN';
+      throw e;
+    }
+    FB._authOnce = Promise.resolve(data.user);
+    return data.user;
+  };
+
+  /**
+   * Apakah sesi Supabase saat ini milik akun admin? Dipakai halaman pasien
+   * untuk MENOLAK akun admin (Supabase menggabungkan akun berdasarkan email,
+   * jadi admin bisa saja masuk lewat Google dengan email yang sama).
+   * Galat (mis. migrasi belum dijalankan = belum ada admin) dianggap bukan admin.
+   */
+  FB.cekAdmin = async function () {
+    try {
+      const sb = await sbClient();
+      const { data, error } = await sb.rpc('saya_admin');
+      return !error && data === true;
+    } catch (e) { return false; }
+  };
+
   FB.authError = function (err) {
     const msg = (err && err.message) || '';
     if (/provider is not enabled/i.test(msg)) {
@@ -550,6 +588,34 @@
      2d. UNIT FASKES — tabel facilities & facility_members
      (supabase/migrations/20260926_facilities.sql)
      ============================================================ */
+  /* ============================================================
+     2e. DETEKSI MAKANAN — Edge Function `deteksi-makanan` (Gemini)
+     (supabase/functions/deteksi-makanan/index.ts)
+     ============================================================ */
+  const DeteksiDB = {
+    /**
+     * @param {string} dataUrl  foto JPEG (data:image/jpeg;base64,...)
+     * @param {Array} foods     daftar makanan yang boleh dijawab (TC.DATA.FOODS)
+     * @returns {{makanan:[{nama,porsi,yakin}], lainnya:string[], bukanMakanan:boolean}}
+     */
+    async makanan(dataUrl, foods) {
+      await FB.ensureAuth();
+      const m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(dataUrl || '');
+      if (!m) throw new Error('Foto tidak terbaca.');
+      const { data, error } = await FB.sb.functions.invoke('deteksi-makanan', {
+        body: { mime: m[1], image: m[2], foods: foods.map((f) => ({ n: f.n, unit: f.unit, g: f.g })) }
+      });
+      if (error) {
+        // Pesan dari fungsi (mis. kunci Gemini belum disetel) ada di badan respons.
+        let pesan = error.message;
+        try { const b = await error.context.json(); if (b && b.error) pesan = b.error; } catch (e) { /* abaikan */ }
+        throw new Error(pesan);
+      }
+      if (data && data.error) throw new Error(data.error);
+      return data;
+    }
+  };
+
   const FacilityDB = {
     /** Unit yang saya kelola (sisi admin faskes), atau null. */
     async milikSaya() {
@@ -973,4 +1039,5 @@
   TC.ReadingsDB = ReadingsDB;
   TC.CareDB = CareDB;
   TC.FacilityDB = FacilityDB;
+  TC.DeteksiDB = DeteksiDB;
 })(window.TC);

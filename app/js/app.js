@@ -14,6 +14,8 @@
   const R = [
     ['/mulai',        V.onboard,   { guard: 'guest', chrome: false }],
     ['/masuk',        V.login,     { guard: 'guest', chrome: false }],
+    // Masuk admin: sengaja tidak ditautkan dari tombol mana pun — hanya lewat URL.
+    ['/masuk/admin',  V.loginAdmin, { guard: 'guest', chrome: false }],
     ['/daftar',       V.register,  { guard: 'guest', chrome: false, fitur: 'daftarAkun' }],
     ['/lupa',         V.forgot,    { guard: 'guest', chrome: false }],
     ['/lengkapi',     V.complete,  { guard: 'auth',  chrome: false }],
@@ -47,17 +49,17 @@
     ['/teleband',         V.teleband,     { guard: 'auth', roles: ['pasien'], tab: 'profil' }],
 
     // ---- peran: dokter ----
-    ['/klinik',              V.clinic,        { guard: 'auth', roles: ['dokter'], tab: 'k-home' }],
+    ['/klinik',              V.clinic,        { guard: 'auth', roles: ['dokter'], tab: 'k-home', fitur: 'peranDokter' }],
     ['/klinik/antrean',      V.queue,         { guard: 'auth', roles: ['dokter'], tab: 'k-antrean', fitur: 'konsultasi' }],
-    ['/klinik/pasien',       V.patients,      { guard: 'auth', roles: ['dokter'], tab: 'k-pasien' }],
-    ['/klinik/pasien/:id',   V.patientDetail, { guard: 'auth', roles: ['dokter'], tab: 'k-pasien' }],
+    ['/klinik/pasien',       V.patients,      { guard: 'auth', roles: ['dokter'], tab: 'k-pasien', fitur: 'peranDokter' }],
+    ['/klinik/pasien/:id',   V.patientDetail, { guard: 'auth', roles: ['dokter'], tab: 'k-pasien', fitur: 'peranDokter' }],
 
     // ---- peran: admin faskes ----
     ['/faskes',            V.facility,        { guard: 'auth', roles: ['admin-faskes'], tab: 'f-home' }],
     ['/faskes/anggota',    V.facilityMembers, { guard: 'auth', roles: ['admin-faskes'], tab: 'f-anggota' }],
     ['/faskes/anggota/:id', V.patientDetail,  { guard: 'auth', roles: ['admin-faskes'], tab: 'f-anggota' }],
     ['/faskes/perangkat',  V.facilityDevices, { guard: 'auth', roles: ['admin-faskes'], tab: 'f-perangkat' }],
-    ['/faskes/nakes',      V.facilityStaff,   { guard: 'auth', roles: ['admin-faskes'], tab: 'f-nakes' }],
+    ['/faskes/nakes',      V.facilityStaff,   { guard: 'auth', roles: ['admin-faskes'], tab: 'f-nakes', fitur: 'peranDokter' }],
 
     // ---- peran: admin platform ----
     ['/sistem',           V.system,            { guard: 'auth', roles: ['admin'], tab: 's-home' }],
@@ -69,7 +71,7 @@
 
     ['/profil',             V.profile,     { guard: 'auth', tab: 'profil' }],
     ['/profil/pribadi',     V.personal,    { guard: 'auth', tab: 'profil' }],
-    ['/profil/dokter',      V.myDoctors,   { guard: 'auth', roles: ['pasien'], tab: 'profil' }],
+    ['/profil/dokter',      V.myDoctors,   { guard: 'auth', roles: ['pasien'], tab: 'profil', fitur: 'peranDokter' }],
     ['/profil/unit',        V.myUnits,     { guard: 'auth', roles: ['pasien', 'dokter'], tab: 'profil' }],
     ['/profil/tujuan',      V.goals,       { guard: 'auth', tab: 'profil' }],
     ['/profil/kalibrasi',   V.calibration, { guard: 'auth', tab: 'profil' }],
@@ -86,11 +88,11 @@
       // Akun lama berperan admin/faskes ketika peran itu disembunyikan: sesi
       // diakhiri, bukan dialihkan — beranda peran itu sendiri ikut tersembunyi
       // sehingga pengalihan akan berputar tanpa henti.
-      if (Store.user() && TC.peranTersembunyi(Store.role())) {
-        const nama = TC.DATA.role(Store.role()).name;
+      const tidakSah = Store.user() && sesiTidakSah();
+      if (tidakSah) {
         Store.update((s) => { s.session = null; });
-        TC.toast('Peran ' + nama + ' sedang tidak tersedia. Silakan masuk dengan peran lain.');
-        Router.navigate('/masuk', true);
+        TC.toast(tidakSah.pesan);
+        Router.navigate(tidakSah.ke, true);
         return;
       }
       // Fitur yang disembunyikan: rutenya ada, tetapi dialihkan ke beranda
@@ -111,6 +113,33 @@
       toggleDemoBadge((opts || {}).chrome !== false &&
         ['/home', '/tentang'].indexOf(Router.current.path) !== -1);
     };
+  }
+
+  /**
+   * Sesi lokal yang tidak boleh dipakai lagi, atau null bila sah:
+   *   - peran yang disembunyikan (dokter, admin platform);
+   *   - akun tamu, sejak akun tamu ditiadakan;
+   *   - admin yang tidak masuk lewat /masuk/admin, atau yang sesi Supabase-nya
+   *     sudah bukan akun admin itu (keluar, kedaluwarsa, berganti akun).
+   * Ini hanya penjaga tampilan — perlindungan data sesungguhnya ada di RLS
+   * server (saya_admin() pada tabel facilities).
+   */
+  function sesiTidakSah() {
+    const u = Store.user();
+    if (!u) return null;
+    const role = Store.role();
+    if (TC.peranTersembunyi(role)) {
+      return { pesan: 'Peran ' + TC.DATA.role(role).name + ' sudah tidak tersedia. Silakan masuk kembali.', ke: '/masuk' };
+    }
+    if (u.demo && !TC.FITUR.akunTamu) {
+      return { pesan: 'Akun tamu sudah tidak tersedia. Silakan masuk dengan akun Anda.', ke: '/masuk' };
+    }
+    if (role === 'admin-faskes' && !TC.FITUR.simulasi) {
+      const fb = TC.FB;
+      const beda = fb && fb.uid && u.adminUid && fb.uid !== u.adminUid;
+      if (!u.adminUid || beda) return { pesan: 'Sesi admin berakhir. Silakan masuk kembali.', ke: '/masuk/admin' };
+    }
+    return null;
   }
 
   /* ---------------- KERANGKA ---------------- */
@@ -144,7 +173,7 @@
       { id: 'f-home',      label: 'Unit',      icon: 'home',  href: '#/faskes' },
       { id: 'f-anggota',   label: 'Anggota',   icon: 'users', href: '#/faskes/anggota' },
       { id: 'f-perangkat', label: 'Perangkat', icon: 'watch', href: '#/faskes/perangkat' },
-      { id: 'f-nakes',     label: 'Nakes',     icon: 'stetho', href: '#/faskes/nakes' },
+      { id: 'f-nakes',     label: 'Nakes',     icon: 'stetho', href: '#/faskes/nakes', fitur: 'peranDokter' },
       { id: 'profil',      label: 'Profil',    icon: 'user',  href: '#/profil' }
     ],
     'admin': [
@@ -306,7 +335,7 @@
     // "?demo=1" membuka aplikasi langsung dengan akun contoh berisi riwayat —
     // memudahkan berbagi tautan peragaan tanpa perlu mendaftar dulu.
     // "?demo=1" (pasien) atau "?demo=<peran>" — misalnya ?demo=dokter
-    const demo = new URLSearchParams(location.search).get('demo');
+    const demo = TC.FITUR.akunTamu ? new URLSearchParams(location.search).get('demo') : null;
     if (demo && !Store.user()) {
       const valid = TC.DATA.ROLES.map((r) => r.id).filter((r) => !TC.peranTersembunyi(r));
       const role = valid.indexOf(demo) !== -1 ? demo : 'pasien';
@@ -340,6 +369,26 @@
       });
     }
     Router.render();
+
+    // Sesi Supabase diketahui belakangan (asinkron). Bila ternyata tidak cocok
+    // dengan sesi admin lokal, layar digambar ulang agar penjaga sesi bekerja.
+    if (TC.FB) TC.FB.onStatus(() => { if (Store.user() && sesiTidakSah()) Router.render(); });
+
+    // Sesi pasien yang ternyata memakai akun admin (email sama, masuk lewat
+    // Google) diakhiri: admin hanya boleh masuk lewat /masuk/admin. Dicek sekali
+    // per akun Supabase; sesi anonim tidak mungkin admin.
+    let adminDicek = null;
+    if (TC.FB) TC.FB.onStatus((fb) => {
+      if (!fb.uid || fb.anonymous || fb.uid === adminDicek || !Store.user() || !Store.is('pasien')) return;
+      adminDicek = fb.uid;
+      fb.cekAdmin().then((admin) => {
+        if (!admin || !Store.is('pasien')) return;
+        fb.signOut();
+        Store.update((s) => { s.session = null; });
+        Router.navigate('/masuk', true);
+        TC.toast('Akun ini terdaftar sebagai admin dan tidak bisa dipakai sebagai pasien.');
+      });
+    });
 
     // Menahan sesi tetap hidup saat tab kembali aktif.
     document.addEventListener('visibilitychange', () => {

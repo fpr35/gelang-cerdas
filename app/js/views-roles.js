@@ -441,7 +441,7 @@
       <div class="card">
         <div class="card__head">${icon('building')}<h3>Buat unit Anda</h3></div>
         <p class="small muted">Satu akun admin faskes mengelola satu unit. Setelah dibuat, Anda
-          mendapat <b>kode unit</b> untuk dibagikan ke anggota (pasien) dan tenaga kesehatan.</p>
+          mendapat <b>kode unit</b> untuk dibagikan ke ${TC.FITUR.peranDokter ? 'anggota (pasien) dan tenaga kesehatan' : 'pasien anggota unit'}.</p>
         <form id="fUnit" class="mt" novalidate>
           <label class="field"><span>Nama unit</span>
             <span class="wrap"><input name="name" maxlength="80" required placeholder="Mis. Klinik Pratama Sehat"></span></label>
@@ -478,8 +478,8 @@
         <button class="btn btn--soft btn--sm" data-kode-salin>${icon('doc')} Salin</button>
         <button class="btn btn--ghost btn--sm" data-kode-ganti>${icon('refresh')} Ganti kode</button>
       </div>
-      <p class="tiny muted mt">Anggota dan nakes memasukkan kode ini di <b>Profil → Unit saya</b>.
-        Mengganti kode tidak mengeluarkan yang sudah bergabung.</p>
+      <p class="tiny muted mt">${TC.FITUR.peranDokter ? 'Anggota dan nakes' : 'Pasien'} memasukkan kode ini di
+        <b>Profil → Unit saya</b> untuk bergabung. Mengganti kode tidak mengeluarkan yang sudah bergabung.</p>
     </div>`;
   }
 
@@ -528,7 +528,7 @@
 
         <div class="stat-row">
           <div><b>${anggota.length}</b><span>Anggota</span></div>
-          <div><b>${nakes.length}</b><span>Nakes</span></div>
+          ${TC.FITUR.peranDokter ? `<div><b>${nakes.length}</b><span>Nakes</span></div>` : ''}
           <div><b style="${perhatian.length ? 'color:var(--coral-500)' : ''}">${perhatian.length}</b><span>Perlu perhatian</span></div>
         </div>
 
@@ -560,7 +560,7 @@
         <div class="quick">
           <a href="#/faskes/anggota"><i style="background:#EDF9F2;color:#03804C">${icon('users')}</i>Anggota</a>
           <a href="#/faskes/perangkat"><i style="background:#DCEEF9;color:#075A85">${icon('watch')}</i>Perangkat</a>
-          <a href="#/faskes/nakes"><i style="background:#EEEBFD;color:#4A3BB8">${icon('stetho')}</i>Nakes</a>
+          ${TC.FITUR.peranDokter ? `<a href="#/faskes/nakes"><i style="background:#EEEBFD;color:#4A3BB8">${icon('stetho')}</i>Nakes</a>` : ''}
           <a href="#/notifikasi"><i style="background:#FFF1D6;color:#8A5D00">${icon('bell')}</i>Peringatan</a>
         </div>
 

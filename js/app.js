@@ -45,7 +45,7 @@
     ['i-bp', 'Estimasi tekanan darah berbasis PPG'],
     ['i-bt', 'Sambungan langsung lewat Web Bluetooth'],
     ['i-cloud', 'Sinkronisasi cloud terenkripsi'],
-    ['i-doctor', 'Tinjauan tenaga kesehatan'],
+    ['i-doctor', 'Pemantauan oleh admin unit'],
     ['i-shield', 'Privasi data per unit institusi'],
     ['i-chip', 'Pra-proses sinyal di perangkat']
   ];

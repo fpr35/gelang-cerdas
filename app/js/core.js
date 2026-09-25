@@ -105,11 +105,19 @@ window.TC = window.TC || {};
     // (statistik platform, verifikasi dokter, daftar faskes) yang belum punya
     // padanan nyata, jadi disembunyikan dari pilihan peran. Admin Faskes
     // tetap ada: tanpa simulasi ia memakai unit sungguhan (tabel facilities).
-    peranAdmin: false
+    peranAdmin: false,
+    // Peran dokter (klinik, pasien binaan, kode dokter, nakes unit) — dihapus
+    // dari produk atas permintaan lead engineer; kodenya tetap ada.
+    peranDokter: false,
+    // "Masuk sebagai Tamu" dan tautan ?demo= — tidak ada lagi akun tamu.
+    akunTamu: false,
+    // Baris "Ganti peran" di Profil.
+    gantiPeran: false
   };
 
   /** Benar bila peran itu sedang disembunyikan (lihat FITUR.peranAdmin). */
-  const peranTersembunyi = (role) => !FITUR.peranAdmin && role === 'admin';
+  const peranTersembunyi = (role) =>
+    (!FITUR.peranAdmin && role === 'admin') || (!FITUR.peranDokter && role === 'dokter');
 
   /* ---------------- 2. STORE ---------------- */
   // Seluruh data aplikasi tersimpan di localStorage perangkat ini.

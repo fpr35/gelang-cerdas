@@ -114,6 +114,18 @@ Ubah ke `true` untuk memunculkannya kembali.
 | `konsultasi` | konsultasi, chat, panggilan, janji temu, antrean dokter, dan dering panggilan dokter hilang |
 | `simulasi` | tidak ada angka buatan: vital "—" tanpa TeleBand, sesi makan diisi glukosa TeleBand, tamu mulai kosong, dokter melihat pasien asli |
 | `peranAdmin` | peran Admin Platform (seluruhnya data contoh) tidak dapat dipilih |
+| `peranDokter` | peran dokter (klinik, kode dokter, nakes unit) tidak ada |
+| `akunTamu` | tidak ada "Masuk sebagai Tamu" maupun tautan `?demo=` |
+| `gantiPeran` | baris "Ganti peran" di Profil tidak tampil |
+
+**Akun admin** (migrasi [supabase/migrations/20260927_admins.sql](supabase/migrations/20260927_admins.sql)):
+buat pengguna di Supabase Dashboard → Authentication → Users → *Add user* (centang Auto Confirm), lalu
+`insert into public.admins (user_id) select id from auth.users where email = '...';`.
+Admin masuk di **`/app/#/masuk/admin`** — halaman ini sengaja tidak ditautkan dari mana pun.
+
+**Deteksi makanan (Gemini)**: Edge Function [supabase/functions/deteksi-makanan](supabase/functions/deteksi-makanan/index.ts).
+`supabase secrets set GEMINI_API_KEY=...` lalu `supabase functions deploy deteksi-makanan`.
+Kunci Gemini hanya ada di server; foto makanan dikirim ke Google untuk dikenali.
 
 **Hubungan dokter–pasien** butuh migrasi [supabase/migrations/20260926_care_links.sql](supabase/migrations/20260926_care_links.sql)
 dijalankan sekali di Supabase SQL Editor. Alurnya: dokter membuat *kode dokter* di layar Klinik →

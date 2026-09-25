@@ -209,6 +209,30 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
 30. **Tujuan "Bulking"** (25 Sep, permintaan user): `bulking` di D.GOALS (cadangan 2700/355/130/75) dan
     `Gizi.TUJUAN` (+500 kkal, protein 1,8 g/kg, lemak 25%) — beda dari "Menambah massa otot" (+300,
     1,6 g/kg). Otomatis muncul di Profil → Tujuan dan Lengkapi Data. Uji gizi 29/29.
+31. **Peran & login baru + Gemini** (25 Sep, permintaan lead engineer).
+    - Peran kini hanya Pasien dan Admin (id tetap `admin-faskes`, nama tampil "Admin"). Sakelar baru:
+      `peranDokter=false` (klinik, kode dokter, nakes unit, "Dokter saya"), `akunTamu=false`
+      (tombol tamu & `?demo=`), `gantiPeran=false`. `sesiTidakSah()` di app.js mengeluarkan sesi
+      dokter/tamu lama dan admin yang tidak masuk lewat /masuk/admin atau sesi Supabase-nya lain.
+    - Admin sungguhan: Supabase Auth email+kata sandi + tabel `admins` (migrasi
+      `20260927_admins.sql`, fungsi `saya_admin()`; policy facilities kini mensyaratkan admin).
+      Masuk hanya di `/app/#/masuk/admin` (tanpa tautan dari mana pun), `FB.signInAdmin`. Akun admin
+      dibuat di Dashboard (Add user) lalu `insert into admins`. Profil admin: hanya nama & kontak.
+    - Deteksi makanan: Edge Function `supabase/functions/deteksi-makanan` (Gemini, secret
+      `GEMINI_API_KEY`, opsional `GEMINI_MODEL`, bawaan gemini-2.5-flash); enum nama = D.FOODS,
+      porsi dibulatkan ke 0,5–3. Klien `TC.DeteksiDB`; hasil = usulan di layar Pilih Makanan,
+      gagal → manual. Foto diperkecil ≤768 px.
+    - Belum teruji ke server: migrasi admins, fungsi Gemini (belum di-deploy). Form email/sandi
+      pasien di /masuk hanya cocok untuk akun lokal lama — tanpa daftar & tamu, pasien praktis
+      masuk lewat Google.
+    - Pemisahan dua arah: halaman admin menolak non-admin (`signInAdmin`); halaman pasien menolak
+      admin (`FB.cekAdmin()` di `adoptGoogleUser` + pemeriksaan sekali per uid di boot), karena
+      Supabase menautkan identitas Google ke akun email yang sama.
+    - Gemini 404 di produksi (model `gemini-2.5-flash` tidak tersedia lagi). Fungsi kini memilih model
+      otomatis dari `GET /v1beta/models` (flash, generateContent, stabil dulu, versi tertinggi),
+      mencoba ulang sekali bila 404, dan meneruskan pesan galat Google ke aplikasi. Perlu deploy ulang.
+      Lalu 503 "high demand": fungsi kini mengulang model yang sama (jeda 1,5 dtk) lalu 2 model cadangan
+      dari daftar (maks. 4 percobaan); tetap 503 → pesan "Gemini sedang sibuk" ke pengguna.
 
 ---
 

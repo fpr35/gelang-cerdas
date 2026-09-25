@@ -643,10 +643,10 @@
         <g transform="translate(974,156)"><rect width="150" height="14" rx="7" fill="#fff" stroke="#A9E5C8"/><rect width="92" height="14" rx="7" fill="#6FD3A6"/></g>
 
         <rect x="952" y="200" width="196" height="104" rx="20" fill="url(#ag2)" stroke="#7CC3E8"/>
-        <text x="974" y="232" font-size="15" font-weight="700" fill="#075A85">Tinjauan Nakes</text>
-        <text x="974" y="252" font-size="11.5" fill="#5F8477">Dokter memantau pasien</text>
-        <text x="974" y="270" font-size="11.5" fill="#5F8477">dari rekam vital</text>
-        <g transform="translate(974,280)" font-size="10" fill="#075A85"><rect width="84" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="42" y="13" text-anchor="middle">Catatan klinis</text><rect x="90" width="60" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="120" y="13" text-anchor="middle">Eskalasi</text></g>
+        <text x="974" y="232" font-size="15" font-weight="700" fill="#075A85">Admin Unit</text>
+        <text x="974" y="252" font-size="11.5" fill="#5F8477">Memantau anggota</text>
+        <text x="974" y="270" font-size="11.5" fill="#5F8477">dari hasil ukur TeleBand</text>
+        <g transform="translate(974,280)" font-size="10" fill="#075A85"><rect width="84" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="42" y="13" text-anchor="middle">Triase</text><rect x="90" width="60" height="18" rx="9" fill="#fff" stroke="#7CC3E8"/><text x="120" y="13" text-anchor="middle">Laporan</text></g>
 
         <rect x="952" y="322" width="196" height="110" rx="20" fill="#fff" stroke="#DDEAE3"/>
         <text x="974" y="354" font-size="15" font-weight="700" fill="#08201A">Intervensi</text>
@@ -954,9 +954,9 @@
           </div>
           <div class="stack-item reveal" data-d="2">
             <span class="stack-item__ico"><svg><use href="#i-doctor"/></svg></span>
-            <div><b>Tinjauan tenaga kesehatan</b>
-              <p>Dokter melihat vital pasien binaan, menulis catatan klinis, dan menandai kasus
-                 yang perlu tindak lanjut.</p></div>
+            <div><b>Pemantauan oleh admin unit</b>
+              <p>Pasien bergabung ke unitnya dengan kode unit; admin melihat hasil ukur anggota,
+                 status triase, dan perangkat yang dipakai, lalu mengunduh laporannya.</p></div>
           </div>
           <div class="stack-item reveal" data-d="3">
             <span class="stack-item__ico"><svg><use href="#i-chart"/></svg></span>
@@ -974,7 +974,8 @@
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
           <a class="btn btn--primary" href="app/">Buka aplikasi <svg><use href="#i-arrow"/></svg></a>
-          <a class="btn btn--ghost" href="app/?demo=1">Masuk sebagai tamu</a>
+          <!-- Disembunyikan: akun tamu ditiadakan. -->
+          <a class="btn btn--ghost" href="app/?demo=1" hidden>Masuk sebagai tamu</a>
         </div>
         <p class="tiny muted" style="margin-top:14px;font-size:.78rem;color:var(--muted)">
           Semua angka vital berasal dari pengukuran TeleBand; tanpa alat, layar vital menampilkan “—”.

@@ -14,7 +14,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = 'v18';
+const VERSION = 'v20';
 const CACHE = `telecare-app-${VERSION}`;
 
 // Kerangka aplikasi. Urutan skrip mengikuti app/index.html.

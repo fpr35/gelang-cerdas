@@ -273,8 +273,9 @@
       home: '/klinik'
     },
     {
-      id: 'admin-faskes', name: 'Admin Faskes', short: 'Faskes', icon: 'building', color: '#6C5CE7',
-      desc: 'Mengelola satu unit — anggota binaan, inventaris perangkat, dan eskalasi.',
+      // id tetap 'admin-faskes' agar data & rute lama tetap cocok; namanya kini "Admin".
+      id: 'admin-faskes', name: 'Admin', short: 'Admin', icon: 'building', color: '#6C5CE7',
+      desc: 'Mengelola unit — anggota, hasil ukur TeleBand, dan perangkat.',
       home: '/faskes'
     },
     {

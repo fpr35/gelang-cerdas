@@ -14,6 +14,7 @@
   function viewProfile() {
     const u = Store.user();
     const p = Store.profile();
+    const PASIEN = Store.is('pasien');
     // Perangkat lama berjenis tersembunyi (mis. TeleRing) tidak ditampilkan.
     const devs = Store.state.devices.filter((d) => D.jenisTampil(d.type));
     const conn = devs.filter((d) => d.connected).length;
@@ -33,7 +34,7 @@
           ${icon(D.role(u.role || 'pasien').icon)} ${esc(D.role(u.role || 'pasien').short)}</span>
       </div>
 
-      <div class="stat-row mt">
+      <div class="stat-row mt" ${PASIEN ? '' : 'hidden'}>
         <div><b>${Store.state.meals.length}</b><span>Sesi tercatat</span></div>
         <div><b>${devs.length}</b><span>Perangkat</span></div>
         ${TC.FITUR.konsultasi
@@ -44,24 +45,25 @@
       <div class="section-title">${icon('user')} ${(u.role && u.role !== 'pasien') ? 'Akun' : 'Akun &amp; kesehatan'}</div>
       <div class="list">
         <a class="row" href="#/profil/pribadi"><span class="row__ico">${icon('user')}</span>
-          <div><b>Informasi Pribadi</b><small>Nama, usia, tinggi, dan berat badan</small></div>
+          <div><b>${PASIEN ? 'Informasi Pribadi' : 'Informasi Akun'}</b><small>${PASIEN
+            ? 'Nama, usia, tinggi, berat badan, dan aktivitas' : 'Nama dan kontak'}</small></div>
           ${icon('chev', 'chev')}</a>
-        <a class="row" href="#/profil/tujuan"><span class="row__ico">${icon('target')}</span>
+        ${PASIEN ? `<a class="row" href="#/profil/tujuan"><span class="row__ico">${icon('target')}</span>
           <div><b>Tujuan Kesehatan</b><small>${esc(D.goal(p.goal).name)} · ${p.targets.kcal} kkal/hari</small></div>
           ${icon('chev', 'chev')}</a>
         <a class="row" href="#/perangkat"><span class="row__ico">${icon('watch')}</span>
           <div><b>Status Perangkat</b><small>${conn} dari ${devs.length} perangkat tersambung</small></div>
           ${icon('chev', 'chev')}</a>
-        ${Store.is('pasien') || Store.is('dokter') ? `<a class="row" href="#/profil/unit"><span class="row__ico">${icon('building')}</span>
+        ${Store.is('pasien') || (TC.FITUR.peranDokter && Store.is('dokter')) ? `<a class="row" href="#/profil/unit"><span class="row__ico">${icon('building')}</span>
           <div><b>Unit saya</b><small>${Store.is('dokter') ? 'Bergabung sebagai nakes' : 'Bergabung sebagai anggota'} unit faskes lewat kode unit</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
-        ${Store.is('pasien') ? `<a class="row" href="#/profil/dokter"><span class="row__ico">${icon('stetho')}</span>
+        ${PASIEN && TC.FITUR.peranDokter ? `<a class="row" href="#/profil/dokter"><span class="row__ico">${icon('stetho')}</span>
           <div><b>Dokter saya</b><small>Bagikan hasil ukur TeleBand ke dokter lewat kode dokter</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/profil/kalibrasi"><span class="row__ico">${icon('bp')}</span>
           <div><b>Kalibrasi Tekanan Darah</b>
             <small>${p.bpCal ? 'Terakhir ' + esc(relTime(p.bpCal.at)) : 'Belum pernah dikalibrasi'}</small></div>
-          ${icon('chev', 'chev')}</a>
+          ${icon('chev', 'chev')}</a>` : ''}
       </div>
 
       <div class="section-title">${icon('cal')} Layanan</div>
@@ -69,9 +71,9 @@
         ${TC.FITUR.konsultasi ? `<a class="row" href="#/jadwal"><span class="row__ico">${icon('cal')}</span>
           <div><b>Janji Temu</b><small>${Store.state.appointments.length} jadwal tersimpan</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
-        <a class="row" href="#/riwayat"><span class="row__ico">${icon('doc')}</span>
+        ${PASIEN ? `<a class="row" href="#/riwayat"><span class="row__ico">${icon('doc')}</span>
           <div><b>Riwayat Lengkap</b><small>Sesi makan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan ${TC.FITUR.simulasi ? 'sinkronisasi' : 'hasil ukur'}</small></div>
-          ${icon('chev', 'chev')}</a>
+          ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/notifikasi"><span class="row__ico">${icon('bell')}</span>
           <div><b>Notifikasi</b><small>${Store.unread()} belum dibaca</small></div>
           ${icon('chev', 'chev')}</a>
@@ -85,14 +87,14 @@
         <a class="row" href="#/tentang"><span class="row__ico">${icon('info')}</span>
           <div><b>Tentang TeleCare</b><small>Batasan penggunaan dan sumber data</small></div>
           ${icon('chev', 'chev')}</a>
-        <button class="row" data-switch><span class="row__ico">${icon('swap')}</span>
+        <button class="row" data-switch ${TC.FITUR.gantiPeran ? '' : 'hidden'}><span class="row__ico">${icon('swap')}</span>
           <div><b>Ganti peran</b><small>${TC.FITUR.simulasi ? 'Mode purwarupa · lihat aplikasi dari sudut pandang lain' : 'Pasien atau dokter'}</small></div>
           ${icon('chev', 'chev')}</button>
         <button class="row row--danger" data-logout><span class="row__ico">${icon('out')}</span>
-          <div><b>Keluar</b><small>Riwayat tetap tersimpan di perangkat ini</small></div></button>
+          <div><b>Keluar</b><small>${PASIEN ? 'Riwayat tetap tersimpan di perangkat ini' : 'Mengakhiri sesi admin di perangkat ini'}</small></div></button>
       </div>
 
-      <div class="note note--w mt2">${icon('alert')}
+      <div class="note note--w mt2" ${PASIEN ? '' : 'hidden'}>${icon('alert')}
         <div><b>Data kesehatan adalah data pribadi</b>Hindari membagikan tangkapan layar Beranda
         atau Analisis di ruang publik — layar itu memuat nama, tanggal, dan kebiasaan harian Anda.</div></div>
     `);
@@ -106,7 +108,7 @@
       if (!ok) return;
       if (TC.FB) TC.FB.signOut();
       Store.update((s) => { s.session = null; });
-      Router.navigate('/masuk', true);
+      Router.navigate(PASIEN ? '/masuk' : '/masuk/admin', true);
       toast('Anda telah keluar.');
     };
 
@@ -278,7 +280,8 @@
   function viewPersonal() {
     const u = Store.user();
     const p = Store.profile();
-    TC.topbar('Informasi Pribadi', { sub: 'Dipakai untuk menghitung target' });
+    const PASIEN = Store.is('pasien');
+    TC.topbar(PASIEN ? 'Informasi Pribadi' : 'Informasi Akun', { sub: PASIEN ? 'Dipakai untuk menghitung target' : 'Nama dan kontak admin' });
 
     setView(`
       <form id="fInfo">
@@ -287,6 +290,7 @@
         <label class="field"><span>Nama panggilan</span>
           <span class="wrap"><input name="nickname" value="${esc(p.nickname || '')}"></span>
           <span class="hint">Muncul pada sapaan di halaman Beranda.</span></label>
+        <div ${PASIEN ? '' : 'hidden'}>
         <label class="field"><span>Jenis kelamin</span>
           <span class="wrap"><select name="gender">
             <option value="">Belum diisi</option>
@@ -309,6 +313,7 @@
             ${TC.Gizi.AKTIVITAS.map((a) => `<option value="${a.id}"${p.aktivitas === a.id ? ' selected' : ''}>${esc(a.nama)} — ${esc(a.desc)}</option>`).join('')}
           </select></span>
           <span class="hint">Menentukan faktor pengali kebutuhan energi harian.</span></label>
+        </div>
 
         <div class="section-title">${icon('mail')} Kontak pemulihan</div>
         <label class="field"><span>Email</span>
@@ -317,7 +322,7 @@
           <span class="wrap"><input name="phone" type="tel" value="${esc(u.phone)}"></span>
           <span class="hint">Pastikan keduanya aktif — pemulihan akun hanya lewat jalur terdaftar.</span></label>
 
-        ${bmiCard(p)}
+        ${PASIEN ? bmiCard(p) : ''}
         <button class="btn btn--primary btn--lg btn--block mt2" type="submit">Simpan perubahan</button>
       </form>`);
 
@@ -341,7 +346,8 @@
         TC.Gizi.terapkan(s.profile);
       });
       const pr = Store.profile();
-      toast(pr.targetManual ? 'Perubahan tersimpan. Target gizi tetap memakai angka yang Anda ketik sendiri.'
+      toast(!PASIEN ? 'Perubahan tersimpan.'
+        : pr.targetManual ? 'Perubahan tersimpan. Target gizi tetap memakai angka yang Anda ketik sendiri.'
         : TC.Gizi.kurang(pr).length ? 'Perubahan tersimpan. Lengkapi ' + TC.Gizi.kurang(pr).join(', ') + ' agar target dihitung dari profil.'
         : 'Perubahan tersimpan. Target gizi dihitung ulang: ' + pr.targets.kcal + ' kkal/hari.');
       Router.render();

@@ -198,11 +198,11 @@
         <button class="btn btn--ghost btn--lg btn--block" data-google>
           ${icon('google')} Masuk dengan Google</button>
 
-        <div class="alt">atau tanpa akun</div>
+        ${TC.FITUR.akunTamu ? `<div class="alt">atau tanpa akun</div>
         <button class="btn btn--soft btn--lg btn--block" data-guest>
           ${icon('user')} Masuk sebagai Tamu</button>
         <p class="tiny muted tc" style="margin-top:8px">
-          Memakai akun demo berisi riwayat contoh. Anda dapat memilih perannya.</p>
+          Memakai akun demo berisi riwayat contoh. Anda dapat memilih perannya.</p>` : ''}
 
         ${TC.FITUR.daftarAkun
           ? '<div class="auth__foot">Belum punya akun? <b data-go-daftar>Daftar sekarang</b></div>' : ''}
@@ -218,7 +218,8 @@
     // tanpa penyedia yang diaktifkan. Tombol yang tidak melakukan apa pun lebih
     // buruk daripada tidak ada tombol.
     $('[data-google]').onclick = () => googleSignIn($('[data-google]'));
-    $('[data-guest]').onclick = () => guestSheet();
+    const tamu = $('[data-guest]');
+    if (tamu) tamu.onclick = () => guestSheet();
 
     $('#fLogin').onsubmit = (e) => {
       e.preventDefault();
@@ -270,11 +271,26 @@
     });
   }
 
-  /** Membuat atau memakai kembali akun lokal untuk pengguna Google. */
+  /**
+   * Masuk pasien lewat Google. Akun admin DITOLAK di sini — admin hanya boleh
+   * masuk lewat /masuk/admin — lalu sesinya langsung dikeluarkan.
+   */
   function adoptGoogleUser(u) {
+    TC.FB.cekAdmin().then((admin) => {
+      if (!admin) { adoptGoogleUserLanjut(u); return; }
+      TC.FB.signOut();
+      Store.update((s) => { s.session = null; });
+      Router.navigate('/masuk', true);
+      toast('Akun ini terdaftar sebagai admin dan tidak bisa masuk sebagai pasien.', 'err');
+    });
+  }
+
+  /** Membuat atau memakai kembali akun lokal untuk pengguna Google. */
+  function adoptGoogleUserLanjut(u) {
     const meta = u.user_metadata || {};
     const email = u.email || (u.id + '@google.local');
     let existing = findUser(email);
+    if (existing && existing.role === 'admin-faskes') existing = null;   // admin hanya lewat /masuk/admin
     if (existing) {
       Store.update((s) => {
         s.users[existing.id].googleUid = u.id;
@@ -301,6 +317,76 @@
     TC.Devices.startBuffer();
     Router.navigate('/lengkapi', true);
     toast('Berhasil masuk sebagai ' + name + '.');
+  }
+
+  /* ---------------- MASUK ADMIN ----------------
+     Halaman terpisah di /masuk/admin, sengaja tanpa tautan dari layar mana
+     pun. Memakai akun Supabase Auth sungguhan yang terdaftar di tabel
+     `admins`; bukan akun lokal. */
+  function viewLoginAdmin() {
+    setTopbar('');
+    setView(`<div class="auth">
+      <div class="auth__body">
+        <div class="auth__logo">${logoSvg(62)}</div>
+        <h1>Masuk Admin</h1>
+        <p class="sub">Khusus pengelola unit TeleCare</p>
+
+        <form id="fAdmin" novalidate>
+          <label class="field">
+            <span>Email</span>
+            <span class="wrap">${icon('mail')}
+              <input type="email" name="email" autocomplete="username" placeholder="admin@unit.id" required></span>
+          </label>
+          <label class="field">
+            <span>Kata Sandi</span>
+            <span class="wrap">${icon('lock')}
+              <input type="password" name="pass" autocomplete="current-password" placeholder="Kata sandi admin" required>
+              <button type="button" class="eye" data-eye aria-label="Tampilkan kata sandi">${icon('eye-off')}</button>
+            </span>
+          </label>
+          <button class="btn btn--primary btn--lg btn--block" type="submit" data-admin-go>Masuk</button>
+        </form>
+
+        <p class="tiny muted tc" style="margin-top:14px">Akun admin dibuat oleh pengelola sistem.
+          Lupa kata sandi? Hubungi pengelola sistem untuk mengaturnya ulang.</p>
+      </div>
+    </div>`, { cls: 'view view--full' });
+
+    bindEye();
+    $('#fAdmin').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const email = f.email.value.trim(), pass = f.pass.value;
+      if (!email || !pass) { toast('Lengkapi email dan kata sandi.', 'err'); return; }
+      if (!TC.FB) { toast('Layanan masuk belum siap. Muat ulang halaman.', 'err'); return; }
+      const btn = $('[data-admin-go]');
+      btn.classList.add('is-disabled'); btn.textContent = 'Memeriksa…';
+      try {
+        const au = await TC.FB.signInAdmin(email, pass);
+        let u = Object.values(Store.state.users).find((x) => x.adminUid === au.id);
+        Store.update((s) => {
+          if (!u) {
+            const id = uid('u');
+            const nama = (au.user_metadata && (au.user_metadata.full_name || au.user_metadata.name)) ||
+              (au.email || email).split('@')[0];
+            u = { id, name: nama, nickname: nama, email: au.email || email, phone: '', pass: null,
+                  role: 'admin-faskes', adminUid: au.id, provider: 'admin', createdAt: Date.now() };
+            s.users[id] = u;
+          }
+          s.onboarded = true;
+          s.session = { userId: u.id, at: Date.now() };
+        });
+        Router.navigate('/faskes', true);
+        toast('Masuk sebagai admin.');
+      } catch (err) {
+        const pesan = /invalid login credentials/i.test((err && err.message) || '') ? 'Email atau kata sandi salah.'
+          : err && err.code === 'BUKAN_ADMIN' ? 'Akun ini bukan akun admin.'
+          : err && (err.code === 'PGRST202' || err.code === '42883') ? 'Server belum siap: jalankan migrasi 20260927_admins.sql.'
+          : (err && err.message) || 'Gagal masuk.';
+        toast(pesan, 'err');
+        btn.classList.remove('is-disabled'); btn.textContent = 'Masuk';
+      }
+    };
   }
 
   /* ---------------- MASUK SEBAGAI TAMU ---------------- */
@@ -667,6 +753,7 @@
 
   TC.views = TC.views || {};
   Object.assign(TC.views, {
+    loginAdmin: viewLoginAdmin,
     onboard: viewOnboard, login: viewLogin, register: viewRegister,
     complete: viewComplete, forgot: viewForgot, logoSvg, seedDemoUser,
     googleSignIn, adoptGoogleUser
