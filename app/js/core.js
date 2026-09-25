@@ -122,6 +122,9 @@ window.TC = window.TC || {};
     //   [{ id, patientId, at, by }]
     escalations: [],
     appointments: [],
+    // Hasil ukur perangkat sungguhan (TeleBand), salinan lokal dari tabel
+    // device_readings. Lihat Readings di engine.js.
+    readings: [],
     notifications: [],
     vitalsHistory: [],
     // Agregat vital per hari, dipakai tren 7 hari pada layar Analisis:

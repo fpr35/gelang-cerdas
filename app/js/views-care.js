@@ -221,8 +221,8 @@
       </div>
 
       <div class="note note--b mt2">${icon('link')}
-        <div><b>Bagaimana ini bekerja</b>Pesan dikirim sungguhan lewat Firebase Realtime Database,
-        dan panggilan memakai WebRTC langsung antarperangkat (sinyal lewat Firebase).
+        <div><b>Bagaimana ini bekerja</b>Pesan dikirim sungguhan lewat Supabase,
+        dan panggilan memakai WebRTC langsung antarperangkat (sinyal lewat Supabase Realtime).
         Bagikan tautan percakapan agar orang lain ikut dari perangkat berbeda.</div></div>
 
       <div class="note note--w mt">${icon('alert')}
@@ -233,12 +233,12 @@
     function begin(mode) {
       const c = TC.Consult.start(doc.id, mode);
       if ($('#shareVitals').checked) {
-        TC.Consult.push(c.id, { from: 'me', kind: 'vitals', data: TC.Vitals.snapshot(), text: '' });
+        TC.Consult.push(c.id, { from: 'me', kind: 'vitals', data: TC.Vitals.snapshot() });
       }
       const mealId = sessionStorage.getItem('tc.attachMeal');
       const meal = Store.state.meals.find((m) => m.id === mealId) || Store.state.meals[0];
       if ($('#shareMeals').checked && meal) {
-        TC.Consult.push(c.id, { from: 'me', kind: 'meal', data: { id: meal.id }, text: '' });
+        TC.Consult.push(c.id, { from: 'me', kind: 'meal', data: TC.Consult.mealCard(meal) });
       }
       sessionStorage.removeItem('tc.attachMeal');
       Router.navigate((mode === 'video' || mode === 'audio') ? '/call/' + c.id : '/chat/' + c.id);
@@ -343,7 +343,7 @@
   /* ---------------- 5. CHAT KONSULTASI ---------------- */
   /**
    * Bila percakapan belum ada di perangkat ini (tautan undangan dibuka di
-   * perangkat lain), ambil metadatanya dari Firebase lebih dulu.
+   * perangkat lain), ambil metadatanya dari Supabase lebih dulu.
    */
   function joining(id, then) {
     TC.topbar('Bergabung', { sub: 'Mengambil percakapan dari server' });
@@ -354,7 +354,7 @@
                 stroke-dasharray="32 100">
           <animateTransform attributeName="transform" type="rotate"
             from="0 24 24" to="360 24 24" dur="1s" repeatCount="indefinite"/></circle></svg>
-      <b>Menghubungkan…</b><p>Mengambil percakapan <span class="mono">${esc(id)}</span> dari Realtime Database.</p>
+      <b>Menghubungkan…</b><p>Mengambil percakapan <span class="mono">${esc(id)}</span> dari server.</p>
     </div>`);
 
     TC.Consult.adopt(id).then((c) => {
@@ -374,6 +374,9 @@
     const asDoctor = Store.is('dokter');
     const myFrom = asDoctor ? 'doc' : 'me';
     const quick = asDoctor ? D.QUICK_REPLIES_DOC : D.QUICK_REPLIES;
+    // Percakapan contoh akun tamu: tidak tersinkron dan tidak punya ruang
+    // panggilan sendiri (lihat Consult.isLocal).
+    const lokal = TC.Consult.isLocal(c);
     let docPresent = false;
 
     setTopbar('');
@@ -415,6 +418,10 @@
       const el = $('#chatStatus');
       if (!el) return;
       if (c.status !== 'active') { el.innerHTML = 'konsultasi selesai'; return; }
+      if (lokal) {
+        el.innerHTML = '<span style="color:var(--muted)">percakapan contoh · hanya di perangkat ini</span>';
+        return;
+      }
       if (!FB || !FB.settled) { el.innerHTML = '<span style="color:var(--muted)">menghubungkan…</span>'; return; }
       if (!FB.online) {
         el.innerHTML = '<span style="color:var(--amber-700)">mode luring · pesan disimpan lokal</span>';
@@ -428,38 +435,41 @@
         ? '<i class="dotlive"></i> Anda menjawab sebagai dokter'
         : (docPresent
             ? '<i class="dotlive"></i> dokter sedang online'
-            : '<i class="dotlive"></i> tersinkron · Realtime Database');
+            : '<i class="dotlive"></i> tersinkron ke server');
     }
 
     function bubble(m) {
       const t = hhmm(new Date(m.at));
       if (m.from === 'sys' && m.kind !== 'call') return `<div class="msg msg--sys">${esc(m.text)}</div>`;
 
-      if (m.kind === 'vitals') {
+      if (m.kind === 'vitals' && m.data) {
         const v = m.data;
         return `<div class="msg msg--card${m.from === myFrom ? ' msg--cardme' : ''}">
           <h5>${icon('heart')} Ringkasan vital terbaru</h5>
           <div class="vital-mini">
-            <div><span>Detak jantung</span><b>${v.hr} bpm</b></div>
-            <div><span>SpO₂</span><b>${v.spo2}%</b></div>
-            <div><span>Suhu</span><b>${v.temp} °C</b></div>
-            <div><span>Tekanan darah</span><b>${v.sys}/${v.dia}</b></div>
+            <div><span>Detak jantung</span><b>${esc(v.hr)} bpm</b></div>
+            <div><span>SpO₂</span><b>${esc(v.spo2)}%</b></div>
+            <div><span>Suhu</span><b>${esc(v.temp)} °C</b></div>
+            <div><span>Tekanan darah</span><b>${esc(v.sys)}/${esc(v.dia)}</b></div>
           </div>
           <p class="tiny muted" style="margin-top:9px">Dikirim otomatis dari perangkat · ${esc(t)}</p>
         </div>`;
       }
 
-      if (m.kind === 'meal') {
-        const meal = Store.state.meals.find((x) => x.id === m.data.id);
-        if (!meal) return '';
-        return `<div class="msg msg--card">
+      if (m.kind === 'meal' && m.data) {
+        // Pesan lama hanya membawa id; pesan baru membawa ringkasannya sendiri
+        // karena perangkat penerima tidak punya riwayat makan pengirim.
+        const lokal = Store.state.meals.find((x) => x.id === m.data.id);
+        const meal = lokal ? TC.Consult.mealCard(lokal) : (m.data.items ? m.data : null);
+        if (!meal) return m.text ? `<div class="msg msg--${m.from === myFrom ? 'me' : 'doc'}">${esc(m.text)}<time>${esc(t)}</time></div>` : '';
+        return `<div class="msg msg--card${m.from === myFrom ? ' msg--cardme' : ''}">
           <h5>${icon('food')} Sesi makan terakhir</h5>
-          <p class="small"><b>${esc(meal.items.map((i) => i.n).join(', '))}</b></p>
+          <p class="small"><b>${esc(meal.items.join(', '))}</b></p>
           <div class="vital-mini" style="margin-top:9px">
-            <div><span>Puncak</span><b>${meal.peak} mg/dL</b></div>
-            <div><span>Delta</span><b>+${meal.delta}</b></div>
-            <div><span>Karbohidrat</span><b>${meal.nutrition.carb} g</b></div>
-            <div><span>Kalori</span><b>${meal.nutrition.kcal} kkal</b></div>
+            <div><span>Puncak</span><b>${esc(meal.peak)} mg/dL</b></div>
+            <div><span>Delta</span><b>+${esc(meal.delta)}</b></div>
+            <div><span>Karbohidrat</span><b>${esc(meal.carb)} g</b></div>
+            <div><span>Kalori</span><b>${esc(meal.kcal)} kkal</b></div>
           </div>
           <p class="tiny muted" style="margin-top:9px">${esc(TC.shortDate(new Date(meal.at)))} · ${esc(t)}</p>
         </div>`;
@@ -469,6 +479,9 @@
         return `<div class="msg msg--sys">${icon('video')} ${esc(m.text)}</div>`;
       }
 
+      // Pesan kartu dari sebelum perbaikan tiba tanpa kind maupun teks;
+      // lebih baik dilewati daripada tampil sebagai gelembung kosong.
+      if (!m.text) return '';
       return `<div class="msg msg--${m.from === myFrom ? 'me' : 'doc'}">
         ${esc(m.text)}<time>${esc(t)}</time></div>`;
     }
@@ -482,25 +495,27 @@
     draw();
     drawStatus();
 
-    // Pesan baru dari Realtime Database langsung tergambar.
+    // Pesan baru dari server langsung tergambar.
     const unsub = TC.Consult.subscribe(params.id, () => draw());
     const unstatus = FB ? FB.onStatus(drawStatus) : function () {};
 
     // Kehadiran dokter: saat dokter sungguhan membuka percakapan, balasan
     // otomatis dimatikan agar tidak bertabrakan dengan jawaban manusia.
-    const unpres = FB ? FB.presence(params.id, Store.role()) : function () {};
-    const unwatch = FB ? FB.watchPresence(params.id, (on) => {
+    const unpres = FB && !lokal ? FB.presence(params.id, Store.role()) : function () {};
+    const unwatch = FB && !lokal ? FB.watchPresence(params.id, (on) => {
       docPresent = on; drawStatus();
     }) : function () {};
     Router.onLeave(() => { unsub(); unstatus(); unpres(); unwatch(); });
 
     $('[data-video]').onclick = () => Router.navigate('/call/' + params.id);
     $('[data-voice]').onclick = () => {
-      Store.update((st) => {
-        const x = st.consults.find((k) => k.id === params.id);
-        if (x) x.mode = 'audio';
-      });
-      Router.navigate('/call/' + params.id);
+      if (!lokal) {
+        Store.update((st) => {
+          const x = st.consults.find((k) => k.id === params.id);
+          if (x) x.mode = 'audio';
+        });
+      }
+      Router.navigate('/call/' + params.id + (lokal ? '?mode=audio' : ''));
     };
 
     bindMenu();
@@ -574,10 +589,10 @@
         b.onclick = () => {
           const k = b.dataset.at;
           if (k === 'vitals') {
-            TC.Consult.push(params.id, { from: myFrom, kind: 'vitals', data: TC.Vitals.snapshot(), text: '' });
+            TC.Consult.push(params.id, { from: myFrom, kind: 'vitals', data: TC.Vitals.snapshot() });
           } else if (k === 'meal') {
             const m = Store.state.meals[0];
-            if (m) TC.Consult.push(params.id, { from: myFrom, kind: 'meal', data: { id: m.id }, text: '' });
+            if (m) TC.Consult.push(params.id, { from: myFrom, kind: 'meal', data: TC.Consult.mealCard(m) });
           } else {
             TC.Consult.push(params.id, { from: myFrom, text: 'Saya lampirkan rekaman EKG lead-I 30 detik dari TeleBand.' });
           }
@@ -595,9 +610,9 @@
           <div class="list">
             <a class="row" href="#/dokter/${esc(doc.id)}"><span class="row__ico">${icon('user')}</span>
               <div><b>Lihat profil dokter</b><small>Pengalaman dan bidang praktik</small></div>${icon('chev', 'chev')}</a>
-            <button class="row" data-invite><span class="row__ico">${icon('link')}</span>
+            ${lokal ? '' : `<button class="row" data-invite><span class="row__ico">${icon('link')}</span>
               <div><b>Salin tautan percakapan</b><small>Buka di perangkat lain untuk ikut percakapan yang sama</small></div>
-              ${icon('chev', 'chev')}</button>
+              ${icon('chev', 'chev')}</button>`}
             ${c.status === 'active' ? `<button class="row row--danger" data-end><span class="row__ico">${icon('x')}</span>
               <div><b>Akhiri konsultasi</b><small>Percakapan tetap tersimpan di riwayat</small></div></button>` : ''}
           </div>`);
@@ -639,6 +654,15 @@
   function viewCall(params) {
     const c = TC.Consult.get(params.id);
     if (!c) { joining(params.id, () => viewCall(params)); return; }
+    // Percakapan contoh tidak boleh menjadi ruang panggilan: ID-nya bukan
+    // rahasia per pengguna. Panggilan dibuka pada percakapan sungguhan baru
+    // dengan dokter yang sama.
+    if (TC.Consult.isLocal(c)) {
+      const mode = /[?&]mode=audio/.test(location.hash) ? 'audio' : 'video';
+      const baru = TC.Consult.start(c.doctorId, mode);
+      Router.navigate('/call/' + baru.id, true);
+      return;
+    }
     const doc = D.doctor(c.doctorId) || D.DOCTORS[0];
     const audioOnly = c.mode === 'audio';
     // Dokter tidak mendering dirinya sendiri; hanya pasien yang memanggil.

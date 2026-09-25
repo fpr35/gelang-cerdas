@@ -11,16 +11,27 @@
 
   /* ---------------- KOMPONEN BERSAMA ---------------- */
 
+  const aktifTeleband = () => (Store.activeDevice() || {}).type === 'teleband';
+
   function deviceBar() {
     const st = TC.Devices.statusText();
     const pending = Store.state.pendingSamples;
+    let sub;
+    if (aktifTeleband()) {
+      const s = TC.TeleBandLink.status();
+      sub = st.on
+        ? (s && s.mengukur ? 'sedang mengukur…' : 'ketuk untuk mengukur')
+        : 'ketuk untuk menyambungkan';
+    } else {
+      sub = st.on
+        ? (pending ? pending + ' sampel menunggu sinkronisasi' : 'buffer jam kosong')
+        : 'ketuk untuk menyambungkan';
+    }
     return `<button class="devbar${st.on ? '' : ' is-off'}" data-devbar>
       <span class="devbar__ico">${icon(st.on ? 'watch' : 'bt')}</span>
       <span style="min-width:0">
         <b>${esc(st.t)}</b>
-        <small>${st.on
-          ? (pending ? pending + ' sampel menunggu sinkronisasi' : 'buffer jam kosong')
-          : 'ketuk untuk menyambungkan'}</small>
+        <small>${esc(sub)}</small>
       </span>
       <span class="sync" data-sync>${icon('sync')}</span>
     </button>`;
@@ -35,6 +46,7 @@
         const btn = $('[data-sync]', bar);
         const dev = Store.activeDevice();
         if (!dev) { Router.navigate('/perangkat'); return; }
+        if (dev.type === 'teleband' && !dev.connected) { Router.navigate('/teleband'); return; }
         if (!dev.connected) { toast('Perangkat terputus. Sambungkan ulang dulu.', 'err'); return; }
         btn.classList.add('is-busy');
         try {
@@ -47,7 +59,7 @@
         Router.render();
         return;
       }
-      Router.navigate('/perangkat');
+      Router.navigate(aktifTeleband() ? '/teleband' : '/perangkat');
     };
   }
 
@@ -57,11 +69,32 @@
    * penanda ini tidak ada cara membedakannya.
    */
   function sumberChip() {
-    const dariPerangkat = TC.Vitals.source && TC.Vitals.source() === 'device';
-    return dariPerangkat
+    const V = TC.Vitals;
+    const kunci = ['hr', 'spo2', 'temp', 'bp'];
+    const dariAlat = kunci.filter((k) => V.sourceOf(k) === 'device').length;
+    if (!dariAlat) return `<span class="chip chip--a">${icon('info')} simulasi</span>`;
+    return dariAlat === kunci.length
       ? `<span class="chip chip--g"><i class="dotlive"></i> dari perangkat</span>`
-      : `<span class="chip chip--a">${icon('info')} simulasi</span>`;
+      : `<span class="chip chip--g"><i class="dotlive"></i> sebagian dari perangkat</span>`;
   }
+
+  /**
+   * Label asal angka per kartu. Sejak TeleBand, satu layar bisa berisi angka
+   * alat (detak, SpO₂), estimasi eksperimental alat (tensi, glukosa), dan
+   * simulasi (suhu) sekaligus — satu penanda global tidak lagi cukup jujur.
+   */
+  function srcLabel(k) {
+    const V = TC.Vitals;
+    if (V.sourceOf(k) !== 'device') return '<span class="vital__src">simulasi</span>';
+    const nama = V.jenisAsal(k) === 'teleband' ? 'TeleBand' : 'perangkat';
+    return V.eksperimental(k)
+      ? `<span class="vital__src is-eks">estimasi eksperimental · ${nama}</span>`
+      : `<span class="vital__src is-alat">dari ${nama}</span>`;
+  }
+
+  // Glukosa hanya tampil di beranda bila datang dari alat; nilai simulasinya
+  // sudah diwakili kurva sesi makan.
+  const tampilGlukosa = () => TC.Vitals.sourceOf('glucose') === 'device';
 
   function vitalsGrid() {
     const v = TC.Vitals.snapshot();
@@ -69,25 +102,34 @@
       <button class="vital vital--hr" data-vital="hr">
         <span class="vital__lab">${icon('heart')} Detak jantung</span>
         <span class="vital__val" data-v="hr">${v.hr}<u>bpm</u></span>
+        <span data-src="hr">${srcLabel('hr')}</span>
         <canvas data-spark="hr"></canvas></button>
       <button class="vital vital--spo" data-vital="spo2">
         <span class="vital__lab">${icon('spo2')} SpO₂</span>
         <span class="vital__val" data-v="spo2">${v.spo2}<u>%</u></span>
+        <span data-src="spo2">${srcLabel('spo2')}</span>
         <canvas data-spark="spo2"></canvas></button>
       <button class="vital vital--tmp" data-vital="temp">
         <span class="vital__lab">${icon('temp')} Suhu</span>
         <span class="vital__val" data-v="temp">${v.temp}<u>°C</u></span>
+        <span data-src="temp">${srcLabel('temp')}</span>
         <canvas data-spark="temp"></canvas></button>
       <button class="vital vital--bp" data-vital="bp">
         <span class="vital__lab">${icon('bp')} Tekanan darah</span>
         <span class="vital__val" data-v="bp">${v.sys}/${v.dia}</span>
+        <span data-src="bp">${srcLabel('bp')}</span>
         <canvas data-spark="sys"></canvas></button>
+      ${tampilGlukosa() ? `<button class="vital vital--glu" data-vital="glucose">
+        <span class="vital__lab">${icon('drop')} Glukosa</span>
+        <span class="vital__val" data-v="glucose">${v.glucose}<u>mg/dL</u></span>
+        <span data-src="glucose">${srcLabel('glucose')}</span>
+        <canvas data-spark="glucose"></canvas></button>` : ''}
     </div>`;
   }
 
   function paintSparks(root) {
     const H = TC.Vitals.hist;
-    const map = { hr: '#E2543F', spo2: '#0E7FB8', temp: '#E09B12', sys: '#6C5CE7' };
+    const map = { hr: '#E2543F', spo2: '#0E7FB8', temp: '#E09B12', sys: '#6C5CE7', glucose: '#03804C' };
     Object.keys(map).forEach((k) => {
       const cv = $(`[data-spark="${k}"]`, root);
       if (cv && H[k] && H[k].length > 1) TC.sparkline(cv, H[k].slice(-30), map[k]);
@@ -104,6 +146,11 @@
     set('spo2', v.spo2 + '<u>%</u>');
     set('temp', v.temp + '<u>°C</u>');
     set('bp', v.sys + '/' + v.dia);
+    set('glucose', v.glucose + '<u>mg/dL</u>');
+    ['hr', 'spo2', 'temp', 'bp', 'glucose'].forEach((k) => {
+      const el = $(`[data-src="${k}"]`, root);
+      if (el) el.innerHTML = srcLabel(k);
+    });
     paintSparks(root);
   }
 
@@ -162,7 +209,7 @@
         <span data-sumber>${sumberChip()}</span></div>
       ${vitalsGrid()}
 
-      ${dev && dev.connected ? `
+      ${dev && dev.connected && D.deviceType(dev.type).caps.indexOf('ecg') !== -1 ? `
         <div class="card mt">
           <div class="card__head">${icon('ecg')}<h3>Sinyal EKG · Lead I</h3>
             <span class="push"></span><span class="chip chip--r">MEREKAM</span></div>
@@ -288,6 +335,9 @@
     if (ecgCv) ecg = TC.EcgRenderer(ecgCv);
 
     const un = TC.Vitals.subscribe(() => {
+      // Kartu glukosa muncul/hilang mengikuti asal datanya (TeleBand tersambung
+      // atau lepas); itu mengubah susunan, jadi beranda digambar ulang.
+      if (tampilGlukosa() !== !!$('[data-v="glucose"]', root)) { Router.render(); return; }
       paintVitals(root);
       const sc = $('[data-sumber]', root);
       if (sc) sc.innerHTML = sumberChip();
@@ -350,7 +400,10 @@
             about: 'Diukur dari kulit lalu dikompensasi terhadap suhu ruangan, sehingga cenderung sedikit berbeda dari termometer.' },
     bp:   { title: 'Tekanan Darah', unit: 'mmHg', color: '#6C5CE7', key: 'sys',
             normal: '< 120/80 mmHg',
-            about: 'Perkiraan tidak langsung dari bentuk gelombang nadi. Wajib dikalibrasi dengan tensimeter lengan dan hanya untuk melihat kecenderungan.' }
+            about: 'Perkiraan tidak langsung dari bentuk gelombang nadi. Wajib dikalibrasi dengan tensimeter lengan dan hanya untuk melihat kecenderungan.' },
+    glucose: { title: 'Glukosa', unit: 'mg/dL', color: '#03804C', key: 'glucose',
+            normal: '70–140 mg/dL (acuan umum, bukan untuk estimasi ini)',
+            about: 'Pada TeleBand, angka ini diperkirakan dari sinyal PPG jari dengan model yang menurut firmware-nya sendiri SANGAT eksperimental dan belum punya dasar ilmiah yang kuat. Jangan dipakai untuk keputusan apa pun.' }
   };
 
   function viewVital(params) {
@@ -361,9 +414,13 @@
     // Subjudul mengikuti asal angka yang sebenarnya. Sebelumnya layar ini
     // selalu mengaku "langsung dari perangkat", padahal beranda sudah jujur
     // membedakan sensor dari simulasi.
-    const dariPerangkat = TC.Vitals.source() === 'device';
+    const kind = VITAL_META[params.kind] ? params.kind : 'hr';
+    const dariPerangkat = TC.Vitals.sourceOf(kind) === 'device';
+    const eksperimental = TC.Vitals.eksperimental(kind);
     TC.topbar(meta.title, {
-      sub: dariPerangkat ? 'Data langsung dari perangkat' : 'Nilai simulasi purwarupa'
+      sub: !dariPerangkat ? 'Nilai simulasi purwarupa'
+        : eksperimental ? 'Estimasi eksperimental dari perangkat'
+        : 'Data langsung dari perangkat'
     });
     setView(`
       <div class="card tc">
@@ -375,9 +432,13 @@
         <span class="chip chip--g"><i class="dotlive"></i> diperbarui ${TC.relTime(v.at)}</span>
       </div>
 
+      ${eksperimental ? `<div class="note note--w mt">${icon('alert')}
+        <div><b>Estimasi eksperimental, bukan alat medis</b>Angka ini tidak diukur langsung.
+        Firmware alat menyatakan modelnya belum tervalidasi. Jangan dipakai untuk keputusan kesehatan.</div></div>` : ''}
+
       <div class="card mt">
         <div class="card__head"><h3>60 pembacaan terakhir</h3>
-          <span class="push"></span>${sumberChip()}</div>
+          <span class="push"></span>${srcLabel(kind)}</div>
         <div class="chart-wrap"><canvas id="vChart" style="height:170px"></canvas></div>
         ${params.kind === 'bp' ? `<div class="legend">
           <div><i style="background:#6C5CE7"></i>Sistolik</div>

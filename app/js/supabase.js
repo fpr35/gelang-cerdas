@@ -277,8 +277,25 @@
      2. CHAT — pesan konsultasi, sekarang di tabel Postgres
      (pengganti node consults/{id}/messages di RTDB)
      ============================================================ */
+
+  /** Baris tabel messages → bentuk pesan yang dipakai engine.js. */
+  function dariBaris(v) {
+    const m = { key: v.id, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text, mid: v.mid };
+    if (v.kind) m.kind = v.kind;
+    if (v.data != null) m.data = v.data;
+    return m;
+  }
+
+  // Kolom `kind` dan `data` ditambahkan belakangan (lihat
+  // supabase/migrations). Bila migrasinya belum dijalankan, PostgREST
+  // menolak INSERT dengan PGRST204; pesan lalu dikirim tanpa kedua kolom
+  // itu — `text` tetap berisi ringkasan terbaca, jadi tidak tampil kosong.
+  let kolomKartu = true;
+  const kolomTakAda = (e) => e && (e.code === 'PGRST204' || e.code === '42703');
+
   const Chat = {
     _joined: Object.create(null),
+    dariBaris,
 
     /** Mendaftarkan diri sebagai anggota (baris di tabel consult_members). */
   join(consultId) {
@@ -336,9 +353,7 @@
         try {
           const { data: lama } = await FB.sb.from('messages').select('*')
             .eq('consult_id', consultId).order('at', { ascending: true });
-          (lama || []).forEach((v) => {
-            onMessage({ key: v.id, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text, mid: v.mid });
-          });
+          (lama || []).forEach((v) => onMessage(dariBaris(v)));
         } catch (e) { /* abaikan, tetap lanjut dengar yang baru */ }
 
         if (stopped) return;
@@ -346,10 +361,7 @@
           .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'messages',
             filter: 'consult_id=eq.' + consultId
-          }, (payload) => {
-            const v = payload.new;
-            onMessage({ key: v.id, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text, mid: v.mid });
-          })
+          }, (payload) => onMessage(dariBaris(payload.new)))
           .subscribe();
       }).catch((e) => {
         console.warn('[TeleCare] tidak dapat mengikuti percakapan:', e.message);
@@ -360,13 +372,23 @@
     /** Mengirim satu pesan (INSERT ke tabel messages). */
     send(consultId, msg) {
       return Chat.join(consultId).then(async () => {
-        const { error } = await FB.sb.from('messages').insert({
+        const baris = {
           consult_id: consultId,
           uid: FB.uid,
           from_role: msg.from,
           text: msg.text,
           mid: msg.mid || null
-        });
+        };
+        const kartu = !!(msg.kind || msg.data != null);
+        if (kartu && kolomKartu) {
+          const { error } = await FB.sb.from('messages')
+            .insert(Object.assign({ kind: msg.kind || null, data: msg.data == null ? null : msg.data }, baris));
+          if (!error) return;
+          if (!kolomTakAda(error)) throw error;
+          kolomKartu = false;
+          console.warn('[TeleCare] kolom messages.kind/data belum ada — jalankan migrasi di supabase/migrations.');
+        }
+        const { error } = await FB.sb.from('messages').insert(baris);
         if (error) throw error;
       });
     },
@@ -390,6 +412,40 @@
 
     setStatus(consultId, status) {
       FB.ensureAuth().then(() => FB.sb.from('consults').update({ status }).eq('id', consultId)).catch(() => {});
+    }
+  };
+
+  /* ============================================================
+     2b. HASIL UKUR PERANGKAT — tabel device_readings
+     (supabase/migrations/20260925_device_readings.sql)
+     ============================================================ */
+  const ReadingsDB = {
+    /**
+     * Menyimpan satu hasil. Duplikat (serial + id + epoch yang sama) dianggap
+     * BERHASIL — artinya hasil itu memang sudah ada di server, jadi alat
+     * boleh menghapusnya. Melempar galat bila penyimpanan gagal.
+     */
+    async simpan(row) {
+      const user = await FB.ensureAuth();
+      const { error } = await FB.sb.from('device_readings')
+        .upsert(Object.assign({ user_id: user.id }, row), {
+          onConflict: 'user_id,device_serial,device_result_id,device_epoch',
+          ignoreDuplicates: true
+        });
+      if (error) throw error;
+      return true;
+    },
+
+    /** Hasil milik pengguna tertentu (bawaan: diri sendiri), terbaru dulu. */
+    async daftar(userId, batas) {
+      const user = await FB.ensureAuth();
+      const { data, error } = await FB.sb.from('device_readings').select('*')
+        .eq('user_id', userId || user.id)
+        .order('measured_at', { ascending: false, nullsFirst: false })
+        .order('received_at', { ascending: false })
+        .limit(batas || 50);
+      if (error) throw error;
+      return data || [];
     }
   };
 
@@ -728,4 +784,5 @@
   TC.FB = FB;
   TC.Chat = Chat;
   TC.RTC = RTC;
+  TC.ReadingsDB = ReadingsDB;
 })(window.TC);

@@ -678,8 +678,10 @@
     // setiap kali halaman disegarkan — padahal komentarnya menjanjikan stabil.
     const BOBOT = { band: 0.34, ring: 0.26, cuff: 0.12, patch: 0.10, strap: 0.10, scale: 0.08 };
     let sisa = f.devices;
-    const inv = D.DEVICE_TYPES.map((t, i) => {
-      const akhir = i === D.DEVICE_TYPES.length - 1;
+    // Inventaris ini contoh; unit fisik sungguhan (`nyata`) tidak ikut dibagi.
+    const JENIS = D.DEVICE_TYPES.filter((t) => !t.nyata);
+    const inv = JENIS.map((t, i) => {
+      const akhir = i === JENIS.length - 1;
       // Jenis terakhir mengambil sisanya agar pembulatan tidak menghilangkan unit.
       const count = akhir ? Math.max(0, sisa)
                           : Math.round(f.devices * (BOBOT[t.type] || 0.1));

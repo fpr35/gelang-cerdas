@@ -204,7 +204,10 @@
       // Nilai simulasi dapat menembus ambang juga. Notifikasi memotong
       // perhatian pengguna, jadi asal angka harus disebutkan — peringatan
       // "kritis" dari angka yang dibangkitkan sendiri akan menyesatkan.
-      const simulasi = !(TC.Vitals && TC.Vitals.source && TC.Vitals.source() === 'device');
+      // Asal angka dinilai per ukuran: dengan TeleBand, detak jantung bisa
+      // dari alat sementara suhu tetap simulasi.
+      const simulasi = !(TC.Vitals && TC.Vitals.sourceOf &&
+                         TC.Vitals.sourceOf(f.metric) === 'device');
       const judul = (berat ? 'Peringatan kritis · ' : 'Perlu diperhatikan · ') + f.label +
                     (simulasi ? ' (simulasi)' : '');
 
@@ -234,7 +237,11 @@
       Push._lepas = TC.Vitals.subscribe(() => {
         const s = TC.Store.state.settings;
         if (s && s.notif === false) return;
-        const temuan = Escalation.check(TC.Vitals.snapshot());
+        const v = TC.Vitals.snapshot();
+        // Estimasi eksperimental (tensi TeleBand) tidak boleh memicu
+        // peringatan: "kritis" dari angka yang belum tervalidasi menyesatkan.
+        if (TC.Vitals.eksperimental && TC.Vitals.eksperimental('bp')) { v.sys = null; v.dia = null; }
+        const temuan = Escalation.check(v);
         temuan.forEach((f) => { Push.peringatkan(f).catch(() => {}); });
       });
     },

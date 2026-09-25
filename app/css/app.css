@@ -359,6 +359,23 @@ ul{margin:0;padding:0;list-style:none}
 .vital--spo .vital__lab{color:var(--blue-500)}
 .vital--tmp .vital__lab{color:var(--amber-500)}
 .vital--bp .vital__lab{color:var(--violet-500)}
+.vital--glu .vital__lab{color:var(--green-600)}
+/* Asal angka per kartu: dari alat, simulasi, atau estimasi eksperimental. */
+.vital__src{display:block;margin-top:2px;font-size:.6rem;font-weight:700;color:var(--muted);
+  letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vital__src.is-alat{color:var(--green-600)}
+.vital__src.is-eks{color:var(--amber-700)}
+
+/* Layar TeleBand */
+.tb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:620px){.tb-grid{grid-template-columns:repeat(4,1fr)}}
+.tb-grid>div{background:var(--canvas);border-radius:12px;padding:10px 12px}
+.tb-grid span{font-size:.68rem;color:var(--muted);font-weight:700}
+.tb-val{display:block;font-size:1.45rem;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;
+  transition:opacity .3s}
+.tb-val u{text-decoration:none;font-size:.46em;font-weight:700;color:var(--muted);margin-left:3px}
+.tb-val.is-sementara{opacity:.4}
+.tb-eks{color:var(--amber-700);font-weight:800;margin-left:1px}
 
 .macro{display:flex;align-items:center;gap:10px;padding:9px 0}
 .macro + .macro{border-top:1px solid var(--line)}

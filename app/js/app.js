@@ -42,6 +42,8 @@
     ['/perangkat',        V.devices,      { guard: 'auth', tab: 'profil' }],
     ['/perangkat/pindai', V.scan,         { guard: 'auth', tab: 'profil' }],
     ['/perangkat/:id',    V.deviceDetail, { guard: 'auth', tab: 'profil' }],
+    // Alat TeleBand sungguhan (Web Bluetooth). Hanya pasien yang mengukur dirinya.
+    ['/teleband',         V.teleband,     { guard: 'auth', roles: ['pasien'], tab: 'profil' }],
 
     // ---- peran: dokter ----
     ['/klinik',              V.clinic,        { guard: 'auth', roles: ['dokter'], tab: 'k-home' }],
@@ -258,8 +260,12 @@
 
     // Sesi makan yang tertinggal tetap dilanjutkan setelah aplikasi dibuka kembali.
     TC.Meals.tick();
+    // Sambungan Bluetooth tidak bertahan setelah halaman dimuat ulang.
+    TC.TeleBandLink.pulihkan();
     TC.Vitals.start();
     if (Store.user()) TC.Devices.startBuffer();
+    // Hasil TeleBand yang dulu gagal terkirim dicoba lagi saat aplikasi dibuka.
+    if (Store.user() && TC.Readings.belumTerkirim()) TC.Readings.kirimTertunda().catch(() => {});
 
     window.addEventListener('hashchange', Router.render);
 

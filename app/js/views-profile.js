@@ -289,15 +289,22 @@
           <div class="duo mt">
             <div class="card card--flat" style="background:var(--canvas);border:0">
               <span class="tiny muted" style="font-weight:700">Baterai</span>
-              <b style="display:block;font-size:1.4rem;letter-spacing:-.03em">${active.battery}%</b>
-              <div class="bar" style="margin-top:6px"><i style="width:${active.battery}%;
+              <b style="display:block;font-size:1.4rem;letter-spacing:-.03em">${active.battery != null ? active.battery + '%' : '—'}</b>
+              <div class="bar" style="margin-top:6px"><i style="width:${active.battery || 0}%;
                 background:${active.battery < 20 ? 'var(--coral-500)' : 'var(--green-500)'}"></i></div>
             </div>
+            ${active.type === 'teleband' ? `
+            <div class="card card--flat" style="background:var(--canvas);border:0">
+              <span class="tiny muted" style="font-weight:700">Hasil di alat</span>
+              <b style="display:block;font-size:1.4rem;letter-spacing:-.03em">${
+                TC.TeleBandLink.status() ? TC.TeleBandLink.status().tersimpan : '—'}</b>
+              <span class="tiny muted">${TC.Readings.belumTerkirim()} belum sampai server</span>
+            </div>` : `
             <div class="card card--flat" style="background:var(--canvas);border:0">
               <span class="tiny muted" style="font-weight:700">Sampel tertunda</span>
               <b style="display:block;font-size:1.4rem;letter-spacing:-.03em">${pending}</b>
               <span class="tiny muted">${pending ? 'menunggu dipindahkan' : 'buffer jam kosong'}</span>
-            </div>
+            </div>`}
           </div>
 
           ${active.connected ? `
@@ -307,6 +314,13 @@
             </div>` : `
             <button class="btn btn--primary btn--block mt" data-recon>${icon('bt')} Sambungkan Ulang</button>`}
         </div>` : ''}
+
+      <a class="row mt" href="#/teleband" style="border:1px solid var(--green-100);border-radius:16px;background:var(--green-50)">
+        <span class="row__ico" style="background:var(--green-100);color:var(--green-600)">${icon('watch')}</span>
+        <div style="min-width:0"><b>TeleBand (alat fisik)</b>
+          <small>${TC.TeleBandLink.tersambung() ? 'Tersambung · ketuk untuk mengukur'
+            : 'Sambungkan lewat Bluetooth dan ukur detak jantung & SpO₂'}</small></div>
+        ${icon('chev', 'chev')}</a>
 
       <div class="steps3 mt">
         <div class="s"><i>${icon('bt')}</i>1. Aktifkan Bluetooth</div>
@@ -328,7 +342,7 @@
               <span class="meta">
                 <span class="chip ${d.connected ? 'chip--g' : ''}" style="font-size:.66rem">
                   ${d.connected ? 'tersambung' : 'terputus'}</span>
-                <span class="chip" style="font-size:.66rem">${icon('battery')} ${d.battery}%</span>
+                <span class="chip" style="font-size:.66rem">${icon('battery')} ${d.battery != null ? d.battery + '%' : '—'}</span>
               </span>
             </span>
             <span class="signal" data-l="${d.connected ? (d.rssi || 3) : 0}"><i></i><i></i><i></i><i></i></span>
@@ -388,7 +402,10 @@
     }
 
     const reconBtn = $('[data-recon]');
-    if (reconBtn) {
+    if (reconBtn && active.type === 'teleband') {
+      // TeleBand disambungkan sungguhan dari layarnya sendiri, bukan disimulasikan.
+      reconBtn.onclick = () => Router.navigate('/teleband');
+    } else if (reconBtn) {
       reconBtn.onclick = () => {
         reconBtn.classList.add('is-disabled');
         reconBtn.innerHTML = icon('sync') + ' Menyambungkan…';
@@ -433,6 +450,8 @@
         <button class="btn btn--ghost btn--block mt" data-rescan>${icon('refresh')} Pindai Ulang</button>
         <p class="tiny muted tc mt">Nyalakan perangkat dan pastikan berada dalam jangkauan.
           Perangkat yang sedang tersambung ke ponsel lain tidak akan muncul.</p>
+
+        <a class="btn btn--primary btn--block mt2" href="#/teleband">${icon('watch')} Sambungkan TeleBand (alat fisik)</a>
 
         ${TC.Devices.hasWebBluetooth() ? `
           <div class="note note--b mt2">${icon('bt')}
@@ -492,6 +511,7 @@
   function viewDeviceDetail(params) {
     const d = Store.state.devices.find((x) => x.id === params.id);
     if (!d) { Router.navigate('/perangkat', true); return; }
+    if (d.type === 'teleband') { Router.navigate('/teleband', true); return; }
     const t = D.deviceType(d.type);
 
     TC.topbar(d.name, { sub: d.code });
@@ -918,13 +938,13 @@
         <div class="stack--sm stack">
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('chat')}</span>
-            <div><b style="font-size:.87rem">Firebase Realtime Database</b>
+            <div><b style="font-size:.87rem">Supabase (Postgres + Realtime)</b>
               <small class="tiny muted" style="display:block">Percakapan konsultasi tersinkron antarperangkat secara langsung.</small></div>
           </div>
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('video')}</span>
             <div><b style="font-size:.87rem">WebRTC peer-to-peer</b>
-              <small class="tiny muted" style="display:block">Panggilan suara dan video berjalan langsung antarperangkat, dengan pertukaran sinyal lewat Firebase dan STUN publik.</small></div>
+              <small class="tiny muted" style="display:block">Panggilan suara dan video berjalan langsung antarperangkat, dengan pertukaran sinyal lewat Supabase Realtime dan relai TURN metered.ca bila jalur langsung terhalang.</small></div>
           </div>
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('bt')}</span>

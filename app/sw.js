@@ -5,17 +5,16 @@
    luring dengan memakai data yang sudah tersimpan di localStorage.
 
    Yang TIDAK pernah disentuh service worker ini:
-   - Realtime Database, Authentication, dan layanan Firebase lain.
-     Permintaan ke sana harus selalu menembus jaringan; menyimpannya
-     akan membuat aplikasi menampilkan percakapan atau sesi basi,
-     dan pada Realtime Database justru merusak long-polling.
+   - Supabase (REST, Auth, Realtime, Edge Functions). Permintaan ke
+     sana harus selalu menembus jaringan; menyimpannya akan membuat
+     aplikasi menampilkan percakapan atau sesi basi.
    - Semua permintaan selain GET.
 
    Menaikkan VERSION akan membuang seluruh cache lama saat aktivasi.
    ============================================================ */
 'use strict';
 
-const VERSION = 'v7';
+const VERSION = 'v9';
 const CACHE = `telecare-app-${VERSION}`;
 
 // Kerangka aplikasi. Urutan skrip mengikuti app/index.html.
@@ -30,6 +29,7 @@ const SHELL = [
   'js/supabase-init.js',
   'js/supabase.js',
   'js/ble.js',
+  'js/teleband-ble.js',
   'js/engine.js',
   'js/push-config.js',
   'js/push.js',
@@ -40,6 +40,7 @@ const SHELL = [
   'js/views-session.js',
   'js/views-care.js',
   'js/views-profile.js',
+  'js/views-teleband.js',
   'js/views-roles.js',
   'js/app.js',
   'assets/icons/icon-192.png',
@@ -195,10 +196,10 @@ async function simpan(req, res) {
   } catch (e) { /* kuota penuh atau permintaan tak dapat disimpan */ }
 }
 
-/* ---------------- push dari server (FCM) ----------------
-   Ditangani sendiri, tanpa pustaka service worker FCM, supaya aplikasi
-   cukup memakai satu service worker. Bentuk muatan FCM berbeda-beda
-   menurut cara pengiriman, jadi ketiga bentuk yang lazim diperiksa.
+/* ---------------- push dari server (Web Push) ----------------
+   Dikirim Edge Function Supabase `send-push`. Ditangani sendiri supaya
+   aplikasi cukup memakai satu service worker. Tiga bentuk muatan yang
+   lazim (notification, webpush.notification, data-only) tetap diterima.
    ------------------------------------------------------- */
 /**
  * Menyusun judul dan opsi notifikasi dari muatan push.

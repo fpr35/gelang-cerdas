@@ -5,7 +5,7 @@ selesai** — supaya siapa pun (termasuk sesi kerja berikutnya) bisa melanjutkan
 menebak-nebak. Untuk cara memakai dan menjalankan proyek, lihat [README.md](README.md);
 berkas ini khusus soal *progres* dan *alasan di balik keputusan*.
 
-**Diperbarui:** 11 September 2026
+**Diperbarui:** 25 September 2026
 
 ---
 
@@ -17,12 +17,13 @@ berkas ini khusus soal *progres* dan *alasan di balik keputusan*.
 | **Komisaris pembimbing** | Dr. Fuad Anwar, S.Si., M.Si. |
 | **Tim** | Fajar Jelang Riyadi (M0222027) · Faizal Tri Widiandika (M0222026) · Sholeh Putra Utama (M0222083) — Fisika, FMIPA |
 | **Teknologi** | HTML, CSS, JavaScript **native** — tanpa framework, tanpa build step |
-| **Hosting** | Firebase Hosting, proyek `telecare-id` |
-| **Situs penelitian** | https://telecare-id.web.app |
-| **Aplikasi** | https://telecare-id.web.app/app/ |
-| **Ukuran** | ± 13.500 baris (HTML/CSS/JS/Python) |
-| **Versi kontrol** | ✅ Git aktif, branch `main` |
-| **Repositori** | https://github.com/Mostoples/telecare (publik) |
+| **Hosting** | **Vercel** (statis, dari akar repo) |
+| **Backend** | **Supabase** — Auth, Postgres, Realtime, Edge Function `send-push` |
+| **TURN** | **metered.ca** |
+| **Versi kontrol** | Git, branch `main` → https://github.com/fpr35/gelang-cerdas |
+
+Sejak 21 September 2026 proyek **tidak lagi memakai Firebase** (Hosting, RTDB, Auth, FCM).
+Satu-satunya sisa yang masih dimuat adalah dashboard landing page — lihat §7.
 
 ### Tautan demo cepat
 
@@ -46,279 +47,217 @@ Legenda: ✅ selesai & terverifikasi · 🟡 berjalan, ada batasan · ⬜ belum 
 | Hero + Three.js "data sphere" | ✅ | Shader kustom, 1.400 partikel, pita EKG 3D |
 | Urgensi / latar belakang | ✅ | Angka bersumber Riskesdas 2018 + WHO, ada daftar sitasi |
 | Perangkat + viewer GLB Three.js | ✅ | Auto-fit kamera, fallback geometris bila GLB gagal |
-| Perbandingan TeleBand vs TeleRing | ✅ | Memakai render Blender + halo SVG |
-| Video render Blender | ✅ | Turntable 120 frame / 30 fps |
-| Diagram arsitektur SVG | ✅ | 4 lapis, SVG orisinil |
-| Seksi Health 5.0 + holo Three.js | ✅ | Cincin pemindai membuat simpul berdenyut |
-| Dashboard pratinjau | ✅ | EKG sintetis, sparkline, gauge stres |
-| Segmen, alur, roadmap, tim | ✅ | |
-| Transisi antar-seksi futuristik | ✅ | Tirai putih + garis pemindai + EKG tergambar |
-| Etalase aplikasi | ✅ | Dua tangkapan layar dalam bingkai ponsel |
+| Perbandingan TeleBand vs TeleRing | ✅ | Render Blender + halo SVG |
+| Diagram arsitektur, Health 5.0, roadmap, tim | ✅ | |
+| Dashboard pratinjau | 🟡 | Masih membaca `telecare/live` dari Firebase lama; praktis selalu simulasi |
 | 404, robots.txt, sitemap.xml, OG | ✅ | |
 
 ### Aplikasi (`/app/`)
 
 | Bagian | Status | Catatan |
 | --- | --- | --- |
-| Onboarding 2 slide | ✅ | SVG orisinil |
-| Daftar / masuk / lupa sandi | ✅ | Akun lokal di localStorage |
-| **Masuk dengan Google** | ✅ | Provider sudah aktif di proyek; popup + cadangan redirect |
-| **Sesi anonim otomatis** | ✅ | Provider Anonymous aktif; wajib sejak aturan menuntut `auth != null` |
-| **Masuk sebagai Tamu** | ✅ | Pilih peran dulu, lalu data contoh disiapkan |
-| **4 peran** | ✅ | pasien · dokter · admin-faskes · admin |
-| Hub perangkat AIoT | ✅ | 6 jenis perangkat, pindai, sinkron buffer, lupakan |
-| Web Bluetooth (perangkat nyata) | 🟡 | Pembacaan GATT lengkap (5 service); parser terverifikasi, **belum diuji perangkat fisik** |
-| Vital + EKG langsung | 🟡 | Nilai dari perangkat bila tersambung, selain itu simulasi sirkadian — asalnya ditandai di beranda |
-| Sesi makan 4 titik | ✅ | Kamera → koreksi → kurva respons |
-| Analisis (vital/gizi/respons) | ✅ | |
-| **Chat via Firebase RTDB** | ✅ | Tersinkron antarperangkat, ada mirror lokal luring; akses per peserta |
-| **Panggilan WebRTC** | 🟡 | Offer/answer/ICE terverifikasi; TURN sudah didukung + ada diagnostik, **servernya belum diisi** |
-| **Panggilan masuk berdering** | ✅ | Overlay, nada, getar, notifikasi, judul tab; lewat RTDB tanpa prasyarat |
-| **PWA (installable + luring)** | ✅ | manifest + service worker; terbukti termuat dengan server dimatikan |
+| Onboarding, daftar, masuk, lupa sandi | ✅ | Akun lokal di localStorage |
+| Masuk dengan Google | ✅ | Supabase OAuth (PKCE, pengalihan) |
+| Sesi anonim otomatis | ✅ | Supabase Anonymous Sign-ins |
+| Masuk sebagai Tamu, 4 peran | ✅ | pasien · dokter · admin-faskes · admin |
+| Hub perangkat AIoT | ✅ | 6 jenis simulasi + TeleBand fisik |
+| **TeleBand fisik (protokol BLE tim)** | 🟡 | `teleband-ble.js` + layar `#/teleband`; 55 uji dengan alat tiruan lulus. **Belum diuji dengan alat fisik**; migrasi `device_readings` perlu dijalankan |
+| Web Bluetooth GATT standar (generik) | 🟡 | Parser terverifikasi, belum diuji perangkat fisik |
+| Vital + EKG langsung | 🟡 | Asal angka dilacak **per metrik** dan dilabeli per kartu (alat / estimasi eksperimental / simulasi) |
+| Sesi makan 4 titik, analisis | ✅ | |
+| **Chat via Supabase** | ✅ | Tabel `consults`/`consult_members`/`messages`, `postgres_changes` |
+| **Pesan kartu antarperangkat** | 🟡 | Kode siap; **migrasi `messages.kind/data` perlu dijalankan** di SQL Editor |
+| **Panggilan WebRTC** | ✅ | Sinyal Realtime Broadcast, TURN metered.ca |
+| **Panggilan masuk berdering** | ✅ | `doctor_directory` + Presence `duty:` + tabel `inbox` |
+| **Web Push** | 🟡 | Klien menyimpan langganan; pengiriman oleh Edge Function `send-push` (kode di luar repo) |
+| PWA | ✅ | manifest + service worker `v8` |
 | Balasan dokter otomatis | 🟡 | Pola kata kunci; berhenti saat dokter nyata hadir |
-| Layar dokter (klinik) | ✅ | Antrean, pasien binaan, detail vital, riwayat konsultasi, catatan klinis |
-| Layar admin faskes | ✅ | Triase unit, inventaris, nakes |
-| Layar admin platform | ✅ | Statistik, verifikasi dokter, kelola pengguna |
-| Profil, kalibrasi TD, pengaturan | ✅ | Termasuk ekspor data JSON |
-| Notifikasi eskalasi | 🟡 | Ambang lokal + notifikasi sistem berfungsi; **push dari server belum** (butuh VAPID + backend) |
+| Layar dokter, admin faskes, admin platform | ✅ | |
+| Profil, kalibrasi TD, pengaturan, ekspor | ✅ | |
 
 ---
 
 ## 3. Riwayat pengerjaan
 
-Urut dari yang paling awal.
+Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
 
-1. **Situs penelitian + aset 3D.** Landing page dengan palet Kemenkes RI. Seluruh aset produk
-   dibangun prosedural lewat skrip Python Blender ([blender/build_assets.py](blender/build_assets.py)) —
-   tidak ada model yang dibuat manual, sehingga hasilnya bisa direproduksi.
-2. **Perbaikan render bertahap.** Empat iterasi sampai bentuknya benar: tali jam sempat jadi
-   batang tipis, cincin sempat padat, layar tertelan bodi, framing kamera terpotong.
-3. **Lapisan futuristik.** Transisi antar-seksi, HUD sudut kartu, sapuan pemindai, ikon SVG
-   yang menggambar dirinya, scene holografik Three.js.
+1. **Situs penelitian + aset 3D.** Landing page dengan palet Kemenkes RI; aset produk
+   prosedural lewat [blender/build_assets.py](blender/build_assets.py).
+2. **Perbaikan render bertahap.** Empat iterasi sampai bentuknya benar.
+3. **Lapisan futuristik.** Transisi antar-seksi, HUD, ikon SVG teranimasi, holo Three.js.
 4. **Deploy pertama** ke Firebase Hosting.
-5. **Poles + SEO.** Seksi perbandingan perangkat, kartu sosial 1200×630, konversi WebP
-   (turun ± 95%), tautan lewati navigasi, halaman 404, robots + sitemap.
-6. **Aplikasi TeleCare.** SPA native: rebranding AsaWatch (pairing, sinkronisasi, sesi makan,
-   analisis) + lapisan telemedisin ala Halodoc, dengan hub AIoT sebagai pembeda.
-7. **Chat nyata + panggilan nyata.** Chat pindah ke Firebase Realtime Database; panggilan
-   memakai WebRTC dengan signaling lewat RTDB.
-8. **Login Google, tamu, dan 4 peran.** Navigasi, rute, dan layar terpisah per peran;
-   chat ikut sadar peran.
-9. **Git + angka Urgensi bersumber.** Repositori dimulai (branch `main`, `.gitignore`), dan angka
-   pada seksi Urgensi diganti data Riskesdas 2018 + WHO berikut daftar sitasi. Klaim "1×" yang
-   tidak dapat disumberkan dibuang, digantikan celah 34,1% (terukur) vs 8,4% (terdiagnosis) yang
-   justru menjadi bukti langsung premis TeleCare.
-11. **PWA, TURN, GATT, detail pasien, notifikasi.** Aplikasi jadi installable dan jalan luring;
-   dukungan TURN beserta diagnostik ICE; pembacaan karakteristik GATT sungguhan; riwayat
-   konsultasi dan catatan klinis pada halaman pasien; peringatan eskalasi dengan ambang di
-   perangkat. Tiga hal masih menunggu prasyarat di luar kode: server TURN, wearable BLE fisik,
-   dan VAPID key + backend pengirim FCM.
-10. **Pengetatan keamanan database.** Provider Anonymous diaktifkan, sesi wajib untuk setiap
-   tulisan, akses percakapan dibatasi per peserta, ID konsultasi jadi kriptografis. Diverifikasi
-   lewat 41 pemeriksaan aturan + 12 pemeriksaan jalur klien + sapuan 9 rute.
-12. **Dering panggilan masuk.** Node `duty`/`inbox`/`push` di RTDB, `ring.js` + `ring-ui.js`,
-   dering dan lapisan panggilan di perangkat dokter. Kotak masuk dikunci per Firebase uid
-   (`inbox/$uid`), bukan per `doctorId`, karena aturan tidak bisa memverifikasi peran.
-13. **Audit "dummy" menyeluruh.** Sembilan perbaikan: tabrakan selektor `data-tab` di layar
-   Analisis, riwayat diastolik yang benar-benar direkam, subjudul asal data dan label irama EKG
-   yang jujur, verifikasi dokter dan penandaan eskalasi yang tersimpan, angka inventaris
-   perangkat yang stabil, tren 7 hari dari agregat harian nyata, penjaga peran pada rute milik
-   pasien, label kejujuran pada layar pengelola, dan tombol mati yang dihapus atau diberi
-   fungsi nyata (`data-report` sekarang menghasilkan CSV).
-14. **Kalibrasi sensor untuk pengembang.** `#/sistem/kalibrasi`, khusus peran admin platform.
-   `nilai = mentah * gain + offset` per jenis perangkat dan per parameter, dijepit ke rentang
-   fisiologis, plus penghitung dua titik. Diterapkan hanya pada `Vitals.ingest()`.
-15. **Dua video showcase.** `assets/video/telecare-promo.mp4` (69 detik) dan
-   `telecare-tutorial.mp4` (2 menit 41 detik), dibangun dari 39 tangkapan layar lewat
-   `tools/tangkap-layar.ps1` + `tools/bangun-video.ps1`, ditambah dua draft CapCut lewat
-   `tools/bangun-capcut.ps1`.
+5. **Poles + SEO.** Perbandingan perangkat, kartu sosial, WebP (± 95% lebih ringan), 404, sitemap.
+6. **Aplikasi TeleCare.** SPA native: pairing, sinkronisasi, sesi makan, analisis + telemedisin.
+7. **Chat nyata + panggilan nyata** (Firebase RTDB + WebRTC).
+8. **Login Google, tamu, dan 4 peran.**
+9. **Git + angka Urgensi bersumber.**
+10. **Pengetatan keamanan database** (aturan RTDB per peserta, ID konsultasi kriptografis).
+11. **PWA, TURN, GATT, detail pasien, notifikasi eskalasi.**
+12. **Dering panggilan masuk** (`duty`/`inbox`, `ring.js` + `ring-ui.js`).
+13. **Audit "dummy" menyeluruh** — sembilan perbaikan kejujuran data.
+14. **Kalibrasi sensor untuk pengembang** (`#/sistem/kalibrasi`).
+15. **Dua video showcase** + draft CapCut.
+16. **Repositori dipublikasikan** (awalnya https://github.com/Mostoples/telecare).
+17. **Migrasi ke Supabase + Vercel + metered.ca** (21 Sep 2026, commit `ff79906`).
+    `app/js/supabase.js` menggantikan `firebase.js` dengan nama API yang sama
+    (`TC.FB`/`TC.Chat`/`TC.RTC`). Sinyal WebRTC pindah ke Realtime Broadcast, kehadiran ke
+    Realtime Presence, chat ke tabel Postgres. Hosting pindah ke Vercel. Repo kini
+    https://github.com/fpr35/gelang-cerdas.
+18. **Web Push standar** menggantikan FCM: langganan ke `push_subscriptions`, dikirim Edge
+    Function `send-push` lewat Database Webhook.
+19. **Dering versi Supabase** (22 Sep): `doctor_directory` agar dokter yang sedang tidak online tetap
+    dapat dipanggil (dan menerima push); status jaga lewat Presence `duty:{doctorId}`;
+    kotak masuk di tabel `inbox`.
+20. **Perbaikan panggilan & chat** (23 Sep): penentuan pengirim offer lewat Presence (ID lebih kecil),
+    event `bye`, `Consult.syncFromServer()` saat boot, dan `Consult.start()` memakai ulang
+    percakapan aktif dengan dokter yang sama.
+21. **Pesan kartu & percakapan contoh** (25 Sep): lihat §5 — dua bug dari migrasi diperbaiki,
+    README dan berkas ini ditulis ulang untuk arsitektur baru.
+22. **Integrasi TeleBand fisik, tahap 1** (25 Sep). Berdasarkan dokumen konteks tim dan repo
+    firmware `D:\Data_C_Fito\joki\TeleCare` (`docs/PROTOKOL_BLE.md`, `tc_proto.h`,
+    `tools/web-test/index.html`). Modul protokol baru `teleband-ble.js` (ble.js tidak disentuh),
+    `TeleBandLink` + `Readings` di engine.js, layar `#/teleband`, tabel `device_readings`,
+    Vitals per metrik, label asal per kartu vital. Keputusan 4A–4D di §4.
 
 ---
 
-16. **Repositori dipublikasikan.** Seluruh riwayat (18 commit) di-push ke
-   https://github.com/Mostoples/telecare sebagai repositori publik. Sebelum push,
-   diperiksa tidak ada berkas melebihi batas GitHub (terbesar 37 MB: video tutorial;
-   total 59 MB). Konfigurasi Firebase web ikut terlihat — itu memang bukan rahasia,
-   keamanannya bertumpu pada aturan database yang sudah diperketat (lihat §4).
-
 ## 4. Keputusan teknis & alasannya
 
-Bagian ini yang paling mudah terlupa, jadi ditulis lengkap.
+**Native, tanpa framework.** Diminta secara eksplisit. Routing, state, dan komponen ditulis sendiri
+di [app/js/core.js](app/js/core.js). Berkas yang di-deploy sama persis dengan yang ada di repo.
 
-**Native, tanpa framework.** Diminta secara eksplisit. Konsekuensinya: routing, state,
-dan komponen ditulis sendiri di [app/js/core.js](app/js/core.js). Tidak ada langkah build,
-jadi berkas yang di-deploy sama persis dengan yang ada di repo.
+**Skrip global, bukan ES module (di aplikasi).** Urutan muat dijamin urutan `<script>` di
+[app/index.html](app/index.html); semua berbagi namespace `TC`. SDK Supabase dimuat sebagai UMD
+dari CDN oleh [supabase-init.js](app/js/supabase-init.js), yang memancarkan `telecare:sb-ready`;
+`sbClient()` di `supabase.js` menunggu event itu (batas 10 detik).
 
-**Skrip global, bukan ES module (di aplikasi).** Urutan muat dijamin oleh urutan `<script>`
-di [app/index.html](app/index.html), semua berbagi namespace `TC`. Alasannya: Firebase SDK
-dipakai lewat build *compat* yang berupa skrip klasik, jadi mencampur module dan non-module
-hanya menambah rumit. Landing page tetap memakai ES module karena butuh Three.js.
+**Nama API Firebase dipertahankan setelah migrasi.** `TC.FB`, `TC.Chat`, `TC.RTC` tetap bernama
+sama supaya layar tidak perlu diubah. `FB.ready` di-set `true` **sebelum** SDK selesai dimuat, karena
+setiap fungsi `Chat.*`/`RTC.*` menunggu sendiri; tanpa itu pemanggilan awal terlewat.
 
-**Data aplikasi di localStorage.** Kunci `telecare.app.v1`. Akun, riwayat sesi, perangkat,
-dan profil semuanya lokal. Hanya percakapan dan sinyal panggilan yang menyentuh server.
+**Data aplikasi di localStorage.** Kunci `telecare.app.v1`. Hanya percakapan, keanggotaan, kotak
+masuk panggilan, direktori dokter, dan langganan push yang ada di server.
 
-**Firebase RTDB untuk chat, bukan Firestore.** Pola `child_added` cocok untuk aliran pesan,
-dan RTDB juga dipakai sebagai papan sinyal WebRTC — satu layanan untuk dua kebutuhan.
+**Mirror lokal ditulis lebih dulu.** `Consult.push()` menyimpan ke localStorage, baru INSERT ke
+server; dedup lewat `mid`. Pesan langsung muncul walau jaringan lambat, dan tidak hilang saat luring.
 
-**Mirror lokal ditulis lebih dulu.** `Consult.push()` menyimpan ke localStorage dulu, baru
-mengirim ke server. Dedup lewat `mid`. Efeknya: pesan langsung muncul walau jaringan lambat,
-dan tidak hilang saat luring. SDK RTDB sendiri mengantre tulisan luring lalu mengirimnya
-saat tersambung — makanya `Chat.send()` **tidak** lagi menolak saat `!online`.
+**Riwayat diambil manual sebelum berlangganan.** `postgres_changes` hanya menyiarkan baris baru,
+berbeda dari `child_added` RTDB yang ikut mengirim riwayat.
 
-**Ruang WebRTC = ID konsultasi.** Tidak perlu kode ruang terpisah. Peserta pertama menulis
-`offer` (jadi pemanggil), peserta berikutnya menulis `answer` (jadi penerima).
+**Sinyal WebRTC lewat Broadcast, bukan tabel.** Offer/answer/ICE bersifat sementara; menyimpannya
+hanya menambah pembersihan. Pengirim offer ditentukan Presence: ID peer lebih kecil yang mengirim,
+dievaluasi ulang pada setiap `sync` supaya tidak ada celah di mana kedua sisi merasa sendirian.
 
-**Kehadiran dokter mematikan balasan otomatis.** `meta/doctorOnline` + `onDisconnect`.
-Tanpa ini, balasan bot akan bertabrakan dengan jawaban dokter sungguhan.
+**`doctor_directory` terpisah dari status jaga.** Presence menjawab "sedang online?", direktori
+menjawab "akun mana dokter ini?". Memisahkannya membuat panggilan tetap bisa ditujukan (dan
+di-push) ke dokter yang aplikasinya tertutup.
 
-**Mode demo mempercepat waktu.** Sesi makan 2 jam dipadatkan jadi ± 2 menit (`settings.fastDemo`),
-supaya alur empat titik pengukuran bisa dicoba utuh. Bisa dimatikan di Pengaturan.
+**Pesan kartu membawa `kind`, `data`, dan `text` sekaligus.** `text` selalu berisi ringkasan
+terbaca, jadi pesan tetap bermakna di notifikasi dan ketika kolom `kind`/`data` belum ada. Klien
+mencoba INSERT dengan kedua kolom; bila PostgREST menjawab `PGRST204`/`42703`, klien mengingatnya
+dan mengirim tanpa kolom itu untuk sisa sesi. Kartu sesi makan membawa ringkasannya sendiri
+(`Consult.mealCard`), bukan hanya id, karena penerima tidak punya riwayat makan pengirim.
 
-**Peran disimpan di `user.role`.** Rute dijaga lewat `opts.roles`; yang tidak berhak
-dialihkan ke beranda perannya sendiri. Tab bar dan sidebar dibangun dari `TABS_BY_ROLE`.
+**TeleBand: keputusan tim 4A–4D (25 Sep 2026).** Alat ini *spot-check*, bukan wearable kontinu.
+(A) LIVE hanya pratinjau; angka stabil (bukan `sementara`) masuk Vitals, HASIL yang disimpan.
+(B) Glukosa disimpan dan ditampilkan berlabel eksperimental. (C) Suhu tetap simulasi berlabel.
+(D) HASIL ke tabel Supabase `device_readings`; HAPUS ke alat hanya setelah server mengonfirmasi.
 
-**Sesi anonim, bukan identitas localStorage.** Sejak aturan menuntut `auth != null`, `FB.uid`
-diambil dari Firebase Auth saja. `FB.ensureAuth()` menunggu kabar pertama `onAuthStateChanged`
-lebih dulu — kalau langsung `signInAnonymously()`, sesi tersimpan yang sedang dipulihkan akan
-tertimpa sesi baru setiap kali halaman dimuat. Setelah keluar dari akun Google, `signOut()`
-sengaja membuat sesi anonim baru; tanpa itu aplikasi kehilangan hak tulis.
+**TeleBand: jalur terpisah dari ble.js.** Instruksi tim: jangan ubah parser SIG standar. Protokolnya
+beda total (UUID `7e1e000x-5443-4172-652d-54656c654361`, paket biner LE buatan sendiri).
 
-**Keanggotaan percakapan di `meta/members`, dan izin tulis TIDAK dipasang di `meta`.**
-Ini yang paling mudah salah: di Firebase, izin tulis **menurun ke seluruh anak** dan aturan yang
-lebih dalam tidak dapat menariknya kembali. Waktu `.write` masih dipasang di `meta`, setiap
-peserta bisa menulis `meta/members/<siapa pun>` — menambah maupun mengeluarkan orang lain —
-walau `members/$uid` sudah dibatasi `$uid == auth.uid`. Karena itu izin tulis dipindah ke
-masing-masing field (`doctorId`, `mode`, `status`, `startedAt`, `doctorOnline`), sehingga
-`members/$uid` menjadi satu-satunya jalan menuju daftar peserta.
+**TeleBand: dedup serial + id + epoch.** `tc_store.cpp` menyimpan id sebagai u16 di NVS yang kembali
+ke 1 setelah 65535 dan setelah NVS dihapus. Batas nilai di tabel sengaja longgar (rentang byte),
+karena baris yang ditolak server tidak pernah di-HAPUS dan akan dikirim ulang selamanya.
 
-**`Chat.ensure` memakai `update()`, bukan `set()`/`transaction()`.** Konsekuensi keputusan di
-atas: tidak ada izin tulis pada simpul `meta`, jadi menulis seluruh objek akan ditolak.
-`update()` dinilai per-anak sehingga tetap sah, dan `members` tidak tersentuh. Sudah diverifikasi
-langsung lewat REST `PATCH`.
+**TeleBand: `onInfo` sebelum berlangganan.** Paket HASIL bisa tiba sebelum `connect()` selesai;
+penerima perlu serial alat untuk kunci dedup.
 
-**`Chat.join` ter-memo dan menjadi prasyarat setiap operasi.** `send`, `subscribe`, `meta`,
-`presence`, `watchPresence`, dan `RTC.join` semuanya menunggu `join` selesai. Tanpa itu pesan
-pertama pada percakapan baru bisa ditulis sebelum keanggotaan terdaftar, lalu ditolak aturan.
+**Vitals per metrik (`dariAlat`).** Dulu satu sakelar `source` membekukan SEMUA metrik saat perangkat
+tersambung. Kini hanya metrik yang benar-benar dikirim alat yang berhenti disimulasikan. Ini juga
+mengubah jalur BLE generik: metrik yang tidak dikirim perangkat generik kini tetap bergerak
+(simulasi, berlabel), bukan membeku.
+
+**Eskalasi mengabaikan estimasi eksperimental.** Tensi TeleBand tidak memicu peringatan; label
+"(simulasi)" pada notifikasi kini dinilai per ukuran.
+
+**Percakapan contoh tamu hanya lokal (`local: true`).** Lihat §5. `Consult.isLocal()` juga
+mengenali ID lama `'cs-demo'` agar data yang sudah ada di localStorage pengguna ikut aman.
 
 **ID konsultasi kriptografis.** ID itu sekaligus ID ruang panggilan dan dibagikan lewat tautan
-undangan, jadi ia adalah kunci akses. `uid()` lama hanya 7 karakter `Math.random` (± 7,8×10¹⁰);
-`secureId()` memakai `crypto.getRandomValues` (± 128 bit).
+undangan, jadi ia kunci akses. `secureId()` memakai `crypto.getRandomValues` (± 128 bit).
 
-**`FB.canSync()` memisahkan "tersambung" dari "boleh menulis".** Sesi yang gagal tidak membuat
-`FB.online` menjadi false, sehingga UI sempat mengaku tersinkron padahal setiap tulisan ditolak.
+**`FB.canSync()` memisahkan "tersambung" dari "boleh menulis".** Tersambung (kanal heartbeat
+`SUBSCRIBED`) **dan** punya sesi **dan** tidak ada `authFatal`.
+
+**Mode demo mempercepat waktu.** Sesi makan 2 jam dipadatkan jadi ± 2 menit (`settings.fastDemo`).
+
+**Peran disimpan di `user.role`.** Rute dijaga lewat `opts.roles`; navigasi dari `TABS_BY_ROLE`.
+
+**Service worker: kode sendiri jaringan-lebih-dulu.** Tanpa build step, nama berkas tidak memuat
+sidik isi; cache-first membuat deploy baru butuh dua kali muat ulang.
 
 ---
 
 ## 5. Bug yang pernah ditemukan (jangan terulang)
 
-Ditulis karena beberapa di antaranya tidak terlihat sampai benar-benar diuji.
-
 | Bug | Sebab | Perbaikan |
 | --- | --- | --- |
-| Tata letak melebar, kartu terpotong | `icon()` menghasilkan `<svg>` tanpa kelas → ukuran bawaan 300×150 | Aturan `svg:not([class])` di awal reset CSS |
-| Video Blender gagal ditulis | Blender 5.x memindahkan output video ke `image_settings.media_type` | Set `media_type = 'VIDEO'` sebelum `file_format` |
-| Animasi turntable gagal | Blender 5.x memakai *slotted Action*, `action.fcurves` tidak ada | Helper `iter_fcurves()` menelusuri `layers[].strips[].channelbag` |
-| Layar jam tertelan bodi | Bezel diturunkan ke dalam kubus bodi yang padat | Bezel dinaikkan jadi rim menonjol di atas permukaan |
-| Bintik pada kaca layar | Noise ray-tracing EEVEE pada bidang transmisif tipis | Kaca dihapus; layar jadi emisif ber-*clear coat* |
-| Panggilan selalu "solo" | `RTC.join` menilai `FB.online` sebelum koneksi terbentuk | `FB.waitOnline()` menunggu maksimal 7 detik |
-| **Tautan undangan tidak sampai** | `?demo=1` menyemai akun lalu **membajak rute** ke `/home` | `seedDemoUser(false)` — rute pada URL dipertahankan |
-| Listener sheet menumpuk | `#overlay` dipakai ulang, listener tidak pernah dilepas | Simpul overlay diganti baru setiap kali dibuka |
-| Padding bawah nyangkut di desktop | Inline `--tabbar-h` menimpa media query | Diganti kelas `body.is-bare` |
-| **Peserta bisa menambah/mengeluarkan peserta lain** | `.write` di `meta` menurun ke `meta/members`; aturan `$uid == auth.uid` yang lebih dalam tidak dapat menarik izin itu | Izin tulis dipindah ke tiap field meta; `meta` sendiri tanpa `.write` |
-| UI mengaku "tersambung" padahal tulisan ditolak | Sesi gagal tidak mengubah `FB.online` | `FB.canSync()` = tersambung **dan** bersesi |
-| Pesan pertama ditolak pada percakapan baru | `send` hanya menunggu sesi, bukan keanggotaan | `Chat.join` ter-memo jadi prasyarat `send`/`subscribe` |
-| **Seluruh direktori `.git` tersaji publik di Hosting** | Pola `ignore` `**/.*` hanya mencocokkan segmen-titik di posisi **terakhir**, jadi `.git` terkecuali tetapi `.git/HEAD` tidak. Cacat ini tidak terlihat sampai repositori dibuat, lalu ikut terunggah pada deploy berikutnya | Tambah `**/.*/**`, `.git/**`, `.firebase/**` ke `firebase.json`. Jumlah berkas unggah turun 214 → 47 |
-| Papan jaga usang membuat pasien mendering perangkat yang sudah mati | `onDisconnect` tidak menolong bila proses mati mendadak | Denyut nadi memperbarui `at` tiap 60 detik; `cekJaga` menolak entri yang lebih tua dari 3 menit |
-| Judul tab baru berubah setelah 900 ms saat panggilan masuk | Penggantian judul hanya di dalam `setInterval` | Judul diganti seketika lalu baru berkedip |
-| Catatan klinis pada milidetik sama tampil terbalik | `at` identik → sort seri → urutan bergantung kestabilan sort, yang menampilkan terlama di atas | Indeks penyisipan dipakai sebagai pemecah seri di `Notes.list` dan `Consult.forPatient` |
-| Komentar HTML muncul sebagai teks di layar | Komentar `<!-- -->` ditulis di dalam literal templat yang jadi `innerHTML`, jadi ikut terkirim ke DOM | Komentar dipindah keluar jadi komentar JS |
-| Puluhan proses Edge menumpuk saat pengujian | Halaman punya timer yang tidak pernah berhenti (EKG, denyut vital), jadi `--virtual-time-budget` tidak pernah membuat proses keluar sendiri | `Ambil-Dom`/`Ambil-Layar` menunggu dengan batas waktu lalu `taskkill /PID /T /F` pada PID miliknya sendiri |
-| Tangkapan layar headless selalu kosong | `--disable-sync` membuat Edge di mesin ini keluar tanpa pernah menulis PNG (ditemukan lewat bisect flag) | Flag itu dibuang khusus untuk `--screenshot`; untuk `--dump-dom` tetap aman |
-| `Start-Process` menolak jalan | `RedirectStandardOutput` dan `RedirectStandardError` menunjuk berkas yang sama (`NUL`) | Dua berkas buangan terpisah |
-| ffmpeg menolak durasi `3,6` | Mesin ini berlokal Indonesia, jadi PowerShell mencetak desimal dengan koma | Skrip video memaksa `InvariantCulture` |
-| `xfade=transition=0,55` | Array `$TRANSISI` dan parameter `$Transisi` adalah **variabel yang sama** — PowerShell tidak peduli besar kecil huruf | Array diganti nama `$POLA` |
-| Filter ffmpeg kehilangan potongan | Dalam string PowerShell, `$d:sample_rate` dibaca sebagai variabel bercakupan dan `$AKSEN[panel]` sebagai pengindeksan array | Ditulis `$($d):` dan `${AKSEN}[panel]` |
-| `capcut` memanggil dirinya sampai tumpukan penuh | Fungsi pembantu bernama `Capcut` memanggil perintah `capcut`; nama sama karena PowerShell tidak peduli besar kecil huruf | Fungsi diganti nama `Panggil-Capcut` dan memanggil `node <index.js>` langsung |
-| Skrip CapCut menggantung tanpa pesan | `-q` di akhir pemanggilan fungsi dibaca PowerShell sebagai nama parameter, lalu menunggu masukan | Flag `-q` dihapus |
-| Skrip CapCut berhenti setelah `init` | `capcut` menulis petunjuk ke stderr meski berhasil, dan `ErrorActionPreference = 'Stop'` mengubahnya jadi galat yang menghentikan skrip | Preferensi dilonggarkan hanya selama pemanggilan, keberhasilan dinilai dari kode keluar |
-| Bantalan suara video praktis tak terdengar | Rantai `amix` + `volume=0.30` menghasilkan puncak -37 dB | `volume` diganti `loudnorm=I=-24:TP=-3` |
+| **Kartu vital/sesi makan tampil sebagai gelembung kosong di perangkat lawan bicara** | Setelah migrasi, `Chat.send` hanya mengirim `from`/`text`/`mid`; kartu punya `text: ''` dan tabel `messages` tidak punya kolom `kind`/`data` | Kolom `kind`+`data` (migrasi `20260925_messages_kind_data.sql`), `text` ringkasan untuk setiap kartu, cadangan otomatis bila kolom belum ada, gelembung tanpa teks dilewati |
+| **Semua akun tamu berbagi satu percakapan dan satu ruang panggilan** | Percakapan contoh ber-ID tetap `'cs-demo'`; sejak `Consult.start()` memakai ulang percakapan aktif, "Mulai Chat" dengan dr. Anindya (d1) mengirim ke `cs-demo`, dan Video Call dari sana bergabung ke kanal `call:cs-demo` milik semua tamu | ID acak + `local: true`; percakapan lokal tidak pernah dikirim, tidak dipakai ulang oleh `start()`, tanpa presence/undangan, dan panggilan darinya dialihkan ke percakapan baru |
+| Nilai kartu vital disisipkan ke HTML tanpa escape | Dulu datanya hanya lokal; kini `data` datang dari server dan bisa ditulis peserta lain | Semua nilai kartu lewat `esc()` |
+| Tata letak melebar, kartu terpotong | `icon()` menghasilkan `<svg>` tanpa kelas → 300×150 | Aturan `svg:not([class])` di reset CSS |
+| Video Blender gagal ditulis | Blender 5.x memindahkan output video ke `image_settings.media_type` | Set `media_type = 'VIDEO'` dulu |
+| Animasi turntable gagal | Blender 5.x memakai *slotted Action* | Helper `iter_fcurves()` |
+| Layar jam tertelan bodi / bintik kaca | Bezel di dalam kubus padat / noise EEVEE | Rim menonjol; layar emisif ber-clear coat |
+| Panggilan selalu "solo" | Status online dinilai sebelum koneksi terbentuk | `FB.waitOnline()` menunggu maks. 7 detik |
+| **Tautan undangan tidak sampai** | `?demo=` menyemai akun lalu membajak rute ke `/home` | `seedDemoUser(false)` mempertahankan rute URL |
+| Listener sheet menumpuk | `#overlay` dipakai ulang | Simpul overlay diganti tiap kali dibuka |
+| Padding bawah nyangkut di desktop | Inline `--tabbar-h` menimpa media query | Kelas `body.is-bare` |
+| Peserta bisa menambah/mengeluarkan peserta lain (era RTDB) | `.write` di `meta` menurun ke anak | Izin per field. **Pelajaran untuk RLS:** kebijakan `consult_members` harus memaksa `user_id = auth.uid()` |
+| UI mengaku "tersambung" padahal tulisan ditolak | Sesi gagal tidak mengubah status online | `FB.canSync()` |
+| Pesan pertama ditolak pada percakapan baru | `send` tidak menunggu keanggotaan | `Chat.join` ter-memo jadi prasyarat |
+| Seluruh `.git` tersaji publik di Firebase Hosting | Pola ignore `**/.*` | Pola tambahan. **Pelajaran untuk Vercel:** periksa `.vercelignore` bila menambah folder |
+| Papan jaga usang mendering perangkat mati (era RTDB) | `onDisconnect` tidak menolong saat proses mati mendadak | Kini Presence, yang hilang sendiri saat koneksi putus |
+| Judul tab baru berubah setelah 900 ms | Penggantian hanya di `setInterval` | Diganti seketika |
+| Catatan klinis pada milidetik sama terbalik | Sort seri | Indeks penyisipan sebagai pemecah seri |
+| Komentar HTML muncul sebagai teks | `<!-- -->` di dalam literal templat | Jadi komentar JS |
+| Puluhan proses Edge menumpuk saat pengujian | Timer halaman tidak pernah berhenti | Tunggu dengan batas lalu `taskkill /PID /T /F` |
+| Tangkapan layar headless kosong | `--disable-sync` | Flag dibuang untuk `--screenshot` |
+| Masalah skrip PowerShell/ffmpeg/CapCut | Lokal desimal koma, variabel tak peka huruf, `$d:` terbaca sebagai cakupan, stderr dianggap galat | `InvariantCulture`, ganti nama variabel/fungsi, `$($d):`, nilai dari kode keluar |
+| Bantalan suara video tak terdengar | `amix` + `volume` → puncak -37 dB | `loudnorm=I=-24:TP=-3` |
 
 ---
 
 ## 6. Cara verifikasi yang dipakai
 
-Supaya klaim "sudah jalan" bisa diperiksa ulang:
-
 - **⚠️ Pengujian memakai Edge, bukan Chrome — dan tidak pernah mematikan proses berdasarkan nama.**
-  Pola `Get-Process chrome | Stop-Process -Force` pernah dipakai dan **mematikan seluruh tab
-  browsing pemilik komputer**. Jangan diulang. [tools/uji-browser.ps1](tools/uji-browser.ps1)
-  memaksa tiga hal: memakai Edge (bukan peramban harian), profil sementara terpisah, dan
-  penghentian hanya lewat PID yang dijalankan sendiri (`taskkill /PID x /T`).
-  Dua jebakan lain: `*>` di PowerShell 5.1 menulis log **UTF-16LE** dan membungkus baris pada
-  lebar konsol, jadi pembaca log harus menyambung baris dan mendekodekan UTF-16 lebih dulu.
-- **Sapuan rute.** Peramban headless `--dump-dom` ke tiap rute, dicari string `Terjadi kesalahan`
-  (penanda layar gagal) dan DOM yang terlalu pendek. Dijalankan untuk keempat peran; 14 rute
-  bersih pada pemeriksaan terakhir.
-  Dua jebakan harness yang sudah menipu sekali: (1) `Stop-Process` dengan filter `Path` tidak
-  mematikan seluruh proses anak Chrome, dan profil yang masih terkunci membuat instance baru
-  mengembalikan DOM kosong — bukan regresi kode; (2) rute yang salah tulis memantul ke beranda
-  dan tetap tampak "OK", jadi ukuran DOM perlu dibandingkan dengan halaman lain.
-- **Jumlah berkas unggah.** `firebase deploy` melaporkan "found N files"; angka itu dibandingkan
-  dengan hitungan manual berkas yang layak unggah. Selisih 214 vs 47 itulah yang menyingkap
-  `.git` ikut terunggah — lihat §5.
-- **Ambang eskalasi (51 pemeriksaan) & muatan push (23 pemeriksaan).** Setiap ambang diuji pada
-  nilainya sendiri **dan** pada nilai tepat di batas, karena salah tanda perbandingan hanya
-  terlihat di sana. Jeda pengulangan diuji dengan cap waktu yang disuntikkan: ditahan sebelum
-  jeda, lolos tepat setelahnya, tetap lolos bila waspada memburuk jadi kritis, dan terpisah per
-  ukuran. Penguraian muatan push diuji untuk tiga bentuk kiriman FCM (`notification`,
-  `webpush.notification`, data-only), prioritas antar bentuk, nilai bawaan, dan masukan tak wajar.
-- **Catatan klinis & riwayat pasien (29 pemeriksaan).** Tambah, tolak isi kosong, pangkas spasi,
-  batas 4.000 karakter, isolasi antar pasien, hapus, persistensi lewat `localStorage` dan terbaca
-  kembali setelah `load()`, serta pengumpulan konsultasi per `patientId`. Uji urutan menemukan
-  bahwa catatan pada milidetik yang sama tampil terbalik — lihat §5.
-- **Aturan dering (31 pemeriksaan).** Tiga sesi anonim sekaligus (dokter, pasien, pihak ketiga)
-  memastikan `consultId` pada entri panggilan tidak terbaca pihak ketiga — baik lewat daftar
-  inbox, entri langsung, maupun pembacaan field. Pemanggil boleh memantau entrinya sendiri tetapi
-  tidak seluruh inbox. Token FCM hanya terbaca pemiliknya. Pemalsuan `from`, status di luar
-  daftar, dan kunci asing ditolak.
-- **Dering dua peramban (28 pemeriksaan).** Dua profil Chrome memuat `ring.js` dan `ring-ui.js`
-  yang sungguhan: dokter mendaftar jaga, pasien membaca papan jaga lalu memanggil, dokter menerima
-  `child_added`, overlay ter-render di DOM dengan nama pemanggil dan kedua tombol, `body.is-ringing`
-  terpasang, judul tab berganti. Panggilan diterima lewat **klik tombol sungguhan**, bukan
-  pemanggilan API, lalu pasien terbukti melihat status `accepted`. Memanggil dokter yang tidak
-  jaga mengembalikan `null`, bukan galat.
-- **Parser GATT (42 pemeriksaan).** Diuji dengan vektor byte yang disusun menurut spesifikasi
-  Bluetooth SIG, bukan perangkat: HR uint8 dan uint16 little-endian, tiga keadaan kontak kulit,
-  bidang energi yang harus dilewati sebelum interval RR, RR bersatuan 1/1024 detik, RMSSD,
-  baterai di luar rentang, SFLOAT/FLOAT IEEE-11073 termasuk pola NaN, suhu Fahrenheit→Celsius,
-  tekanan kPa→mmHg, denyut nadi yang bergeser 7 bita bila cap waktu ada, dan ketahanan terhadap
-  buffer kosong maupun null. Kesalahan offset pada bidang opsional adalah bug klasik di sini,
-  jadi kasus itu diuji khusus.
-- **Aturan RTDB (41 pemeriksaan, semua sesuai harapan).** Dua sesi anonim sungguhan dibuat lewat
-  REST Identity Toolkit, lalu izin diuji pada REST Realtime Database: tanpa auth semua ditolak
-  (401); tulis di luar `telecare/demo` ditolak; bukan-peserta tidak dapat membaca percakapan,
-  daftar pesan, maupun ruang panggilan; peserta tidak dapat menambah, menonaktifkan, atau
-  membuang keanggotaan orang lain, dan tidak dapat menimpa `meta` atau `meta/members` sekaligus;
-  `uid` palsu, teks 2.100 karakter, `from` tidak sah, kunci asing, dan penimpaan pesan ditolak;
-  `update()` multi-field pada `meta` (jalur `Chat.ensure`) diizinkan, tetapi ditolak bila
-  diselipkan anggota lain; peserta boleh keluar sendiri. Data uji dibersihkan setelahnya.
-- **Jalur klien sungguhan (12 pemeriksaan).** Halaman uji memuat `core.js` + `firebase.js` yang
-  ter-deploy lalu menjalankan `ensureAuth` → `join` → `ensure` → `send` → `subscribe` memakai SDK
-  Firebase asli: sesi anonim terbentuk, `canSync` benar, pesan terkirim dan diterima kembali oleh
-  listener, pesan 2.100 karakter ditolak server, ID tak dikenal mengembalikan `null`.
-  Diperlukan karena REST tidak menguji semantik `update()`/antrean luring milik SDK.
-- **Handshake WebRTC.** Dua Chrome headless dengan `--use-fake-device-for-media-stream`
-  bergabung ke ruang yang sama; DB diperiksa: `offer` + `answer` tertulis, 14 dan 7 kandidat ICE
-  dipertukarkan.
-- **Provider Google.** `POST identitytoolkit.googleapis.com/v1/accounts:signInWithIdp` dengan
-  token dummy → balasan `INVALID_IDP_RESPONSE` (bukan `OPERATION_NOT_ALLOWED`), artinya
-  provider aktif. Domain terizinkan: `localhost`, `telecare-id.firebaseapp.com`,
-  `telecare-id.web.app`.
-- **Provider Anonymous.** `POST .../v1/accounts:signUp` dengan `returnSecureToken` → mengembalikan
-  `idToken`. Sebelum diaktifkan, balasannya `ADMIN_ONLY_OPERATION`; itu penanda cepat kalau
-  provider mati dan seluruh sinkronisasi ikut berhenti.
-- **Tangkapan layar.** Render 390 px lewat iframe (lebar jendela headless punya batas minimum,
-  jadi tangkapan langsung pada 390 px memotong isi — itu artefak, bukan bug tata letak).
+  `Get-Process chrome | Stop-Process -Force` pernah **mematikan seluruh tab browsing pemilik
+  komputer**. [tools/uji-browser.ps1](tools/uji-browser.ps1) memaksa Edge, profil sementara, dan
+  penghentian lewat PID sendiri. `*>` di PowerShell 5.1 menulis log UTF-16LE.
+- **Uji logika di Node dengan stub peramban** (25 Sep, 15 pemeriksaan): `core.js` + `data.js` +
+  `supabase.js` + `engine.js` dimuat di `vm` dengan `localStorage`/`document` tiruan dan client
+  Supabase palsu. Diperiksa: `isLocal` untuk `cs-demo` lama dan `local: true`; `start()` tidak
+  memakai ulang percakapan contoh tetapi memakai ulang percakapan nyata; pesan percakapan contoh
+  tidak dikirim; kartu mendapat `text` ringkasan dan `kind` ikut terkirim; `dariBaris` membawa
+  `kind`/`data`; cadangan INSERT saat `PGRST204` terjadi sekali lalu diingat. Skripnya belum
+  disimpan di repo (lihat §8).
+- **TeleBand dengan alat BLE tiruan** (25 Sep, 55 pemeriksaan). Paket disusun byte demi byte
+  menurut `PROTOKOL_BLE.md`; alat tiruan meniru firmware (kirim hasil tersimpan saat HASIL
+  dilanggani, HAPUS menghapus, SINKRON mengirim ulang) dan Chrome (menolak tulisan GATT paralel).
+  Diperiksa: parser keempat paket termasuk "bit menyala tapi nilai 0", epoch 0, paket pendek;
+  urutan INFO → notifikasi → SET_WAKTU; nol tulisan paralel walau tiga perintah ditembak beruntun;
+  HAPUS hanya untuk hasil yang sampai server; hasil gagal tetap di alat lalu tersimpan saat sambung
+  ulang; tanpa duplikat lokal/server; id berulang dengan epoch lain = hasil baru; LIVE sementara
+  tidak masuk Vitals; suhu tetap simulasi; putus → simulasi. Plus render 5 rute di Edge headless.
+  **Ini bukan pengganti uji alat fisik** — perilaku pairing, MTU, dan timing radio belum teruji.
+- **Memeriksa skema Supabase dari luar:** `GET /rest/v1/messages?select=kind,data&limit=0` dengan
+  header `apikey` (anon) — balasan `42703 column ... does not exist` berarti migrasi belum jalan.
+- **Sapuan rute** headless `--dump-dom` per peran, cari `Terjadi kesalahan` dan DOM terlalu pendek.
+- **Ambang eskalasi (51), muatan push (23), catatan klinis (29), parser GATT (42)** — pemeriksaan
+  era sebelumnya; logikanya tidak berubah oleh migrasi.
+- Pemeriksaan aturan RTDB (41), jalur klien Firebase (12), dan dering dua peramban (28) **sudah
+  tidak berlaku** setelah migrasi; padanan Supabase-nya belum dibuat (§8).
 
 ---
 
@@ -326,89 +265,52 @@ Supaya klaim "sudah jalan" bisa diperiksa ulang:
 
 Urut dari yang paling perlu diselesaikan.
 
-1. ~~**Aturan database masih terbuka.**~~ **Selesai.** `telecare/demo/**` kini menuntut
-   `auth != null`; percakapan dibatasi per peserta lewat `meta/members`; `uid` pesan wajib
-   sama dengan `auth.uid`; pesan tidak dapat ditimpa. Sesi anonim otomatis menjaga alur Tamu
-   dan `?demo=` tetap jalan. Sisa yang belum: peran masih di `localStorage`, jadi aturan tidak
-   dapat membedakan dokter sungguhan — lihat butir 9.
-   → [database.rules.json](database.rules.json), [app/js/firebase.js](app/js/firebase.js)
-2. ~~**Angka pada seksi Urgensi belum bersumber.**~~ **Selesai.** Kini memakai Riskesdas 2018
-   (34,1% prevalensi hasil pengukuran; 8,4% berdasarkan diagnosis nakes) dan WHO (PTM ± tiga
-   perempat kematian), dengan daftar sumber `#sumber-urgensi` di bawah kartu statistik.
-   Kartu "Stres" sengaja dilabeli *fokus penelitian, bukan angka survei*.
-3. ~~**Belum ada Git.**~~ **Selesai.** Repositori aktif pada branch `main`, `.gitignore`
-   mengecualikan `*.blend1`, log, `build/`, dan `.firebase/`. Sudah terhubung ke remote
-   `origin` → https://github.com/Mostoples/telecare (publik), jadi riwayat commit kini punya
-   cadangan di luar laptop. Sebelumnya seluruh riwayat hanya ada di satu mesin; Firebase
-   Hosting menyimpan hasil jadinya saja, bukan riwayat Git-nya.
-4. **⚠️ TURN belum ada servernya — dukungannya sudah, kredensialnya belum.** Seluruh jalur sudah
-   siap: [app/js/rtc-config.js](app/js/rtc-config.js) menerima TURN statis maupun penerbit
-   kredensial sementara, pengguna dapat mengisi TURN sendiri di Pengaturan, ada diagnostik
-   kandidat ICE, dan layar panggilan membedakan *media lewat TURN* dari *jalur langsung*.
-   **Yang belum ada: server TURN sungguhan beserta kredensialnya** — itu perlu VPS (coturn) atau
-   layanan berbayar, tidak dapat disediakan dari sisi kode. Sampai itu diisi, panggilan di balik
-   NAT ketat tetap gagal, hanya sekarang pesan galatnya menyebut sebabnya.
-5. **Nilai fisiologis masih simulasi bila tidak ada perangkat.** Mesin sirkadian di
-   [app/js/engine.js](app/js/engine.js) tetap menjadi bawaan. Pembacaan GATT sungguhan sudah ada
-   di [app/js/ble.js](app/js/ble.js) (Heart Rate, Battery, Thermometer, Blood Pressure, Pulse
-   Oximeter) dan parsernya terverifikasi 42/42 terhadap vektor byte sesuai spesifikasi.
-   **Belum diuji dengan perangkat fisik** — tidak ada wearable BLE di lingkungan pengembangan ini,
-   jadi jalur `connect()`/notifikasi hanya terbukti benar secara struktur, bukan di lapangan.
-6. **Balasan dokter masih otomatis.** Pola kata kunci di `REPLY_RULES`. Sudah dilabeli jelas
-   di dalam aplikasi, tetapi tetap perlu diingat saat mendemokan ke pihak luar.
-7. **Data pasien/faskes bersifat contoh.** `PATIENTS` dan `FACILITIES` di
-   [app/js/data.js](app/js/data.js) adalah ilustrasi, bukan rekam medis. Catatan klinis yang
-   ditulis dokter pun hanya tersimpan di `localStorage` perangkat itu — belum ada penyimpanan
-   bersama, jadi dokter lain tidak dapat melihatnya.
-8. **Belum ada uji otomatis.** Verifikasi selama ini manual lewat skrip headless sekali jalan.
-9. **Peran belum tepercaya di sisi server.** `user.role` disimpan di `localStorage` dan dapat
-   diubah pengguna. Aturan database hanya tahu "peserta percakapan", tidak tahu siapa dokter.
-   Untuk membatasi berdasarkan peran, peran harus ikut di token (custom claims) — perlu Admin SDK.
-11. **⚠️ Papan jaga dapat dibajak.** `duty/$doctorId` boleh ditulis siapa pun yang terautentikasi
-   selama ia mencantumkan uid-nya sendiri. Artinya seseorang dapat mengaku sebagai dokter tertentu
-   dan menerima panggilan yang ditujukan kepadanya. Sudah diverifikasi terjadi. Tidak dapat
-   dicegah tanpa peran tepercaya di server (butir 9) — aturan database tidak punya cara mengetahui
-   siapa dokter sungguhan. Kotak masuk sendiri aman: `inbox/$uid` hanya terbaca pemilik uid, jadi
-   `consultId` tidak bocor.
-10. **Model akses percakapan bersifat kapabilitas.** Siapa pun bersesi yang memegang ID
-   konsultasi boleh bergabung. Ini tuntutan fitur tautan undangan; pengamanannya ada pada ID
-   128-bit dari `crypto.getRandomValues` ([app/js/core.js](app/js/core.js) `secureId`).
-   Percakapan lama berpengenal `uid()` (7 karakter) masih ada di database dan lebih lemah.
+1. **⚠️ Skema Supabase dan RLS tidak ada di repo.** Tabel `consults`, `consult_members`, `messages`,
+   `inbox`, `doctor_directory`, `push_subscriptions` serta Edge Function `send-push` hanya ada di
+   dashboard. Keamanan bergantung sepenuhnya pada RLS, tetapi tidak dapat ditinjau atau
+   direproduksi. Perlu `supabase db dump --schema public` (atau salin dari SQL Editor) ke
+   `supabase/`, plus kode Edge Function.
+2. **⚠️ Kredensial TURN metered.ca ter-commit** di [app/js/rtc-config.js](app/js/rtc-config.js)
+   pada repo publik. Perlu diganti ke kredensial sementara lewat `fetchFrom` (Edge Function yang
+   memanggil API metered.ca), lalu kredensial lama diputar ulang.
+3. **Dua migrasi perlu dijalankan** di SQL Editor:
+   [20260925_messages_kind_data.sql](supabase/migrations/20260925_messages_kind_data.sql) (tanpa ini
+   kartu chat tampil sebagai teks) dan
+   [20260925_device_readings.sql](supabase/migrations/20260925_device_readings.sql) (tanpa ini hasil
+   TeleBand **tidak pernah** tersimpan ke server, sehingga juga tidak pernah di-HAPUS dari alat;
+   alat menampung 64 hasil lalu menimpa yang tertua).
+3a. **TeleBand belum diuji dengan alat fisik.** Semua pemeriksaan memakai alat tiruan.
+3b. **TeleBand tahap 2 belum dikerjakan:** tampilan hasil untuk dokter (RLS sudah mengizinkan lawan
+   bicara konsultasi membaca lewat `sekonsultasi_dengan()`), dan UI `SET_KALIBRASI`.
+4. **Dashboard landing page masih Firebase.** [js/firebase-init.js](js/firebase-init.js) membaca
+   `telecare/live` dari RTDB lama; bila proyek Firebase sudah dimatikan, dashboard selalu simulasi.
+   Pilihan: pindahkan ke tabel/kanal Supabase, atau buang dan labeli jujur sebagai simulasi.
+5. **Berkas sisa Firebase** belum dihapus: `app/js/firebase.js`, `database.rules.json`,
+   `functions/`, `firebase.json`, `.firebaserc`. `tools/cek-deploy.ps1` kemungkinan masih
+   membandingkan dengan domain Firebase.
+6. **Peran belum tepercaya di server.** `user.role` di `localStorage`; siapa pun dapat meng-upsert
+   `doctor_directory` untuk dokter katalog mana pun dan menerima panggilannya (tergantung RLS).
+7. **Urutan `Chat.ensure` vs pesan pertama.** `Consult.start()` memanggil `ensure()` (INSERT
+   `consults`) lalu langsung `push()` dua pesan pembuka tanpa menunggu. Bila skema memakai foreign
+   key ke `consults`, pesan pembuka bisa ditolak. Perlu dipastikan terhadap skema sebenarnya.
+8. **Tautan undangan selalu `?demo=1`** — perangkat baru yang membukanya dibuatkan akun pasien.
+9. **Nilai fisiologis simulasi bila tidak ada perangkat**; GATT belum diuji perangkat fisik.
+10. **Balasan dokter masih otomatis** (`REPLY_RULES`); data pasien/faskes adalah contoh.
+11. **Belum ada uji otomatis yang tersimpan.**
 
 ---
 
 ## 8. Rencana berikutnya
 
-### Sudah selesai
-
-- [x] `git init` + commit awal, lalu commit per perubahan
-- [x] Perketat aturan RTDB + aktifkan Firebase Authentication penuh
-- [x] Ganti angka Urgensi dengan data bersumber + sitasi
-- [x] PWA: manifest + service worker agar bisa dipasang dan jalan luring
-- [x] Dukungan TURN + diagnostik konektivitas ICE
-- [x] Baca karakteristik GATT nyata dari perangkat BLE (Heart Rate `0x180D` + 4 service lain)
-- [x] Halaman detail pasien untuk dokter: riwayat konsultasi + catatan klinis tersimpan
-- [x] Notifikasi eskalasi lokal (ambang di perangkat + notifikasi sistem)
-
-### Menunggu prasyarat di luar kode
-
-Kodenya sudah siap; yang kurang tidak dapat disediakan dari sisi kode.
-
-- [ ] **Server TURN** — perlu VPS (coturn) atau layanan berbayar. Sampai kredensial diisi di
-  [app/js/rtc-config.js](app/js/rtc-config.js), panggilan di balik NAT ketat tetap gagal.
-- [ ] **Wearable BLE fisik** — parser GATT terverifikasi terhadap vektor byte spesifikasi, tetapi
-  jalur `connect()`/notifikasi belum pernah menyentuh perangkat sungguhan.
-- [ ] **Push FCM** — perlu VAPID key dari Firebase Console (tidak ada API publik untuk
-  membuatnya) **dan** pengirim di sisi server, sebab klien hanya dapat menerima push.
-  Contoh Cloud Functions ada di README.
-
-### Belum dikerjakan
-
-- [ ] Peran tepercaya di server (custom claims) agar aturan database bisa membedakan dokter
-      sungguhan dari pengguna biasa — lihat §7 butir 9
-- [ ] Penyimpanan catatan klinis bersama antar-dokter (kini hanya `localStorage` per perangkat)
-- [ ] Uji otomatis yang dijalankan berulang. Selama ini verifikasi memakai halaman uji sekali
-      pakai yang dibuat lalu dihapus; hasilnya tercatat di §6 tetapi tidak dapat dijalankan ulang.
+- [ ] Jalankan migrasi `messages.kind/data` dan `device_readings` di Supabase SQL Editor
+- [ ] **Uji TeleBand dengan alat fisik** (lihat daftar periksa di README bagian TeleBand)
+- [ ] TeleBand tahap 2: hasil ukur pasien di layar dokter; UI kalibrasi per unit (`SET_KALIBRASI`)
+- [ ] Ekspor skema + RLS + Edge Function `send-push` ke `supabase/` di repo
+- [ ] Ganti kredensial TURN statis dengan kredensial sementara (`fetchFrom`), putar ulang yang lama
+- [ ] Putuskan nasib dashboard landing page (Supabase atau simulasi berlabel), lalu hapus sisa Firebase
+- [ ] Peran tepercaya di server (tabel profil yang hanya dapat diubah admin, atau custom claims)
+- [ ] Simpan uji Node (`tests/`) agar dapat dijalankan ulang; tambah uji RLS dengan dua sesi anonim
+- [ ] Penyimpanan catatan klinis bersama antar-dokter
 
 ---
 
@@ -416,41 +318,32 @@ Kodenya sudah siap; yang kurang tidak dapat disediakan dari sisi kode.
 
 ```
 index.html · css/style.css · css/fx.css      situs penelitian
-js/three-scenes.js                           3 scene Three.js
-js/transitions.js · js/app.js                transisi & dashboard landing
-js/firebase-init.js                          binding telecare/live (opsional)
+js/three-scenes.js · js/transitions.js       3 scene Three.js, transisi
+js/app.js · js/firebase-init.js              dashboard landing (Firebase lama, jatuh ke simulasi)
 
 app/index.html                               shell aplikasi + sprite ikon
 app/css/app.css                              sistem desain aplikasi
-app/js/core.js                               util, store, router, UI, grafik
-app/js/data.js                               perangkat, dokter, makanan, PERAN, faskes, pasien
-app/js/engine.js                             simulasi vital, hub perangkat, sesi makan, konsultasi
-app/js/rtc-config.js                         server ICE/TURN (diisi pemilik proyek)
-app/js/ble.js                                pembacaan GATT + parser IEEE-11073
-app/js/push-config.js · app/js/push.js       ambang eskalasi, notifikasi, FCM
-app/js/ring.js · app/js/ring-ui.js           panggilan masuk: kanal + dering & overlay
-functions/index.js                           pengirim push panggilan (belum aktif)
-app/js/firebase.js                           chat RTDB + Google Sign-In + WebRTC
-app/manifest.webmanifest · app/sw.js         PWA: installable + luring
-app/assets/icons/                            ikon PWA (dibangun tools/build_icons.py)
-tools/build_icons.py · tools/serve.py        generator ikon & server lokal ber-MIME benar
-tools/uji-browser.ps1                        Edge headless: Ambil-Dom, Ambil-Layar, Jalankan-Latar
-tools/tangkap-layar.ps1                      tangkap 39 halaman x 2 ukuran ke build/shots
-tools/bangun-video.ps1                       rangkai dua video showcase dengan ffmpeg
-tools/bangun-capcut.ps1                      dua draft CapCut dari klip yang sama
-tools/cek-deploy.ps1                         bandingkan SHA256 lokal vs produksi
-assets/video/telecare-promo.mp4              video promosi 69 detik
-assets/video/telecare-tutorial.mp4           video tutorial 2 menit 41 detik
-app/js/views-auth.js                         onboarding, masuk, daftar, tamu, Google
-app/js/views-home.js                         beranda, vital, analisis, riwayat
-app/js/views-session.js                      kamera → koreksi → sesi → ringkasan
-app/js/views-care.js                         telemedisin: dokter, chat, panggilan
-app/js/views-profile.js                      profil, perangkat, kalibrasi, pengaturan
-app/js/views-roles.js                        layar dokter, admin faskes, admin platform
+app/js/supabase-init.js                      SDK Supabase dari CDN + client (URL, anon key)
+app/js/core.js                               util, Store, router, UI, grafik
+app/js/data.js                               perangkat, dokter, makanan, peran, faskes, pasien
+app/js/rtc-config.js                         STUN/TURN metered.ca
+app/js/supabase.js                           TC.FB / TC.Chat / TC.RTC
+app/js/ble.js                                GATT standar + IEEE-11073 (perangkat generik)
+app/js/teleband-ble.js                       protokol BLE TeleBand (alat fisik tim)
+app/js/views-teleband.js                     layar #/teleband
+app/js/engine.js                             vital, kalibrasi, perangkat, makan, konsultasi, catatan
+app/js/push-config.js · app/js/push.js       ambang eskalasi, notifikasi, Web Push
+app/js/ring.js · app/js/ring-ui.js           panggilan masuk
+app/js/views-*.js                            layar per bagian dan per peran
 app/js/app.js                                rute, navigasi per peran, boot
+app/manifest.webmanifest · app/sw.js         PWA + penerima push
 
-blender/build_assets.py                      generator seluruh aset 3D
-database.rules.json · firebase.json          aturan RTDB & konfigurasi hosting
+supabase/migrations/                         perubahan skema yang dilacak
+vercel.json · .vercelignore                  hosting
+blender/build_assets.py                      generator aset 3D
+tools/                                       server lokal, uji headless, video, cek deploy
+
+SISA (tidak dipakai): app/js/firebase.js, database.rules.json, functions/, firebase.json, .firebaserc
 ```
 
 ---
@@ -458,22 +351,17 @@ database.rules.json · firebase.json          aturan RTDB & konfigurasi hosting
 ## 10. Perintah yang sering dipakai
 
 ```bash
-# jalankan lokal — pakai tools/serve.py, BUKAN python -m http.server:
-# di Windows MIME .js sering text/plain sehingga service worker ditolak
+# jalankan lokal — pakai tools/serve.py, BUKAN python -m http.server (MIME .js di Windows)
 python tools/serve.py 8950
 
-# bangun ulang aset 3D  (± 2–5 menit; --stills-only melewati video)
+# migrasi skema: tempel isi supabase/migrations/*.sql ke Supabase Dashboard → SQL Editor
+
+# bangun ulang aset 3D (± 2–5 menit; --stills-only melewati video)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -noaudio \
-  -P blender/build_assets.py -- --root "C:/Users/mosto/Desktop/telecare"
+  -P blender/build_assets.py -- --root "<path repo>"
 
 # bangun ulang video showcase (server lokal harus hidup untuk tahap pertama)
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\tangkap-layar.ps1   # ± 12 menit
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\bangun-video.ps1    # ± 12 menit
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\tangkap-layar.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\bangun-video.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\bangun-capcut.ps1 -Bersihkan
-
-# deploy
-npx firebase-tools deploy --only database,hosting --project telecare-id
-
-# periksa berkas ter-deploy byte-identik dengan lokal
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\cek-deploy.ps1
 ```

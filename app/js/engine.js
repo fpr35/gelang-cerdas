@@ -108,6 +108,12 @@
     const hist = { hr: [], spo2: [], temp: [], sys: [], dia: [], glucose: [] };
     // Bacaan mentah terakhir dari perangkat, sebelum kalibrasi diterapkan.
     const raw = {};
+    /* Metrik mana yang saat ini berasal dari perangkat sungguhan:
+         { hr: { at, jenis, eksperimental }, ... }
+       Dilacak per metrik, bukan satu sakelar untuk semua: TeleBand tidak
+       punya sensor suhu, jadi suhu tetap disimulasikan (dan dilabeli)
+       sementara detak jantung dan SpO₂ berasal dari alat. */
+    const dariAlat = {};
     const subs = new Set();
     let timer = null;
 
@@ -126,25 +132,27 @@
       const now = new Date();
       const base = circadian(now.getHours() + now.getMinutes() / 60);
 
-      if (state.source === 'sim') {
-        state.hr = clamp(lerp(state.hr, base.hr + rnd(-4, 4), 0.14), 48, 132);
-        state.spo2 = clamp(state.spo2 + rnd(-0.3, 0.3), 93, 100);
-        state.temp = clamp(lerp(state.temp, base.temp + rnd(-0.08, 0.08), 0.1), 35.9, 37.8);
-        state.sys = clamp(lerp(state.sys, base.sys + rnd(-4, 4), 0.1), 100, 145);
-        state.dia = clamp(state.dia + rnd(-0.8, 0.8), 62, 94);
+      // Hanya metrik yang TIDAK sedang datang dari perangkat yang disimulasikan.
+      const sim = (k) => !dariAlat[k];
+      if (sim('hr')) state.hr = clamp(lerp(state.hr, base.hr + rnd(-4, 4), 0.14), 48, 132);
+      if (sim('spo2')) state.spo2 = clamp(state.spo2 + rnd(-0.3, 0.3), 93, 100);
+      if (sim('temp')) state.temp = clamp(lerp(state.temp, base.temp + rnd(-0.08, 0.08), 0.1), 35.9, 37.8);
+      if (sim('sys')) state.sys = clamp(lerp(state.sys, base.sys + rnd(-4, 4), 0.1), 100, 145);
+      if (sim('dia')) state.dia = clamp(state.dia + rnd(-0.8, 0.8), 62, 94);
 
+      if (sim('stress')) {
         const pp = state.sys - state.dia;
         const target = clamp((state.hr - 54) * 1.25 + (pp - 38) * 0.8 + base.stress * 0.25, 4, 96);
         state.stress = lerp(state.stress, target, 0.05);
-        state.hrv = Math.round(clamp(98 - state.stress * 0.66, 14, 92));
-
-        // langkah bertambah hanya pada jam aktif
-        const h = now.getHours();
-        if (h >= 6 && h <= 21 && Math.random() < 0.45) state.steps += rint(0, 14);
-
-        // glukosa mengikuti sesi makan yang sedang berjalan
-        state.glucose = Meals.currentGlucose(state.glucose);
       }
+      if (sim('hrv')) state.hrv = Math.round(clamp(98 - state.stress * 0.66, 14, 92));
+
+      // langkah bertambah hanya pada jam aktif
+      const h = now.getHours();
+      if (sim('steps') && h >= 6 && h <= 21 && Math.random() < 0.45) state.steps += rint(0, 14);
+
+      // glukosa mengikuti sesi makan yang sedang berjalan
+      if (sim('glucose')) state.glucose = Meals.currentGlucose(state.glucose);
 
       state.updatedAt = Date.now();
       Object.keys(hist).forEach((k) => {
@@ -171,8 +179,16 @@
        * `source` bernilai 'device', step() berhenti membangkitkan angka
        * sehingga nilai perangkat tidak tertimpa simulasi.
        */
-      ingest(v, deviceType) {
+      /**
+       * @param {object} v            nilai per metrik; yang bukan angka dilewati
+       * @param {string} [deviceType] profil kalibrasi; bawaan perangkat aktif
+       * @param {object} [opts]       { eksperimental: ['glucose', 'sys', 'dia'] } —
+       *   metrik yang merupakan estimasi eksperimental dari perangkat itu.
+       *   Tampilan wajib melabelinya dan eskalasi tidak memakainya.
+       */
+      ingest(v, deviceType, opts) {
         state.source = 'device';
+        const eksp = (opts && opts.eksperimental) || [];
         // Jenis perangkat menentukan profil kalibrasi yang dipakai. Bila
         // pemanggil tidak menyebutkannya, dipakai perangkat aktif.
         const jenis = deviceType ||
@@ -183,15 +199,32 @@
         state.rawSource = jenis;
         const dikoreksi = Calib.applyAll(v, jenis);
 
+        const now = Date.now();
         ['hr', 'spo2', 'temp', 'sys', 'dia', 'stress', 'glucose', 'hrv'].forEach((k) => {
           if (typeof v[k] === 'number' && isFinite(v[k])) {
             raw[k] = v[k];
             const nilai = dikoreksi[k];
             state[k] = typeof nilai === 'number' && isFinite(nilai) ? nilai : v[k];
+            dariAlat[k] = { at: now, jenis, eksperimental: eksp.indexOf(k) !== -1 };
           }
         });
-        state.updatedAt = Date.now();
+        state.updatedAt = now;
         subs.forEach((fn) => { try { fn(state); } catch (e) { /* abaikan */ } });
+      },
+
+      /** 'device' atau 'sim' untuk SATU metrik. 'bp' dibaca dari sistolik. */
+      sourceOf(k) { return dariAlat[k === 'bp' ? 'sys' : k] ? 'device' : 'sim'; },
+
+      /** Benar bila metrik itu dari perangkat DAN berupa estimasi eksperimental. */
+      eksperimental(k) {
+        const d = dariAlat[k === 'bp' ? 'sys' : k];
+        return !!(d && d.eksperimental);
+      },
+
+      /** Jenis perangkat asal suatu metrik, atau null bila simulasi. */
+      jenisAsal(k) {
+        const d = dariAlat[k === 'bp' ? 'sys' : k];
+        return d ? d.jenis : null;
       },
 
       /** Nilai mentah terakhir dari perangkat, sebelum kalibrasi. */
@@ -205,6 +238,7 @@
       releaseDevice() {
         if (state.source !== 'device') return;
         state.source = 'sim';
+        Object.keys(dariAlat).forEach((k) => { delete dariAlat[k]; });
         state.updatedAt = Date.now();
         subs.forEach((fn) => { try { fn(state); } catch (e) { /* abaikan */ } });
       },
@@ -317,7 +351,8 @@
 
     /** Hasil pemindaian simulatif — selalu memuat TeleBand & TeleRing. */
     function simulateScan() {
-      const types = D.DEVICE_TYPES;
+      // Jenis `nyata` (TeleBand berprotokol sendiri) hanya lewat Bluetooth sungguhan.
+      const types = D.DEVICE_TYPES.filter((t) => !t.nyata);
       const chosen = [types[0], types[1]];
       // satu atau dua perangkat lain agar terasa seperti ruangan sungguhan
       const rest = types.slice(2).sort(() => Math.random() - 0.5).slice(0, rint(1, 2));
@@ -455,7 +490,14 @@
       return dev;
     }
 
+    /** TeleBand punya sambungannya sendiri (TeleBandLink), bukan lewat ble.js. */
+    function stopTeleBand(id) {
+      const d = Store.state.devices.find((x) => x.id === id);
+      if (d && d.type === 'teleband' && TC.TeleBandLink) TC.TeleBandLink.putus();
+    }
+
     function disconnect(id) {
+      stopTeleBand(id);
       stopReal(id);
       Store.update((s) => {
         const d = s.devices.find((x) => x.id === id);
@@ -473,6 +515,7 @@
     }
 
     function forget(id) {
+      stopTeleBand(id);
       stopReal(id);
       Store.update((s) => {
         s.devices = s.devices.filter((d) => d.id !== id);
@@ -488,7 +531,8 @@
         // Perangkat sungguhan mengalirkan nilai langsung lewat notifikasi GATT,
         // jadi tidak ada tumpukan yang menunggu disinkronkan. Menambah buffer
         // di sini akan menampilkan antrean yang tidak pernah ada.
-        const adaNyataTersambung = s.devices.some((d) => d.connected && isReal(d.id));
+        const adaNyataTersambung = s.devices.some((d) =>
+          d.connected && (isReal(d.id) || d.type === 'teleband'));
         if (adaNyataTersambung) return;
 
         if (!s.devices.some((d) => d.connected)) {
@@ -505,6 +549,18 @@
       return new Promise((resolve, reject) => {
         const dev = Store.activeDevice();
         if (!dev || !dev.connected) { reject(new Error('Perangkat tidak tersambung')); return; }
+        // TeleBand sungguhan: minta alat mengirim ulang hasil yang masih
+        // tersimpan (SINKRON); penerimaannya lewat TeleBandLink/Readings.
+        if (dev.type === 'teleband') {
+          const link = TC.TeleBandLink;
+          if (!link || !link.tersambung()) {
+            reject(new Error('TeleBand tidak tersambung. Buka layar TeleBand untuk menyambungkan.'));
+            return;
+          }
+          const n0 = (link.status() || {}).tersimpan || 0;
+          link.sinkron().then(() => resolve(n0), reject);
+          return;
+        }
         const n = Store.state.pendingSamples;
         const dur = clamp(600 + n * 22, 700, 3200);
         setTimeout(() => {
@@ -525,7 +581,7 @@
       const dev = Store.activeDevice();
       if (!dev) return { t: 'Belum ada perangkat', on: false };
       if (!dev.connected) return { t: dev.name + ' terputus', on: false };
-      return { t: dev.name + ' · baterai ' + dev.battery + '%', on: true };
+      return { t: dev.name + ' · baterai ' + (dev.battery != null ? dev.battery + '%' : '—'), on: true };
     }
 
     return {
@@ -709,9 +765,9 @@
   })();
 
   /* ============================================================
-     5. KONSULTASI — pesan disinkronkan lewat Firebase Realtime DB
+     5. KONSULTASI — pesan disinkronkan lewat Supabase (tabel messages)
      ============================================================
-     Sumber kebenaran percakapan adalah Realtime Database bila
+     Sumber kebenaran percakapan adalah Supabase bila
      tersambung; salinan lokal tetap disimpan agar riwayat terbaca
      saat luring dan agar pesan tidak hilang bila jaringan putus.
      ============================================================ */
@@ -720,12 +776,55 @@
     function record(id) { return Store.state.consults.find((c) => c.id === id) || null; }
 
     /**
+     * Percakapan contoh milik akun tamu hanya ada di perangkat ini. Dulu
+     * ID-nya tetap ('cs-demo') dan sama untuk SEMUA tamu, sehingga begitu
+     * ikut dikirim ke server, tamu-tamu berbagi satu percakapan dan satu
+     * ruang panggilan. Percakapan seperti itu tidak pernah menyentuh server.
+     * 'cs-demo' dikenali juga untuk data lama di localStorage.
+     */
+    function isLocal(idOrC) {
+      const c = typeof idOrC === 'string' ? record(idOrC) : idOrC;
+      if (c) return !!c.local || c.id === 'cs-demo';
+      return idOrC === 'cs-demo';
+    }
+    const online = (id) => TC.FB && TC.FB.ready && !isLocal(id);
+
+    /**
+     * Ringkasan terbaca untuk pesan kartu (vital / sesi makan). Disimpan di
+     * `text` supaya pesan tetap bermakna di perangkat lain, notifikasi, atau
+     * ketika kolom kind/data belum ada di server.
+     */
+    function cardText(kind, data) {
+      const d = data || {};
+      if (kind === 'vitals') {
+        return `Ringkasan vital: detak jantung ${d.hr} bpm · SpO₂ ${d.spo2}% · ` +
+               `suhu ${d.temp} °C · tekanan darah ${d.sys}/${d.dia} mmHg`;
+      }
+      if (kind === 'meal') {
+        return `Sesi makan: ${(d.items || []).join(', ') || '—'} · puncak ${d.peak} mg/dL ` +
+               `(+${d.delta}) · karbohidrat ${d.carb} g · ${d.kcal} kkal`;
+      }
+      return '';
+    }
+
+    /**
+     * Data kartu sesi makan dibawa utuh, bukan hanya id-nya: dokter di
+     * perangkat lain tidak memiliki riwayat makan pasien di localStorage.
+     */
+    function mealCard(meal) {
+      return {
+        id: meal.id, at: meal.at, items: meal.items.map((i) => i.n),
+        peak: meal.peak, delta: meal.delta,
+        carb: meal.nutrition.carb, kcal: meal.nutrition.kcal
+      };
+    }
+
+    /**
      * @param {string} doctorId
      * @param {string} mode      'chat' | 'audio' | 'video'
      * @param {string} [patientId]  diisi bila percakapan dibuka dokter dari
      *   halaman pasien, supaya riwayat konsultasi pasien itu dapat dikumpulkan.
-     *   Sengaja tidak dikirim ke Realtime Database: aturan di sana menolak
-     *   kunci di luar skema meta.
+     *   Hanya disimpan lokal; tabel consults di Supabase tidak memiliki kolomnya.
      */
       function start(doctorId, mode, patientId) {
       const doc = D.doctor(doctorId);
@@ -733,7 +832,7 @@
       // Lanjutkan percakapan aktif yang sudah ada dengan dokter ini,
       // daripada selalu membuat sesi baru setiap kali "Mulai Chat" diklik.
       const existing = Store.state.consults.find((c) =>
-        c.doctorId === doctorId && c.status === 'active' &&
+        c.doctorId === doctorId && c.status === 'active' && !isLocal(c) &&
         (patientId ? c.patientId === patientId : true)
       );
       if (existing) return existing;
@@ -775,16 +874,16 @@
     }
 
     /**
-     * Mengirim pesan. Bila Firebase tersambung, pesan dikirim ke server
-     * dan salinan lokal diisi oleh pendengar child_added. Bila luring,
-     * pesan langsung masuk ke salinan lokal.
+     * Mengirim pesan. Salinan lokal selalu ditulis; bila Supabase siap dan
+     * percakapannya bukan percakapan contoh, pesan juga di-INSERT ke server.
      */
     function push(id, msg) {
       const m = Object.assign({ mid: uid('m'), at: Date.now() }, msg);
+      if (m.kind && !m.text) m.text = cardText(m.kind, m.data);
       // Salinan lokal ditulis lebih dulu agar pesan tetap muncul walau
-      // jaringan lambat; pendengar child_added menyaringnya lewat mid.
+      // jaringan lambat; pendengar postgres_changes menyaringnya lewat mid.
       mirror(id, m);
-      if (TC.FB && TC.FB.ready) TC.Chat.send(id, m).catch(() => {});
+      if (online(id)) TC.Chat.send(id, m).catch(() => {});
       return m;
     }
 
@@ -809,7 +908,7 @@
 
     /** Berlangganan pesan dari server; mengembalikan pemutus langganan. */
     function subscribe(id, onChange) {
-      if (!(TC.FB && TC.FB.ready)) return () => {};
+      if (!online(id)) return () => {};
       return TC.Chat.subscribe(id, (m) => {
         if (mirror(id, m) && onChange) onChange(m);
       });
@@ -831,7 +930,7 @@
         c.endedAt = Date.now();
         c.note = note || null;
       });
-      if (TC.FB && TC.FB.online) TC.Chat.setStatus(id, 'done');
+      if (TC.FB && TC.FB.online && !isLocal(id)) TC.Chat.setStatus(id, 'done');
     }
 
     /**
@@ -877,16 +976,17 @@
           const c = await adopt(id);
           if (!c) continue;
           const { data: pesan } = await TC.FB.sb.from('messages').select('*').eq('consult_id', id).order('at', { ascending: true });
-          (pesan || []).forEach((v) => mirror(id, {
-            mid: v.mid, at: new Date(v.at).getTime(), uid: v.uid, from: v.from_role, text: v.text
-          }));
+          (pesan || []).forEach((v) => mirror(id, TC.Chat.dariBaris(v)));
         }
       } catch (e) {
         console.warn('[TeleCare] gagal sinkron daftar konsultasi:', e.message);
       }
     }
 
-    return { start, get: record, adopt, push, mirror, subscribe, replyTo, end, forPatient, syncFromServer };
+    return {
+      start, get: record, adopt, push, mirror, subscribe, replyTo, end, forPatient, syncFromServer,
+      isLocal, cardText, mealCard
+    };
   })();
 
   /* ============================================================
@@ -951,6 +1051,297 @@
     function count(patientId) { return list(patientId).length; }
 
     return { list, add, remove, count };
+  })();
+
+  /* ============================================================
+     5c. HASIL UKUR PERANGKAT (TeleBand, paket HASIL)
+     ============================================================
+     Satu hasil = satu sesi ukur diskrit. Disimpan dua kali:
+       - salinan lokal (Store.state.readings) segera, supaya tidak hilang;
+       - tabel Supabase `device_readings`, sumber kebenaran.
+
+     Alat baru boleh menghapus hasilnya (HAPUS) setelah SERVER mengonfirmasi.
+     Salinan lokal saja tidak cukup: peramban bisa dibersihkan. Hasil yang
+     gagal terkirim tetap ada di alat dan dikirim ulang di koneksi berikut;
+     kunci serial + id + epoch membuat pengiriman ulang itu tidak berganda.
+     ============================================================ */
+  const Readings = (function () {
+    const MAKS_LOKAL = 300;
+    let mengirim = false;
+
+    const kunci = (serial, id, epoch) => serial + ':' + id + ':' + epoch;
+    const semua = () => Store.state.readings || [];
+    const cari = (k) => semua().find((x) => x.kunci === k) || null;
+
+    /** Terbaru lebih dulu; hasil tanpa stempel waktu valid memakai waktu diterima. */
+    function list() {
+      return semua().slice().sort((a, b) => (b.waktu || b.diterima) - (a.waktu || a.diterima));
+    }
+
+    function tandai(k, patch) {
+      Store.update((s) => {
+        const x = (s.readings || []).find((r) => r.kunci === k);
+        if (x) Object.assign(x, patch);
+      });
+    }
+
+    /** Bentuk baris tabel device_readings. */
+    function keBaris(x) {
+      return {
+        device_serial: x.serial,
+        device_unit: x.unit,
+        firmware: x.firmware,
+        device_result_id: x.idAlat,
+        device_epoch: x.epoch,
+        measured_at: x.waktuValid ? new Date(x.epoch * 1000).toISOString() : null,
+        time_valid: x.waktuValid,
+        duration_s: x.durasi,
+        bpm: x.bpm, spo2: x.spo2,
+        glucose_est: x.glukosa, sys_est: x.sis, dia_est: x.dia,
+        source: x.sumber,
+        flags: x.flag
+      };
+    }
+
+    async function kirim(x) {
+      if (!TC.FB || !TC.FB.ready || !TC.ReadingsDB) throw new Error('Server belum siap.');
+      await TC.ReadingsDB.simpan(keBaris(x));
+      tandai(x.kunci, { tersinkron: true, galat: null, tersinkronAt: Date.now() });
+      return true;
+    }
+
+    /**
+     * Menerima satu paket HASIL. Mengembalikan benar HANYA bila hasil itu
+     * sudah ada di server — pemanggil memakainya untuk memutuskan HAPUS.
+     */
+    async function terima(r, info) {
+      const k = kunci(info.serial, r.id, r.epoch);
+      let x = cari(k);
+      if (x && x.tersinkron) return true;          // kiriman ulang dari alat
+
+      if (!x) {
+        x = {
+          kunci: k, serial: info.serial, unit: info.unit, firmware: info.firmware,
+          idAlat: r.id, epoch: r.epoch, waktuValid: r.waktuValid,
+          waktu: r.waktuValid ? r.epoch * 1000 : null,
+          durasi: r.durasi, bpm: r.bpm, spo2: r.spo2,
+          glukosa: r.glukosa, sis: r.sis, dia: r.dia,
+          sumber: r.sumber, flag: r.flag,
+          diterima: Date.now(), tersinkron: false, galat: null
+        };
+        Store.update((s) => {
+          s.readings = (s.readings || []).concat([x]);
+          // Pangkas yang sudah aman di server lebih dulu; yang belum terkirim
+          // tidak pernah dibuang.
+          if (s.readings.length > MAKS_LOKAL) {
+            const lebih = s.readings.length - MAKS_LOKAL;
+            let dibuang = 0;
+            s.readings = s.readings.filter((y) => {
+              if (dibuang < lebih && y.tersinkron) { dibuang++; return false; }
+              return true;
+            });
+          }
+        });
+      }
+
+      try {
+        return await kirim(x);
+      } catch (e) {
+        const pesan = (e && e.message) || 'gagal';
+        console.warn('[TeleCare] hasil ukur belum tersimpan di server:', pesan);
+        tandai(k, { galat: pesan });
+        return false;
+      }
+    }
+
+    /** Mengirim ulang salinan lokal yang belum sampai ke server. */
+    async function kirimTertunda() {
+      if (mengirim) return 0;
+      mengirim = true;
+      let n = 0;
+      try {
+        for (const x of semua().filter((y) => !y.tersinkron)) {
+          try { await kirim(x); n++; }
+          catch (e) { tandai(x.kunci, { galat: (e && e.message) || 'gagal' }); break; }
+        }
+      } finally { mengirim = false; }
+      return n;
+    }
+
+    const belumTerkirim = () => semua().filter((x) => !x.tersinkron).length;
+
+    return { list, terima, kirimTertunda, belumTerkirim, keBaris, kunci };
+  })();
+
+  /* ============================================================
+     5d. TELEBAND — sambungan alat sungguhan
+     ============================================================
+     Perekat antara TC.TeleBand (protokol, teleband-ble.js), Vitals, hub
+     perangkat, dan Readings. Satu alat pada satu waktu; sambungan bertahan
+     antar-layar karena aplikasi tidak pernah memuat ulang halaman.
+
+     Keputusan tim (dokumen konteks, butir 4):
+       A. LIVE hanya pratinjau; yang stabil (bukan "sementara") ikut mengisi
+          Vitals. HASIL yang disimpan permanen.
+       B. Glukosa disimpan dan ditampilkan dengan label eksperimental.
+       C. Suhu tetap simulasi (berlabel) — alat tidak punya sensor suhu.
+       D. HASIL ke Supabase; HAPUS setelah server mengonfirmasi.
+     ============================================================ */
+  const TeleBandLink = (function () {
+    const EKSPERIMENTAL = ['glucose', 'sys', 'dia'];
+    let sesi = null, info = null, nama = null, status = null, live = null;
+    let devId = null, menyambung = false;
+    const log = [];
+    const subs = new Set();
+
+    function emit() { subs.forEach((fn) => { try { fn(); } catch (e) { /* abaikan */ } }); }
+
+    function catat(m) {
+      log.unshift(TC.hhmm(new Date()) + '  ' + m);
+      if (log.length > 60) log.length = 60;
+      console.info('[TeleBand]', m);
+      emit();
+    }
+
+    function ubahPerangkat(patch) {
+      if (!devId) return;
+      Store.update((s) => {
+        const d = s.devices.find((x) => x.id === devId);
+        if (d) Object.assign(d, patch);
+      });
+    }
+
+    function onInfo(i, n) {
+      info = i; nama = n;
+      Store.update((s) => {
+        let d = s.devices.find((x) => x.type === 'teleband' && x.code === i.serial);
+        if (!d) {
+          d = {
+            id: uid('dev'), type: 'teleband', name: n, code: i.serial,
+            battery: null, connected: true, real: true,
+            pairedAt: Date.now(), lastSync: null, rssi: 4
+          };
+          s.devices.push(d);
+        }
+        d.name = n;
+        d.firmware = i.firmware;
+        d.unit = i.unit;
+        d.connected = true;
+        s.activeDeviceId = d.id;
+        devId = d.id;
+      });
+    }
+
+    function onStatus(s) {
+      status = s;
+      if (s.baterai != null) ubahPerangkat({ battery: s.baterai });
+      // Pengukuran selesai: pratinjau dibekukan sebagai angka terakhir.
+      if (!s.mengukur && live && !live.berhenti) live = Object.assign({}, live, { berhenti: true });
+      emit();
+    }
+
+    function onLive(l) {
+      live = l;
+      // Angka yang masih "sementara" belum stabil: tampil redup di layar
+      // pengukuran, tetapi tidak dimasukkan ke Vitals — beranda, tren, dan
+      // eskalasi hanya menerima angka yang sudah stabil.
+      if (!l.sementara) {
+        const v = {};
+        if (l.bpm != null) v.hr = l.bpm;
+        if (l.spo2 != null) v.spo2 = l.spo2;
+        if (l.glukosa != null) v.glucose = l.glukosa;
+        if (l.sis != null && l.dia != null) { v.sys = l.sis; v.dia = l.dia; }
+        if (Object.keys(v).length) Vitals.ingest(v, 'teleband', { eksperimental: EKSPERIMENTAL });
+      }
+      emit();
+    }
+
+    async function onHasil(r, i) {
+      const ok = await Readings.terima(r, i || info);
+      if (ok) ubahPerangkat({ lastSync: Date.now() });
+      emit();
+      return ok;
+    }
+
+    function bersihkan(diputusPengguna) {
+      sesi = null;
+      live = null;
+      status = null;
+      ubahPerangkat({ connected: false });
+      Vitals.releaseDevice();
+      if (!diputusPengguna) {
+        Store.notify('TeleBand terputus',
+          (nama || 'TeleBand') + ' lepas dari Bluetooth. Vital kembali ke simulasi.', 'warn');
+      }
+      emit();
+    }
+
+    /** Harus dipanggil dari gestur pengguna (klik), syarat Web Bluetooth. */
+    async function sambung() {
+      if (sesi && sesi.tersambung) return sesi;
+      if (menyambung) throw new Error('Sedang menyambungkan.');
+      menyambung = true;
+      emit();
+      try {
+        const device = await TC.TeleBand.requestDevice();
+        catat('menyambung ke ' + (device.name || 'TeleBand') + '…');
+        sesi = await TC.TeleBand.connect(device, {
+          onInfo, onStatus, onLive, onHasil,
+          onDisconnect() { catat('terputus'); bersihkan(false); },
+          onLog: catat
+        });
+        Store.notify('TeleBand tersambung', nama + ' · firmware ' + info.firmware, 'ok');
+        // Hasil yang dulu gagal terkirim dicoba lagi selagi ada sambungan.
+        Readings.kirimTertunda().then(() => emit());
+        return sesi;
+      } catch (e) {
+        // INFO mungkin sudah terbaca (perangkat tercatat tersambung) sebelum
+        // langkah berikutnya gagal.
+        if (sesi) { try { sesi.putus(); } catch (x) { /* abaikan */ } }
+        sesi = null;
+        ubahPerangkat({ connected: false });
+        if (e && e.name !== 'NotFoundError') catat('gagal menyambung: ' + e.message);
+        throw e;
+      } finally {
+        menyambung = false;
+        emit();
+      }
+    }
+
+    function putus() {
+      if (sesi) { try { sesi.putus(); } catch (e) { /* abaikan */ } }
+      catat('diputus pengguna');
+      bersihkan(true);
+    }
+
+    function wajibSesi() {
+      if (!sesi || !sesi.tersambung) throw new Error('TeleBand belum tersambung.');
+      return sesi;
+    }
+
+    /** Status tersambung dari sesi sebelumnya tidak berlaku setelah halaman dimuat ulang. */
+    function pulihkan() {
+      Store.update((s) => {
+        s.devices.forEach((d) => { if (d.type === 'teleband') d.connected = false; });
+      });
+    }
+
+    return {
+      EKSPERIMENTAL,
+      sambung, putus, pulihkan,
+      mulai: () => wajibSesi().mulai(),
+      stop: () => wajibSesi().stop(),
+      sinkron: () => wajibSesi().sinkron(),
+      hapusSemua: () => wajibSesi().hapusSemua(),
+      tersambung: () => !!(sesi && sesi.tersambung),
+      menyambung: () => menyambung,
+      info: () => info,
+      nama: () => nama,
+      status: () => status,
+      live: () => live,
+      log: () => log.slice(),
+      subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
+    };
   })();
 
   /* ============================================================
@@ -1061,6 +1452,8 @@
   TC.Meals = Meals;
   TC.Consult = Consult;
   TC.Notes = Notes;
+  TC.Readings = Readings;
+  TC.TeleBandLink = TeleBandLink;
   TC.Calib = Calib;
   TC.EcgRenderer = EcgRenderer;
   TC.ecgAt = ecgAt;

@@ -233,7 +233,7 @@
   /* ---------------- MASUK DENGAN GOOGLE ---------------- */
   function googleSignIn(btn) {
     if (!TC.FB || !TC.FB.googleAvailable()) {
-      toast('Firebase Authentication belum siap. Coba muat ulang halaman.', 'err');
+      toast('Layanan masuk (Supabase Auth) belum siap. Coba muat ulang halaman.', 'err');
       return;
     }
     const label = btn ? btn.innerHTML : '';
@@ -250,7 +250,7 @@
         <h3>Masuk dengan Google belum bisa</h3>
         <p class="sub">${esc(TC.FB.authError(err))}</p>
         <div class="note note--i">${icon('info')}
-          <div><b>Cara mengaktifkan</b>Buka Firebase Console → Authentication → Sign-in method →
+          <div><b>Cara mengaktifkan</b>Buka Supabase Dashboard → Authentication → Sign In / Providers →
           aktifkan penyedia <b>Google</b>, lalu simpan. Setelah itu tombol ini langsung berfungsi.</div></div>
         <button class="btn btn--primary btn--block mt" data-close>Mengerti</button>`);
     });
@@ -382,10 +382,12 @@
           ]
         };
       });
-      // satu percakapan contoh agar layar konsultasi tidak kosong
+      // Satu percakapan contoh agar layar konsultasi tidak kosong. Hanya ada
+      // di perangkat ini (`local`) — tidak pernah dikirim ke server; memulai
+      // chat baru dengan dokter yang sama membuat percakapan sungguhan.
       const t0 = Date.now() - 86400000 * 2;
       s.consults = [{
-        id: 'cs-demo', doctorId: 'd1', mode: 'chat',
+        id: TC.secureId('cs'), local: true, doctorId: 'd1', mode: 'chat',
         startedAt: t0, status: 'active',
         messages: [
           { from: 'sys', text: 'Konsultasi dimulai. Sampaikan keluhan Anda selengkap mungkin.', at: t0 },
