@@ -266,6 +266,13 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     di Edge/CDP (skrip scratch warnai.js). `/masuk/admin` kini punya tombol kembali ke landing (`../`).
     Pelajaran: di PowerShell 5.1 JANGAN `Get-Content | Set-Content -Encoding utf8` untuk file repo —
     membaca ANSI + menulis BOM merusak "—" (sw.js sempat rusak, dipulihkan dari git).
+37. **UI/UX ala AQUENT dari template** (1 Okt, branch `ui-aquent`): rombakan neumorfik dari repo
+    template (`template/telecare/web`, commit 6a60a78..HEAD) dibawa lewat merge 3 arah — basis 6a60a78
+    identik dengan commit pertama repo ini. Ikut: `app/css/app.css`, `css/neu.css`, markup view, tema
+    biru/hijau di Pengaturan, ikon & ilustrasi 3D (`assets/3d/`). Logika Supabase/TeleBand tetap milik
+    repo ini. Sengaja TIDAK dibawa: loop hero & ilustrasi `hub`/`produk` (memuat TeleRing — diganti
+    render TeleBand & `analisis`), ikon TeleRing di galeri, video seksi #video (seksinya tersembunyi),
+    promosi/, blender/, tools/, tests/, firebase.json.
 
 ---
 

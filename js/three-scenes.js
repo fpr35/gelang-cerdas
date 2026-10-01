@@ -66,7 +66,7 @@ function initHero() {
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     uniforms: { uTime: { value: 0 }, uScale: { value: 1 } },
     vertexShader: /* glsl */`
       attribute float aSize;
@@ -113,7 +113,7 @@ function initHero() {
   const linkGeo = new THREE.BufferGeometry();
   linkGeo.setAttribute('position', new THREE.Float32BufferAttribute(linkPos, 3));
   root.add(new THREE.LineSegments(linkGeo, new THREE.LineBasicMaterial({
-    color: 0x3D8FEA, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false
+    color: 0x3D8FEA, transparent: true, opacity: 0.2, blending: THREE.NormalBlending, depthWrite: false
   })));
 
   /* --- cincin orbit --- */
@@ -153,8 +153,8 @@ function initHero() {
   const ecgCurve = new THREE.CatmullRomCurve3(ecgPts, true);
   const ecgMesh = new THREE.Mesh(
     new THREE.TubeGeometry(ecgCurve, 700, 0.035, 6, true),
-    new THREE.MeshBasicMaterial({ color: 0x7FB8F5, transparent: true, opacity: 0.62,
-      blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0x3D8FEA, transparent: true, opacity: 0.55,
+      blending: THREE.NormalBlending, depthWrite: false })
   );
   ecgMesh.rotation.x = -0.42;
   root.add(ecgMesh);

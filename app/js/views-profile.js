@@ -871,21 +871,27 @@
     const t = s.turn || {};
     TC.topbar('Pengaturan');
     setView(`
+      <div class="section-title">${icon('sparkle')} Tema</div>
+      <div class="pilih-tema" role="group" aria-label="Pilih tema warna">
+        <button type="button" data-tema="biru" aria-pressed="${TC.tema.kini() === 'biru'}">
+          <i style="background:linear-gradient(135deg,#4B92FF,#1646D6)"></i><span>Biru<small>bawaan</small></span></button>
+        <button type="button" data-tema="hijau" aria-pressed="${TC.tema.kini() === 'hijau'}">
+          <i style="background:linear-gradient(135deg,#3FD69D,#0B9A62)"></i><span>Hijau<small>Kemenkes</small></span></button>
+      </div>
+
       <div class="section-title">${icon('clock')} ${TC.FITUR.simulasi ? 'Mode purwarupa' : 'Peringatan'}</div>
       <div class="list">
         <label class="row" ${TC.FITUR.simulasi ? '' : 'hidden'}>
           <span class="row__ico">${icon('clock')}</span>
           <div style="min-width:0"><b>Percepat waktu sesi</b>
             <small>Rentang 2 jam dipadatkan menjadi ± 2 menit agar alur dapat dicoba utuh.</small></div>
-          <input type="checkbox" id="tFast" ${s.fastDemo ? 'checked' : ''}
-                 style="margin-left:auto;width:20px;height:20px;accent-color:var(--green-500)">
+          <input type="checkbox" id="tFast" ${s.fastDemo ? 'checked' : ''} style="margin-left:auto">
         </label>
         <label class="row">
           <span class="row__ico">${icon('bell')}</span>
           <div style="min-width:0"><b>Peringatan eskalasi</b>
             <small>Vital yang menembus ambang dan peringatan perangkat.</small></div>
-          <input type="checkbox" id="tNotif" ${s.notif ? 'checked' : ''}
-                 style="margin-left:auto;width:20px;height:20px;accent-color:var(--green-500)">
+          <input type="checkbox" id="tNotif" ${s.notif ? 'checked' : ''} style="margin-left:auto">
         </label>
       </div>
 
@@ -903,8 +909,8 @@
         </div>
 
         <div class="note note--w mt2">${icon('alert')}
-          <div><b>Bukan alat kesehatan</b>Ambang peringatan adalah heuristik penyaring untuk
-          purwarupa, bukan kriteria diagnostik. Jangan dijadikan dasar keputusan medis.</div></div>
+          <div><b>Bukan alat kesehatan</b>Ambang peringatan adalah heuristik penyaring,
+          bukan kriteria diagnostik. Jangan dijadikan dasar keputusan medis.</div></div>
       </div>
 
       <div ${TC.FITUR.konsultasi ? '' : 'hidden'}>
@@ -962,6 +968,12 @@
         <button class="btn btn--dangerSoft btn--block mt" data-wipe>${icon('trash')} Hapus semua data lokal</button>
       </div>
     `);
+
+    $$('.pilih-tema [data-tema]').forEach((b) => b.addEventListener('click', () => {
+      TC.tema.pasang(b.dataset.tema);
+      $$('.pilih-tema [data-tema]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      toast('Tema ' + (b.dataset.tema === 'hijau' ? 'hijau' : 'biru') + ' dipakai.');
+    }));
 
     $('#tFast').onchange = (e) => {
       Store.update((st) => { st.settings.fastDemo = e.target.checked; });
@@ -1126,7 +1138,7 @@
         <div style="width:66px;margin:0 auto 12px">${TC.views.logoSvg(66)}</div>
         <h2 style="font-size:1.2rem">TeleCare</h2>
         <p class="small muted mt">Platform Telemedisin AIoT Terpadu<br>berbasis Health 5.0</p>
-        <span class="chip mt" style="margin-top:12px">Purwarupa · Iterasi 1</span>
+        <span class="chip mt" style="margin-top:12px">${TC.FITUR.simulasi ? 'Purwarupa · Iterasi 1' : 'Versi 1'}</span>
       </div>
 
       <div class="card mt">
@@ -1178,7 +1190,7 @@
       </div>
 
       <div class="note note--w mt">${icon('info')}
-        <div><b>Status purwarupa</b>${TC.FITUR.simulasi
+        <div><b>${TC.FITUR.simulasi ? 'Status purwarupa' : 'Sumber data'}</b>${TC.FITUR.simulasi
         ? `Nilai fisiologis pada iterasi ini dibangkitkan secara simulatif, dan balasan dokter dihasilkan
         otomatis dari pola kata kunci — tidak ada tenaga kesehatan sungguhan di balik layar, dan tidak
         ada transaksi yang ditagih. Percakapan serta panggilan, sebaliknya, berjalan sungguhan.`

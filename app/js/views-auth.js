@@ -11,93 +11,19 @@
   const { $, $$, esc, icon, uid, Store, Router, setView, setTopbar, toast,
           sheet, closeSheet } = TC;
 
-  /* ---------------- ILUSTRASI (SVG orisinil) ---------------- */
-  function artHub() {
-    return `<svg viewBox="0 0 340 300" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="og1" x1="0" y1="0" x2="1" y2="1">
-          <stop stop-color="#3FB6F5"/><stop offset="1" stop-color="#0E7FB8"/></linearGradient>
-        <linearGradient id="og2" x1="0" y1="0" x2="0" y2="1">
-          <stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#EEF5FF"/></linearGradient>
-      </defs>
-      <circle cx="170" cy="150" r="118" stroke="#DCEAFE" stroke-width="1.6"/>
-      <circle cx="170" cy="150" r="88" stroke="#DCEAFE" stroke-width="1.6" stroke-dasharray="4 8"/>
-      <circle cx="170" cy="150" r="58" fill="url(#og2)" stroke="#B7D4FB" stroke-width="1.6"/>
-      <path d="M132 150h16l8-20 12 40 9-28 6 8h25" stroke="#1E6FD9" stroke-width="3"
-            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <!-- simpul perangkat mengelilingi pusat -->
-      <g>
-        <circle cx="170" cy="32" r="26" fill="url(#og1)"/>
-        <rect x="160" y="22" width="20" height="20" rx="6" fill="none" stroke="#fff" stroke-width="2"/>
-        <path d="M164 22v-4h12v4M164 42v4h12v-4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-      </g>
-      <g>
-        <circle cx="288" cy="150" r="26" fill="#fff" stroke="#B7D4FB" stroke-width="1.8"/>
-        <ellipse cx="288" cy="151" rx="11" ry="10" fill="none" stroke="#1E6FD9" stroke-width="2.6"/>
-        <ellipse cx="288" cy="151" rx="5.5" ry="5" fill="none" stroke="#7FB8F5" stroke-width="1.8"/>
-      </g>
-      <g>
-        <circle cx="52" cy="150" r="26" fill="#fff" stroke="#7CC3E8" stroke-width="1.8"/>
-        <rect x="40" y="142" width="24" height="16" rx="4" fill="none" stroke="#0E7FB8" stroke-width="2"/>
-        <path d="M44 150h4l2-4 3 8 2-5 1.5 2h5" stroke="#0E7FB8" stroke-width="1.6"
-              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </g>
-      <g>
-        <circle cx="170" cy="268" r="26" fill="#fff" stroke="#DDD7FB" stroke-width="1.8"/>
-        <path d="M160 274c0-6 4-10 10-10s10 4 10 10" stroke="#6C5CE7" stroke-width="2.2" stroke-linecap="round"/>
-        <circle cx="170" cy="259" r="5" stroke="#6C5CE7" stroke-width="2.2" fill="none"/>
-      </g>
-      <g stroke="#B7D4FB" stroke-width="1.6" stroke-dasharray="3 6">
-        <path d="M170 58v34M262 150h-34M78 150h34M170 242v-34"/>
-      </g>
-    </svg>`;
-  }
-
-  function artConsult() {
-    return `<svg viewBox="0 0 340 300" fill="none" aria-hidden="true">
-      <defs><linearGradient id="cg1" x1="0" y1="0" x2="1" y2="1">
-        <stop stop-color="#3FB6F5"/><stop offset="1" stop-color="#124596"/></linearGradient></defs>
-      <rect x="52" y="30" width="150" height="215" rx="26" fill="#fff" stroke="#B7D4FB" stroke-width="2"/>
-      <rect x="64" y="52" width="126" height="150" rx="14" fill="#EEF5FF"/>
-      <circle cx="127" cy="94" r="24" fill="url(#cg1)"/>
-      <path d="M118 96c0-5 4-9 9-9s9 4 9 9" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="127" cy="83" r="5" stroke="#fff" stroke-width="2.4" fill="none"/>
-      <rect x="82" y="132" width="90" height="9" rx="4.5" fill="#B7D4FB"/>
-      <rect x="96" y="150" width="62" height="8" rx="4" fill="#DCEAFE"/>
-      <rect x="76" y="172" width="102" height="20" rx="10" fill="#1E6FD9"/>
-      <path d="M104 182h8l3-6 5 12 3-8 2 2h12" stroke="#fff" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <rect x="64" y="212" width="126" height="20" rx="10" fill="#F3F6FB"/>
-      <!-- gelembung percakapan -->
-      <g>
-        <rect x="196" y="96" width="118" height="46" rx="16" fill="#fff" stroke="#7CC3E8" stroke-width="1.8"/>
-        <rect x="210" y="110" width="72" height="7" rx="3.5" fill="#DCEEF9"/>
-        <rect x="210" y="124" width="52" height="7" rx="3.5" fill="#DCEEF9"/>
-      </g>
-      <g>
-        <rect x="176" y="158" width="128" height="46" rx="16" fill="#1E6FD9"/>
-        <rect x="192" y="172" width="80" height="7" rx="3.5" fill="rgba(255,255,255,.5)"/>
-        <rect x="192" y="186" width="56" height="7" rx="3.5" fill="rgba(255,255,255,.32)"/>
-      </g>
-      <circle cx="272" cy="60" r="22" fill="#EEEBFD" stroke="#DDD7FB" stroke-width="1.6"/>
-      <path d="M264 62c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#6C5CE7" stroke-width="2.2" stroke-linecap="round"/>
-      <circle cx="272" cy="52" r="4.4" stroke="#6C5CE7" stroke-width="2.2" fill="none"/>
-    </svg>`;
-  }
-
   const logoSvg = (size) => `<svg viewBox="0 0 48 48" fill="none" style="width:${size}px;height:${size}px" aria-hidden="true">
     <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lg1)"/>
     <path d="M13 24.5h4.6l2.6-6.6 3.8 13 2.9-8.6 1.9 2.2H35" fill="none" stroke="#fff"
           stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
     <defs><linearGradient id="lg1" x1="2" y1="2" x2="46" y2="46">
-      <stop stop-color="#0B3A8C"/><stop offset=".55" stop-color="#1E6FD9"/><stop offset="1" stop-color="#3FB6F5"/>
+      <stop style="stop-color:var(--g1)"/><stop offset="1" style="stop-color:var(--g3)"/>
     </linearGradient></defs></svg>`;
 
   /* ---------------- ONBOARDING ---------------- */
   const SLIDES = [
-    { art: artHub, title: 'Ukur langsung dari TeleBand',
+    { art: () => TC.ilus3d('analisis'), title: 'Ukur langsung dari TeleBand',
       body: 'Sambungkan TeleBand lewat Bluetooth, ukur detak jantung dan SpO₂, lalu hasilnya tersimpan di satu riwayat kesehatan.' },
-    { art: artConsult, title: 'Dari data langsung ke dokter', fitur: 'konsultasi',
+    { art: () => TC.ilus3d('konsultasi'), title: 'Dari data langsung ke dokter', fitur: 'konsultasi',
       body: 'Bila ada yang perlu ditanyakan, mulai konsultasi chat atau video call dengan konteks vital Anda sudah terlampir.' }
   ];
 

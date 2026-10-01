@@ -22,9 +22,36 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='%230B3A8C'/><stop offset='1' stop-color='%233FB6F5'/></linearGradient></defs><rect width='32' height='32' rx='9' fill='url(%23g)'/><path d='M5 17h5l2.4-6 3.6 12 2.8-8 1.8 2H27' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>
+/* Tema sama dengan aplikasi (localStorage 'tc.tema'); bawaan biru. */
+(function () {
+  var t = 'biru';
+  try { t = localStorage.getItem('tc.tema') || 'biru'; } catch (e) {}
+  if (t !== 'hijau') t = 'biru';
+  document.documentElement.setAttribute('data-tema', t);
+  if (t === 'biru') document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('img[src*="assets/3d/"], video[poster*="assets/3d/"]').forEach(function (el) {
+      var a = el.tagName === 'VIDEO' ? 'poster' : 'src';
+      var v = el.getAttribute(a);
+      if (v.indexOf('assets/3d/biru/') < 0 && /assets\/3d\/(ikon|ikon-anim|ilustrasi)\//.test(v))
+        el.setAttribute(a, v.replace('assets/3d/', 'assets/3d/biru/'));
+    });
+    // loop hero versi biru
+    var hero = document.getElementById('heroProduct');
+    if (hero) {
+      hero.querySelectorAll('source').forEach(function (so) {
+        so.setAttribute('src', so.getAttribute('src').replace('hero-loop.', 'hero-loop-biru.'));
+      });
+      if (hero.poster) hero.poster = hero.poster.replace('assets/3d/ilustrasi/', 'assets/3d/biru/ilustrasi/');
+      hero.load();
+    }
+  });
+})();
+</script>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/fx.css">
+<link rel="stylesheet" href="css/neu.css">
 </head>
 <body>
 
@@ -219,15 +246,15 @@
       </picture>
 
       <div class="float-card fc-1">
-        <span class="float-card__ico" style="background:rgba(226,84,63,.2);color:#FF9B8A"><svg width="18" height="18"><use href="#i-heart"/></svg></span>
+        <span class="float-card__ico"><img class="i3d" src="assets/3d/ikon-anim/jantung.webp" alt="" width="40" height="40"></span>
         <div><b>78 <small style="font-size:.6em;font-weight:600">bpm</small></b><span>Detak jantung</span></div>
       </div>
       <div class="float-card fc-2">
-        <span class="float-card__ico" style="background:rgba(124,195,232,.2);color:#7CC3E8"><svg width="18" height="18"><use href="#i-spo2"/></svg></span>
+        <span class="float-card__ico"><img class="i3d" src="assets/3d/ikon-anim/oksigen.webp" alt="" width="40" height="40"></span>
         <div><b>98 <small style="font-size:.6em;font-weight:600">%</small></b><span>SpO₂ perifer</span></div>
       </div>
       <div class="float-card fc-3">
-        <span class="float-card__ico" style="background:rgba(108,92,231,.24);color:#B7ADFF"><svg width="18" height="18"><use href="#i-bp"/></svg></span>
+        <span class="float-card__ico"><img class="i3d" src="assets/3d/ikon-anim/tensi.webp" alt="" width="40" height="40"></span>
         <div><b>118/76</b><span>Tekanan darah</span></div>
       </div>
     </div>
@@ -297,7 +324,7 @@
           <circle cx="85" cy="85" r="58" stroke="#DCEAFE" stroke-width="1.4" stroke-dasharray="4 7"/>
           <circle cx="85" cy="85" r="36" stroke="#B7D4FB" stroke-width="1.4"/>
         </svg>
-        <div class="card__ico"><svg><use href="#i-chart"/></svg></div>
+        <div class="card__ico"><img class="i3d" src="assets/3d/ikon-anim/grafik.webp" alt="" width="52" height="52" loading="lazy"></div>
         <h3 class="h3">Data terlalu jarang</h3>
         <p>Satu pengukuran per tahun tidak menangkap dinamika harian tekanan darah, ritme jantung,
            maupun saturasi oksigen. Tren yang bermakna klinis hilang di antara jeda pemeriksaan.</p>
@@ -308,7 +335,7 @@
           <path d="M5 110c22 0 22-52 44-52s22 62 44 62 22-56 44-56 22 34 33 34" stroke="#DCEAFE" stroke-width="1.6"/>
           <path d="M5 130c22 0 22-40 44-40s22 48 44 48 22-42 44-42 22 26 33 26" stroke="#B7D4FB" stroke-width="1.6" stroke-dasharray="5 6"/>
         </svg>
-        <div class="card__ico"><svg><use href="#i-users"/></svg></div>
+        <div class="card__ico"><img class="i3d" src="assets/3d/ikon-anim/pengguna.webp" alt="" width="52" height="52" loading="lazy"></div>
         <h3 class="h3">Institusi kewalahan</h3>
         <p>Satu tenaga kesehatan sering menangani ratusan karyawan, santri, siswa, atau lansia.
            Tanpa sistem triase otomatis, kasus berisiko sulit diprioritaskan.</p>
@@ -322,7 +349,7 @@
           </g>
           <circle cx="90" cy="70" r="9" fill="#B7D4FB"/><circle cx="120" cy="100" r="6" fill="#DCEAFE"/>
         </svg>
-        <div class="card__ico"><svg><use href="#i-globe"/></svg></div>
+        <div class="card__ico"><img class="i3d" src="assets/3d/ikon-anim/awan.webp" alt="" width="52" height="52" loading="lazy"></div>
         <h3 class="h3">Akses tenaga ahli terbatas</h3>
         <p>Konsultasi dokter dan psikolog tidak selalu tersedia di lokasi, terutama pada pesantren
            dan panti jompo di luar pusat kota. Rujukan menjadi lambat dan mahal.</p>
@@ -406,6 +433,40 @@
   </div>
 </section>
 
+
+<!-- ══════════════ GALERI ASET 3D ══════════════ -->
+<section class="section section--tight" id="aset3d" style="position:relative;overflow:hidden">
+  <div class="neu-orbs" aria-hidden="true"><i></i><i></i><i></i></div>
+  <img class="dekor3d" src="assets/3d/dekor/dekor.webp" alt="" width="360" height="360" loading="lazy"
+       style="right:3%;top:30px;width:230px" onerror="this.remove()">
+  <div class="wrap rel">
+    <div class="sec-head" style="text-align:center;margin-inline:auto">
+      <span class="eyebrow"><i class="dot"></i> Bahasa visual</span>
+      <h2 class="h1">Satu keluarga ikon, dirender di Blender.</h2>
+      <p class="lead" style="margin-inline:auto">Porselen putih dengan satu aksen warna — setiap ikon adalah objek 3D
+        sungguhan yang dianimasikan dan dirender lewat Blender CLI, lalu dipakai di aplikasi dan situs ini.</p>
+    </div>
+    <div class="ikon3d-baris reveal">
+      <figure><img class="i3d" src="assets/3d/ikon-anim/jantung.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Detak jantung</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/oksigen.webp" alt="" width="78" height="78" loading="lazy"><figcaption>SpO₂</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/suhu.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Suhu</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/tensi.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Tekanan darah</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/ekg.webp" alt="" width="78" height="78" loading="lazy"><figcaption>EKG</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/stres.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Stres</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/jam.webp" alt="" width="78" height="78" loading="lazy"><figcaption>TeleBand</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/stetoskop.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Dokter umum</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/chat.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Chat</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/video.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Video call</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/kalender.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Janji temu</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/makan.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Catat makan</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/grafik.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Analisis</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/lonceng.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Peringatan</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/perisai.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Privasi</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/awan.webp" alt="" width="78" height="78" loading="lazy"><figcaption>Sinkron awan</figcaption></figure>
+      <figure><img class="i3d" src="assets/3d/ikon-anim/bluetooth.webp" alt="" width="78" height="78" loading="lazy"><figcaption>BLE</figcaption></figure>
+    </div>
+  </div>
+</section>
 
 <!-- ══════════════ PERBANDINGAN PERANGKAT ══════════════ -->
 <!-- Disembunyikan: membandingkan TeleBand dengan TeleRing, sedangkan situs kini
@@ -491,13 +552,20 @@
 <!-- Disembunyikan: video turntable memuat TeleBand dan TeleRing sekaligus. -->
 <section class="section filmstrip" id="video" hidden>
   <div class="wrap rel">
-    <div class="sec-head center" style="max-width:640px">
-      <span class="eyebrow eyebrow--dark"><i class="dot"></i> Visualisasi produk</span>
-      <h2 class="h1" style="color:#fff">Render turntable dari Blender.</h2>
-      <p class="lead" style="color:rgba(255,255,255,.68);margin-inline:auto">
-        Seluruh geometri, material, pencahayaan studio, dan animasi kamera dibangun lewat skrip
-        Python di Blender, lalu dirender menjadi video yang ditanam langsung di halaman ini.
+    <div class="sec-head center" style="max-width:700px">
+      <span class="eyebrow"><i class="dot"></i> Video</span>
+      <h2 class="h1">Dirender di Blender, diputar di sini.</h2>
+      <p class="lead" style="margin-inline:auto">
+        Showreel, video promosi, dan kisah sehari-hari TeleCare — seluruh adegan 3D dibangun lewat
+        skrip Python di Blender CLI, dipadukan dengan properti Sketchfab berlisensi CC BY.
       </p>
+    </div>
+
+    <div class="vtabs" role="tablist" aria-label="Pilih video">
+      <button role="tab" aria-selected="true" data-vid="assets/video/telecare-showreel.mp4" data-cap="telecare-showreel.mp4 · 1920×1080 · 24 fps · Cycles">Showreel</button>
+      <button role="tab" aria-selected="false" data-vid="assets/video/telecare-aplikasi.mp4" data-cap="telecare-aplikasi.mp4 · mockup Android · UI TeleCare bergerak">Aplikasi</button>
+      <button role="tab" aria-selected="false" data-vid="assets/video/telecare-promo.mp4" data-cap="telecare-promo.mp4 · 3D + layar aplikasi asli">Promo</button>
+      <button role="tab" aria-selected="false" data-vid="assets/video/telecare-usecase.mp4" data-cap="telecare-usecase.mp4 · properti Sketchfab (CC BY) + aset Blender">Sehari bersama TeleCare</button>
     </div>
 
     <figure class="film-wrap reveal" style="margin:0">
@@ -507,18 +575,24 @@
              poster="assets/img/render-hero-duo.png"></video>
       <figcaption class="film-bar">
         <span class="dotgrp"><i></i><i></i><i></i></span>
-        <span class="mono">telecare-product.mp4 · 1280×720 · 30 fps · EEVEE</span>
+        <span class="mono" id="videoCap">telecare-showreel.mp4 · 1920×1080 · 24 fps · Cycles</span>
         <span class="push"></span>
+        <button class="vctrl" id="videoSound"><svg><use href="#i-play"/></svg> <span>Suara</span></button>
         <button class="vctrl" id="videoToggle"><svg><use href="#i-pause"/></svg> <span>Jeda</span></button>
       </figcaption>
     </figure>
 
     <div class="pipeline">
-      <div class="pipe-step reveal scanline"><em>01</em><b>Pemodelan prosedural</b><p>Bodi, bezel, tali, pod sensor, dan cincin dibangun dari primitif dengan bevel &amp; kurva bezier.</p></div>
-      <div class="pipe-step reveal scanline" data-d="1"><em>02</em><b>Material PBR</b><p>Titanium metalik, keramik gelap, kaca transmisif, serta layar emisif berbasis node prosedural.</p></div>
-      <div class="pipe-step reveal scanline" data-d="2"><em>03</em><b>Pencahayaan studio</b><p>Empat area light — key, fill, rim hijau, dan top — dengan latar gradien sferis.</p></div>
-      <div class="pipe-step reveal scanline" data-d="3"><em>04</em><b>Ekspor ganda</b><p>Video H.264 untuk halaman ini dan GLB teroptimasi untuk viewer Three.js interaktif.</p></div>
+      <div class="pipe-step reveal"><em>01</em><b>Pemodelan prosedural</b><p>TeleBand, TeleRing, ponsel, ikon porselen, dan podium dibangun dari skrip — tanpa klik manual.</p></div>
+      <div class="pipe-step reveal" data-d="1"><em>02</em><b>Properti Sketchfab</b><p>Meja, kursi, ranjang, dan makanan (CC BY) diimpor lewat API, lalu diberi gaya clay pastel.</p></div>
+      <div class="pipe-step reveal" data-d="2"><em>03</em><b>Layar aplikasi asli</b><p>Tangkapan UI TeleCare dipasang sebagai tekstur layar ponsel di tiap adegan.</p></div>
+      <div class="pipe-step reveal" data-d="3"><em>04</em><b>Cycles + ffmpeg</b><p>Dirender frame demi frame di GPU, lalu dirakit dengan judul, transisi, dan suara.</p></div>
     </div>
+    <p class="kredit-sf" id="kreditSketchfab">Properti 3D di video use case dari Sketchfab (CC BY 4.0):
+      Optimized Potted Plants — Nicholas-3D · Armchair — Elbolillo · Coffee Mug — Ole Gunnar Isager ·
+      Table Lamp 01 — Nick Havas · Desk Low-Poly — Pedro Belthori · Bed 06 — Doaa Sheha ·
+      Woman hands low-poly — blendffnike · Sandwich (hand-painted) — adamaysils ·
+      Silverware — Fridge · Industrial Table — Elasta Kristya.</p>
   </div>
 </section>
 
@@ -1004,7 +1078,7 @@
             <circle cx="250" cy="70" r="60"/><circle cx="250" cy="70" r="90" stroke-dasharray="4 8"/>
           </g>
         </svg>
-        <span class="seg-card__ico"><svg><use href="#i-building"/></svg></span>
+        <span class="seg-card__ico"><img class="i3d" src="assets/3d/ikon-anim/gedung.webp" alt="" width="52" height="52" loading="lazy"></span>
         <span class="seg-card__n">01</span>
         <div class="seg-card__content">
           <h3 class="h3">Perusahaan</h3>
@@ -1022,7 +1096,7 @@
             <path d="M-10 100h320" stroke-dasharray="3 9"/>
           </g>
         </svg>
-        <span class="seg-card__ico"><svg><use href="#i-mosque"/></svg></span>
+        <span class="seg-card__ico"><img class="i3d" src="assets/3d/ikon-anim/perisai.webp" alt="" width="52" height="52" loading="lazy"></span>
         <span class="seg-card__n">02</span>
         <div class="seg-card__content">
           <h3 class="h3">Pesantren</h3>
@@ -1039,7 +1113,7 @@
             <path d="M-10 120 150 50 310 120 150 190Z"/><path d="M60 150v70c0 24 40 40 90 40s90-16 90-40v-70"/>
           </g>
         </svg>
-        <span class="seg-card__ico"><svg><use href="#i-school"/></svg></span>
+        <span class="seg-card__ico"><img class="i3d" src="assets/3d/ikon-anim/kalender.webp" alt="" width="52" height="52" loading="lazy"></span>
         <span class="seg-card__n">03</span>
         <div class="seg-card__content">
           <h3 class="h3">Sekolah Berasrama</h3>
@@ -1057,7 +1131,7 @@
             <circle cx="230" cy="80" r="46"/><circle cx="230" cy="80" r="70" stroke-dasharray="4 8"/>
           </g>
         </svg>
-        <span class="seg-card__ico"><svg><use href="#i-elder"/></svg></span>
+        <span class="seg-card__ico"><img class="i3d" src="assets/3d/ikon-anim/dokter.webp" alt="" width="52" height="52" loading="lazy"></span>
         <span class="seg-card__n">04</span>
         <div class="seg-card__content">
           <h3 class="h3">Panti Jompo</h3>
@@ -1121,13 +1195,13 @@
 
         <div class="grid g-2" style="margin-top:34px">
           <article class="card reveal hud scanline">
-            <div class="card__ico"><svg><use href="#i-lock"/></svg></div>
+            <div class="card__ico"><img class="i3d" src="assets/3d/ikon-anim/perisai.webp" alt="" width="52" height="52" loading="lazy"></div>
             <h3 class="h3">Privasi berlapis</h3>
             <p>Data vital terenkripsi saat transit, dipisah per unit institusi, dan hanya dapat
                diakses peran yang berwenang.</p>
           </article>
           <article class="card reveal hud scanline" data-d="1">
-            <div class="card__ico"><svg><use href="#i-chip"/></svg></div>
+            <div class="card__ico"><img class="i3d" src="assets/3d/ikon-anim/bluetooth.webp" alt="" width="52" height="52" loading="lazy"></div>
             <h3 class="h3">Edge + cloud</h3>
             <p>Pra-proses sinyal di perangkat menekan derau dan konsumsi bandwidth sebelum
                inferensi di cloud.</p>
@@ -1224,6 +1298,10 @@
 <section class="section section--tight" id="kontak">
   <div class="wrap">
     <div class="cta reveal">
+      <img class="dekor3d" src="assets/3d/dekor/dekor.webp" alt="" width="360" height="360" loading="lazy"
+           style="left:-40px;bottom:-60px;width:300px;opacity:.85" onerror="this.remove()">
+      <img class="dekor3d" src="assets/3d/dekor/dekor.webp" alt="" width="360" height="360" loading="lazy"
+           style="right:-50px;top:-70px;width:260px;opacity:.7;transform:scaleX(-1)" onerror="this.remove()">
       <svg class="cta__deco" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true">
         <g stroke="rgba(127,184,245,.16)" fill="none" stroke-width="1.4">
           <path d="M-20 300 Q 150 220 320 300 T 660 300 T 1000 300 T 1240 300"/>

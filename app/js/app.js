@@ -110,7 +110,9 @@
       drawTabbar();
       handler(params);
       paintNav((opts || {}).tab);
-      toggleDemoBadge((opts || {}).chrome !== false &&
+      // Badge hanya saat simulasi menyala: tanpa simulasi semua angka berasal
+      // dari TeleBand, jadi label "purwarupa" justru menyesatkan.
+      toggleDemoBadge(TC.FITUR.simulasi && (opts || {}).chrome !== false &&
         ['/home', '/tentang'].indexOf(Router.current.path) !== -1);
     };
   }
@@ -207,6 +209,10 @@
   function applyChrome(opts) {
     const show = opts.chrome !== false;
     document.body.classList.toggle('is-bare', !show);
+    // Admin memakai tata letak desktop (sidebar + dasbor lebar) di layar lebar;
+    // peran lain tetap berbingkai ponsel. Lihat .is-admin di app.css.
+    const r = Store.user() ? Store.role() : null;
+    document.body.classList.toggle('is-admin', show && (r === 'admin' || r === 'admin-faskes'));
     $('#tabbar').style.display = show ? '' : 'none';
     $('#sidebar').style.display = show ? '' : 'none';
     if (!show) $('#sidebar').innerHTML = '';
@@ -257,7 +263,7 @@
       ? `<a class="tab tab--fab" href="${t.href}" data-tab="${t.id}">
            <i>${icon(t.icon)}</i><span>${esc(t.label)}</span></a>`
       : `<a class="tab" href="${t.href}" data-tab="${t.id}">
-           ${icon(t.icon)}<span>${esc(t.label)}</span></a>`).join('');
+           ${TC.IKON3D[t.icon] ? TC.i3dDiam(TC.IKON3D[t.icon], 'tab__3d') : icon(t.icon)}<span>${esc(t.label)}</span></a>`).join('');
   }
 
   function drawSidebar() {
