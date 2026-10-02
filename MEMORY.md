@@ -64,7 +64,7 @@ Legenda: ✅ selesai & terverifikasi · 🟡 berjalan, ada batasan · ⬜ belum 
 | **TeleBand fisik (protokol BLE tim)** | ✅ | `teleband-ble.js` + layar `#/teleband`. **Terkonfirmasi jalan dengan alat fisik** di Android lewat situs Vercel (25 Sep 2026), setelah firmware yang menghapus bond basi |
 | Web Bluetooth GATT standar (generik) | 🟡 | Parser terverifikasi, belum diuji perangkat fisik |
 | Vital + EKG langsung | 🟡 | Asal angka dilacak **per metrik** dan dilabeli per kartu (alat / estimasi eksperimental / simulasi) |
-| Sesi makan 4 titik, analisis | ✅ | |
+| Riwayat makanan + gizi per tujuan, analisis | ✅ | Sesi makan 4 titik dihapus (2 Okt) |
 | **Chat via Supabase** | ✅ | Tabel `consults`/`consult_members`/`messages`, `postgres_changes` |
 | **Pesan kartu antarperangkat** | 🟡 | Kode siap; **migrasi `messages.kind/data` perlu dijalankan** di SQL Editor |
 | **Panggilan WebRTC** | ✅ | Sinyal Realtime Broadcast, TURN metered.ca |
@@ -273,6 +273,29 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     repo ini. Sengaja TIDAK dibawa: loop hero & ilustrasi `hub`/`produk` (memuat TeleRing — diganti
     render TeleBand & `analisis`), ikon TeleRing di galeri, video seksi #video (seksinya tersembunyi),
     promosi/, blender/, tools/, tests/, firebase.json.
+38. **EKG kembali, sesi makan → riwayat makanan, tab Respons dihapus** (2 Okt, permintaan user).
+    - Kartu EKG bersama `kartuEkg()` (views-home.js) di Beranda pasien dan detail pengguna admin.
+      Sempat berisi gelombang sintetis yang digerakkan detak jantung; atas permintaan user dihapus —
+      kini kartu KOSONG "Menunggu data EKG dari TeleBand" sampai firmware/protokol BLE mengirim
+      sampel EKG sungguhan (TeleBand saat ini tidak punya elektroda EKG). `EcgRenderer(canvas, { hr })`
+      masih ada di engine.js, hanya dipakai jalur simulasi.
+    - Sesi makan (titik gula darah 2 jam, layar Sesi Berjalan) dihapus. `Meals.catat(items, foto, waktu)`
+      langsung ke riwayat (`v: 3`), ada kolom Waktu makan dan tombol hapus (`Meals.hapus` +
+      `PatientsDB.hapusSesi`). `Meals.tick()` kini hanya memindahkan `activeMeal` lama ke riwayat;
+      `sesi_berjalan` dikirim null. Rute `/sesi/*` dipertahankan namanya.
+    - Penilaian gizi per tujuan: `Meals.nilaiMakanan` (per makan, patokan target ÷ 3; ambang khusus
+      bulking/naik-massa, turun-berat, gula-stabil, jaga-berat) dan `saranHarian` di kartu target.
+      Riwayat dikelompokkan per hari dengan total vs target. Analisis: tab "Respons" dihapus
+      (`?tab=sesi` jatuh ke Vital). Kartu Puncak Gula Darah di Beranda ikut dihapus.
+    - Diuji via CDP (Edge headless): alur pasien lengkap + detail admin dengan DB tiruan, tanpa galat.
+39. **Tanpa nama "Gemini" di layar + Wawasan TeleCare AI dari Gemini** (2 Okt, permintaan user).
+    - Teks layar deteksi makanan tak lagi menyebut Gemini; galat server disaring `pesanDeteksi()`.
+    - Edge Function `deteksi-makanan` dirapikan: `panggil()` bersama (pilih model, 404/503 ulang) +
+      mode `wawasan` → `{ judul, isi }`. Klien `TC.DeteksiDB.wawasan()`. Beranda (`muatWawasanAI`)
+      tampilkan kalimat aturan dulu, lalu ganti hasil AI; cache localStorage `telecare.wawasan.v1` per
+      tanda tangan data (pakai hasil ukur TERSIMPAN, bukan angka langsung), jeda 2 mnt bila gagal.
+      **Perlu deploy ulang fungsi** — versi lama menjawab 400 dan Beranda tetap memakai kalimat aturan.
+      Diuji via CDP dengan wawasan tiruan (panggil, cache, panggil ulang saat makanan baru, gagal).
 
 ---
 

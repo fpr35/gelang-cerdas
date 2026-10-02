@@ -127,6 +127,8 @@ Admin masuk di **`/app/#/masuk/admin`** — halaman ini sengaja tidak ditautkan 
 **Deteksi makanan (Gemini)**: Edge Function [supabase/functions/deteksi-makanan](supabase/functions/deteksi-makanan/index.ts).
 `supabase secrets set GEMINI_API_KEY=...` lalu `supabase functions deploy deteksi-makanan`.
 Kunci Gemini hanya ada di server; foto makanan dikirim ke Google untuk dikenali.
+Fungsi yang sama juga menyusun **Wawasan TeleCare AI** di Beranda (`mode: 'wawasan'`): aplikasi
+mengirim ringkasan angka (tujuan, target, asupan hari ini, hasil ukur terakhir — tanpa nama/email).
 
 **Hubungan dokter–pasien** butuh migrasi [supabase/migrations/20260926_care_links.sql](supabase/migrations/20260926_care_links.sql)
 dijalankan sekali di Supabase SQL Editor. Alurnya: dokter membuat *kode dokter* di layar Klinik →

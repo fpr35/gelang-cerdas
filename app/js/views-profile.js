@@ -35,7 +35,7 @@
       </div>
 
       <div class="stat-row mt" ${PASIEN ? '' : 'hidden'}>
-        <div><b>${Store.state.meals.length}</b><span>Sesi tercatat</span></div>
+        <div><b>${Store.state.meals.length}</b><span>Makanan tercatat</span></div>
         <div><b>${devs.length}</b><span>Perangkat</span></div>
         ${TC.FITUR.konsultasi
           ? `<div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>`
@@ -72,7 +72,7 @@
           <div><b>Janji Temu</b><small>${Store.state.appointments.length} jadwal tersimpan</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
         ${PASIEN ? `<a class="row" href="#/riwayat"><span class="row__ico">${icon('doc')}</span>
-          <div><b>Riwayat Lengkap</b><small>Sesi makan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan ${TC.FITUR.simulasi ? 'sinkronisasi' : 'hasil ukur'}</small></div>
+          <div><b>Riwayat Lengkap</b><small>Makanan${TC.FITUR.konsultasi ? ', konsultasi,' : ''} dan ${TC.FITUR.simulasi ? 'sinkronisasi' : 'hasil ukur'}</small></div>
           ${icon('chev', 'chev')}</a>` : ''}
         <a class="row" href="#/notifikasi"><span class="row__ico">${icon('bell')}</span>
           <div><b>Notifikasi</b><small>${Store.unread()} belum dibaca</small></div>
@@ -954,11 +954,11 @@
 
       <div class="section-title">${icon('shield')} Data di perangkat ini</div>
       <div class="card">
-        <p class="small" style="color:var(--ink-2)">Seluruh data aplikasi — akun, riwayat sesi,
+        <p class="small" style="color:var(--ink-2)">Seluruh data aplikasi — akun, riwayat makanan,
         percakapan, dan daftar perangkat — disimpan di penyimpanan lokal peramban ini.
         Tidak ada data yang dikirim ke server.</p>
         <div class="stat-row mt">
-          <div><b>${Store.state.meals.length}</b><span>Sesi</span></div>
+          <div><b>${Store.state.meals.length}</b><span>Makanan</span></div>
           ${TC.FITUR.konsultasi
             ? `<div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>`
             : `<div><b>${TC.Readings.list().length}</b><span>Hasil ukur</span></div>`}
@@ -1120,7 +1120,7 @@
     $('[data-wipe]').onclick = async () => {
       const ok = await confirmSheet({
         title: 'Hapus semua data lokal?',
-        body: 'Akun, riwayat sesi, percakapan, dan daftar perangkat pada peramban ini akan hilang permanen.',
+        body: 'Akun, riwayat makanan, percakapan, dan daftar perangkat pada peramban ini akan hilang permanen.',
         ok: 'Hapus semuanya', danger: true
       });
       if (!ok) return;

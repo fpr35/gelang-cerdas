@@ -27,11 +27,12 @@
     ['/notifikasi',   V.notifications, { guard: 'auth', tab: 'home' }],
     ['/artikel/:id',  V.article,   { guard: 'auth', roles: ['pasien'], tab: 'home' }],
 
-    // Seluruh rute sesi makan hanya bermakna bagi pasien; tanpa penjaga ini,
+    // Pencatatan riwayat makanan hanya bermakna bagi pasien; tanpa penjaga ini,
     // peran lain melihat layar berisi datanya sendiri yang selalu kosong.
+    // (Nama rute "/sesi/…" dipertahankan dari era sesi makan; "/sesi/berjalan"
+    // lama kini jatuh ke "/sesi/:id", yang mengalihkan ke /riwayat.)
     ['/sesi/kamera',   V.camera,   { guard: 'auth', roles: ['pasien'], chrome: false }],
     ['/sesi/hasil',    V.result,   { guard: 'auth', roles: ['pasien'], tab: 'catat' }],
-    ['/sesi/berjalan', V.running,  { guard: 'auth', roles: ['pasien'], tab: 'catat' }],
     ['/sesi/:id',      V.summary,  { guard: 'auth', roles: ['pasien'], tab: 'riwayat' }],
 
     // Konsultasi & janji temu — disembunyikan lewat TC.FITUR.konsultasi.
@@ -145,8 +146,8 @@
   }
 
   /* ---------------- SINKRONISASI DATA PASIEN ----------------
-     Hanya yang berubah yang dikirim: tanda tangan (JSON) profil/sesi
-     berjalan dan tiap sesi makan dibandingkan dengan kiriman terakhir.
+     Hanya yang berubah yang dikirim: tanda tangan (JSON) profil dan tiap
+     catatan makanan dibandingkan dengan kiriman terakhir.
      Foto makanan tidak pernah dikirim. Gagal (luring, migrasi belum ada)
      dicoba lagi pada penyimpanan berikutnya. */
   const sinkronPasien = (function () {
@@ -175,7 +176,9 @@
           gender: p.gender || null, age: p.age || null, height: p.height || null, weight: p.weight || null,
           aktivitas: p.aktivitas || null, goal: p.goal, targets: p.targets, targetManual: !!p.targetManual
         };
-        const ekstra = { profile, sesi_berjalan: tanpaFoto(Store.state.activeMeal) };
+        // Sesi makan berjalan sudah dihapus; kolomnya dikosongkan agar admin
+        // tidak melihat sisa sesi lama.
+        const ekstra = { profile, sesi_berjalan: null };
         const nama = p.nickname || u.name;
         const email = u.email && !/@(tamu|google)\.local$/.test(u.email) ? u.email : null;
         const tt = JSON.stringify([nama, email, ekstra]);
@@ -422,7 +425,7 @@
       if (!location.hash || location.hash === '#') location.replace('#' + TC.DATA.role(role).home);
     }
 
-    // Sesi makan yang tertinggal tetap dilanjutkan setelah aplikasi dibuka kembali.
+    // Sesi makan berjalan peninggalan versi lama dipindah ke riwayat makanan.
     TC.Meals.tick();
     // Sambungan Bluetooth tidak bertahan setelah halaman dimuat ulang.
     TC.TeleBandLink.pulihkan();
@@ -453,7 +456,7 @@
     if (TC.FB) TC.FB.onStatus(() => { if (Store.user() && sesiTidakSah()) Router.render(); });
 
     // Data pasien disalin ke server agar terlihat di dasbor admin: pendaftaran
-    // (tabel patients), profil & sesi berjalan, dan riwayat sesi makan.
+    // (tabel patients), profil, dan riwayat makanan.
     // Dipicu saat sesi Supabase siap dan setiap kali data tersimpan (dijeda 4 dtk).
     if (TC.FB && TC.PatientsDB) {
       TC.FB.onStatus(() => sinkronPasien.jadwalkan(0));
@@ -479,7 +482,7 @@
     // Menahan sesi tetap hidup saat tab kembali aktif.
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        if (TC.Meals.tick() && !Store.state.activeMeal) Router.render();
+        if (TC.Meals.tick()) Router.render();
       }
     });
 

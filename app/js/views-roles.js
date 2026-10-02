@@ -282,6 +282,8 @@
           <span style="margin-left:auto">${chipStatus(st)}</span>
         </div>
 
+        ${TC.views.kartuEkg({ admin: true })}
+
         ${FASKES && GLOBAL ? dataPasienAdmin(link, sesiMakan) : ''}
 
         <div class="section-title">${icon('heart')} Hasil ukur TeleBand</div>
@@ -693,14 +695,12 @@
   function barisPenggunaAdmin(a) {
     const r = a.terakhir;
     const x = (v, u) => (v == null ? '—' : v + u);
-    const sb = a.sesiBerjalan;
     return `<div class="row">
       <a href="#/faskes/anggota/${esc(a.id)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:inherit">
         <span class="avatar" style="background:${metaStatus(a.status).color}">${esc(initials(a.nama))}</span>
         <span style="min-width:0">
           <b>${esc(a.nama)}</b>
-          <small>${r ? `${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')} · ${esc(relTime(r.t))}` : 'Belum ada hasil ukur TeleBand'}${
-            sb ? ' · sedang sesi makan' : ''}</small>
+          <small>${r ? `${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')} · ${esc(relTime(r.t))}` : 'Belum ada hasil ukur TeleBand'}</small>
         </span>
         <span style="margin-left:auto">${chipStatus(a.status)}</span>
       </a>
@@ -713,7 +713,7 @@
   async function hapusPengguna(id, nama, selesai) {
     const ok = await confirmSheet({
       title: 'Hapus data ' + nama + '?',
-      body: 'Profil, riwayat sesi makan, dan semua hasil ukur TeleBand pengguna ini dihapus dari server dan ' +
+      body: 'Profil, riwayat makanan, dan semua hasil ukur TeleBand pengguna ini dihapus dari server dan ' +
         'tidak dapat dikembalikan. Bila ia membuka aplikasi lagi, ia terdaftar ulang tanpa data lama.',
       ok: 'Hapus permanen', danger: true
     });
@@ -729,13 +729,12 @@
   }
 
   /**
-   * Data pasien selain hasil ukur: sedang apa, profil & tujuan, capaian gizi
-   * hari ini, dan riwayat sesi makan. Sumbernya salinan yang dikirim aplikasi
-   * pasien (patients.profile, patients.sesi_berjalan, patient_meals).
+   * Data pasien selain hasil ukur: aktivitas terakhir, profil & tujuan,
+   * capaian gizi hari ini, dan riwayat makanan. Sumbernya salinan yang dikirim
+   * aplikasi pasien (patients.profile, patient_meals).
    */
   function dataPasienAdmin(link, sesiMakan) {
     const pf = link.profile;
-    const sb = link.sesiBerjalan;
     const meals = sesiMakan || [];
     const belum = sesiMakan === null;
     const nilai = (v, u) => (v == null || v === '' ? '—' : esc(String(v)) + (u || ''));
@@ -743,20 +742,11 @@
     const akt = pf && TC.Gizi.aktivitas(pf.aktivitas);
     const tg = pf && pf.targets;
 
-    const sedang = sb ? `
-      <div class="card">
-        <div class="card__head">${icon('clock')}<h3>Sedang sesi makan</h3>
-          <span class="push"></span><span class="chip chip--g"><i class="dotlive"></i> berjalan</span></div>
-        <b>${esc((sb.items || []).map((i) => i.n).join(', ') || '—')}</b>
-        <p class="small muted">${esc(sb.kind || '')} · mulai ${esc(hhmm(new Date(sb.at)))} ·
-          ${sb.nutrition ? sb.nutrition.kcal + ' kkal · ' + sb.nutrition.carb + ' g karbo' : ''}</p>
-        <div class="mt" style="display:flex;gap:6px;flex-wrap:wrap">
-          ${(sb.points || []).map((p) => `<span class="chip ${p.value != null ? 'chip--g' : ''}" style="font-size:.68rem">
-            ${esc(p.label)}: ${p.value != null ? p.value + ' mg/dL' : p.terlewat ? 'terlewat' : 'menunggu'}</span>`).join('')}
-        </div>
-      </div>` : `
-      <div class="card"><p class="small muted" style="margin:0">${icon('clock')} Tidak ada sesi makan yang sedang berjalan.
-        ${link.aktif ? 'Terakhir membuka aplikasi ' + esc(relTime(new Date(link.aktif).getTime())) + '.' : ''}</p></div>`;
+    const terakhir = meals[0];
+    const sedang = `
+      <div class="card"><p class="small muted" style="margin:0">${icon('clock')}
+        ${link.aktif ? 'Terakhir membuka aplikasi ' + esc(relTime(new Date(link.aktif).getTime())) + '.' : 'Belum pernah tersinkron.'}
+        ${terakhir ? ' Makan terakhir ' + esc(relTime(terakhir.at)) + ': ' + esc((terakhir.items || []).map((i) => i.n).join(', ')) + '.' : ''}</p></div>`;
 
     const profil = pf ? `
       <div class="card">
@@ -772,32 +762,29 @@
           protein ${tg.protein} g · lemak ${tg.fat} g
           <span class="tiny muted">(${pf.targetManual ? 'diketik sendiri oleh pasien' : 'dihitung dari profil'})</span></p>` : ''}
       </div>` : `
-      <div class="note note--i">${icon('info')}<div><b>Profil belum tersinkron</b>Profil, tujuan, dan sesi makan
+      <div class="note note--i">${icon('info')}<div><b>Profil belum tersinkron</b>Profil, tujuan, dan riwayat makanan
         muncul setelah pasien membuka aplikasi versi terbaru.</div></div>`;
 
-    const capaian = tg ? TC.views.kartuTarget(TC.Meals.progresTarget(meals, sb, tg), { admin: true }) : '';
+    const capaian = tg ? TC.views.kartuTarget(TC.Meals.progresTarget(meals, null, tg, pf.goal), { admin: true }) : '';
 
-    const riwayat = belum ? `<div class="note note--w">${icon('alert')}<div>Riwayat sesi makan belum bisa dimuat
+    const riwayat = belum ? `<div class="note note--w">${icon('alert')}<div>Riwayat makanan belum bisa dimuat
         (migrasi 20260929_data_pasien.sql belum dijalankan).</div></div>`
       : meals.length ? `<div class="list">${meals.slice(0, 10).map((m) => `
         <div class="row" style="align-items:flex-start">
           <span class="row__ico">${icon('food')}</span>
           <div style="min-width:0"><b>${esc((m.items || []).map((i) => i.n).join(', '))}</b>
             <small>${esc(shortDate(new Date(m.at)))} · ${esc(hhmm(new Date(m.at)))} · ${esc(m.kind || '')} ·
-              ${m.nutrition ? m.nutrition.kcal + ' kkal · ' + m.nutrition.carb + ' g karbo · ' +
-              m.nutrition.protein + ' g protein · ' + m.nutrition.fat + ' g lemak' : ''}</small></div>
-          <span class="chip ${m.delta == null ? '' : m.delta > 45 ? 'chip--r' : m.delta > 28 ? 'chip--a' : 'chip--g'}"
-            style="margin-left:auto;white-space:nowrap">${m.delta == null ? esc(m.category || 'data kurang') : '+' + m.delta + ' mg/dL'}</span>
+              ${m.nutrition ? esc(TC.views.ringkasGizi(m)) : ''}</small></div>
         </div>`).join('')}</div>`
-      : `<div class="card"><p class="small muted tc" style="padding:14px">Belum ada sesi makan tercatat.</p></div>`;
+      : `<div class="card"><p class="small muted tc" style="padding:14px">Belum ada makanan tercatat.</p></div>`;
 
     return `
-      <div class="section-title">${icon('clock')} Sedang apa</div>
+      <div class="section-title">${icon('clock')} Aktivitas terakhir</div>
       ${sedang}
       <div class="section-title">${icon('target')} Profil & tujuan kesehatan</div>
       ${profil}
       ${capaian ? `<div class="section-title">${icon('food')} Capaian gizi hari ini</div>${capaian}` : ''}
-      <div class="section-title">${icon('food')} Riwayat sesi makan
+      <div class="section-title">${icon('food')} Riwayat makanan
         <span class="push"></span><span class="chip">${meals.length}</span></div>
       ${riwayat}`;
   }

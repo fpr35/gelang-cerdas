@@ -1220,3 +1220,9 @@ input[type="checkbox"]:focus-visible{outline:2px solid var(--g2);outline-offset:
   body.is-admin .side-foot{border-top:0}
   body.is-admin .side-user:hover{background:none;box-shadow:var(--raise-sm)}
 }
+
+/* Riwayat makanan: total gizi per hari di bawah judul tanggal */
+.hari-gizi{display:flex;flex-wrap:wrap;gap:4px 14px;margin:-4px 2px 8px}
+.hari-gizi b{color:var(--ink-2)}
+.hari-gizi b.is-ok{color:var(--ok-600,#0B9A62)}
+.hari-gizi b.is-lebih{color:#B7791F}

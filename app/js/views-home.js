@@ -201,13 +201,15 @@
   function kartuTarget(prLuar, opsi) {
     const pr = prLuar || TC.Meals.progresTarget();
     const admin = !!(opsi && opsi.admin);
+    const hari = (opsi && opsi.hari) || 'hari ini';
     const semua = pr.tercapai === pr.butir.length;
     return `<div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
         <span class="chip ${semua ? 'chip--g' : pr.tercapai ? 'chip--a' : ''}">
           ${semua ? icon('check') + ' ' : ''}${pr.tercapai} dari ${pr.butir.length} target tercapai</span>
+        ${pr.goal ? `<span class="chip chip--b">${icon('target')} ${esc(D.goal(pr.goal).name)}</span>` : ''}
         <span style="flex:1"></span>
-        <span class="tiny muted">${pr.sesi} sesi makan hari ini</span>
+        <span class="tiny muted">${pr.sesi} kali makan ${esc(hari)}</span>
       </div>
       ${pr.butir.map((b) => `
         <div class="macro">
@@ -220,30 +222,47 @@
         <div style="display:flex;justify-content:flex-end;margin:5px 0 12px">
           <span class="chip ${CHIP_STATUS[b.status]}" style="font-size:.68rem">
             ${b.status === 'tercapai' ? icon('check') + ' ' : ''}${esc(b.teks)}</span></div>`).join('')}
-      ${pr.sesi ? '' : admin ? '<p class="small muted">Pasien belum mencatat sesi makan hari ini.</p>'
-        : `<p class="small muted">Belum ada sesi makan hari ini.
-        <a class="link" href="#/sesi/kamera">Catat sesi</a> untuk mulai menghitung.</p>`}
-      <p class="tiny muted" style="margin-top:6px">Tercapai = 90–110% dari target. Dihitung dari sesi makan
-        yang ${admin ? 'dicatat pasien' : 'Anda catat'} hari ini, termasuk sesi yang masih berjalan.</p>
+      ${pr.sesi ? (pr.saran ? `<p class="small" style="color:var(--ink-2)">${icon('sparkle')} ${esc(pr.saran)}</p>` : '')
+        : admin ? '<p class="small muted">Pasien belum mencatat makanan hari ini.</p>'
+        : `<p class="small muted">Belum ada makanan tercatat hari ini.
+        <a class="link" href="#/sesi/kamera">Catat makanan</a> untuk mulai menghitung.</p>`}
+      <p class="tiny muted" style="margin-top:6px">Tercapai = 90–110% dari target. Target dihitung dari profil dan
+        tujuan kesehatan ${admin ? 'pasien' : 'Anda'}; asupan dari makanan yang ${admin ? 'dicatat pasien' : 'Anda catat'} ${esc(hari)}.</p>
     </div>`;
   }
 
-  /* ---------------- BERANDA ----------------
-     Catatan soal kartu EKG: yang dihitung aplikasi ini hanya LAJU (dari
-     detak jantung), bukan klasifikasi irama. Sebelumnya di kartu itu
-     tertulis "Sinus normal" secara literal, yang menyiratkan analisis
-     morfologi yang tidak pernah dilakukan.
+  /* ---------------- KARTU EKG ----------------
+     Dipakai Beranda pasien dan detail pengguna di dasbor admin.
+     Kartu ini sengaja KOSONG sampai firmware TeleBand mengirim sampel EKG
+     sungguhan. Versi sebelumnya menggambar gelombang P-QRS-T sintetis yang
+     digerakkan angka detak jantung — tampak seperti rekaman padahal bukan,
+     sehingga dihapus (permintaan user, 2 Okt 2026). Begitu protokol BLE
+     punya data EKG, isi kartu ini dari sampel alat, bukan dari TC.ecgAt.
 
      Komentar ini sengaja berada di luar template: komentar HTML di dalam
      literal template ikut terkirim ke DOM peramban. */
+  /** @param {object} [opsi]  { admin: true } — kalimat untuk admin */
+  function kartuEkg(opsi) {
+    const admin = !!(opsi && opsi.admin);
+    return `<div class="card mt" data-ekg>
+      <div class="card__head">${icon('ecg')}<h3>EKG · Irama Jantung</h3>
+        <span class="push"></span><span class="chip">belum tersedia</span></div>
+      <div class="ecg-box" style="display:grid;place-items:center">
+        <span class="tiny muted" style="position:relative">Menunggu data EKG dari TeleBand</span></div>
+      <p class="tiny muted" style="margin:10px 0 0">${admin
+        ? 'Rekaman EKG pasien akan tampil di sini setelah TeleBand mendukung pengukuran EKG.'
+        : 'Rekaman EKG akan tampil di sini setelah TeleBand Anda mendukung pengukuran EKG.'}
+        Detak jantung tetap terukur lewat sensor PPG.</p>
+    </div>`;
+  }
+
+  /* ---------------- BERANDA ---------------- */
   function viewHome() {
     const user = Store.user();
     const p = Store.profile();
     const now = new Date();
-    const active = Store.state.activeMeal;
     const lastMeal = Store.state.meals[0];
     const unread = Store.unread();
-    const dev = Store.activeDevice();
 
     setTopbar('');
 
@@ -268,33 +287,7 @@
         <p class="tiny muted mt">Angka terisi saat TeleBand tersambung dan mengukur.
           <a class="link" href="#/teleband">Ukur sekarang</a></p>` : ''}
 
-      ${SIM() && dev && dev.connected && D.deviceType(dev.type).caps.indexOf('ecg') !== -1 ? `
-        <div class="card mt">
-          <div class="card__head">${icon('ecg')}<h3>Sinyal EKG · Lead I</h3>
-            <span class="push"></span><span class="chip chip--r">MEREKAM</span></div>
-          <div class="ecg-box"><canvas id="ecgHome"></canvas></div>
-          <div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap">
-            <div class="tiny muted">Interval RR<b class="mono" style="display:block;color:var(--ink);font-size:.9rem" data-rr>—</b></div>
-            <div class="tiny muted">HRV (RMSSD)<b class="mono" style="display:block;color:var(--ink);font-size:.9rem" data-hrv>—</b></div>
-            <div class="tiny muted">Laju<b style="display:block;color:var(--green-600);font-size:.9rem" data-laju>—</b></div>
-          </div>
-        </div>` : ''}
-
-      ${active ? `
-        <div class="section-title">${icon('clock')} Sesi berjalan</div>
-        <a class="card" href="#/sesi/berjalan" style="display:block">
-          <div class="session-card">
-            ${active.photo ? `<img src="${active.photo}" alt="">` : `<span class="ph">${icon('food')}</span>`}
-            <div style="min-width:0;flex:1">
-              <b>${esc(active.items.map((i) => i.n).join(', '))}</b>
-              <small>${esc(active.kind)} · selesai makan ${hhmm(new Date(active.at))}</small>
-              <div class="mt" style="display:flex;gap:6px;flex-wrap:wrap">
-                ${active.points.map((pt) => `<span class="chip ${pt.done ? 'chip--g' : ''}" style="font-size:.66rem">${esc(pt.label)}</span>`).join('')}
-              </div>
-            </div>
-            ${icon('chev', 'chev')}
-          </div>
-        </a>` : ''}
+      ${kartuEkg()}
 
       <div class="section-title">${icon('food')} Ringkasan Hari Ini
         <span class="push"></span><a class="link" href="#/profil/tujuan">Atur target</a></div>
@@ -305,50 +298,39 @@
         ${TC.FITUR.konsultasi
           ? `<a href="#/konsultasi"><i class="tile3d">${TC.i3d('stetoskop')}</i>Konsultasi</a>`
           : `<a href="#/teleband"><i class="tile3d">${TC.i3d('jantung')}</i>Ukur</a>`}
-        <a href="#/sesi/kamera"><i class="tile3d">${TC.i3d('makan')}</i>Catat Sesi</a>
+        <a href="#/sesi/kamera"><i class="tile3d">${TC.i3d('makan')}</i>Catat Makan</a>
         <a href="#/perangkat"><i class="tile3d">${TC.i3d('jam')}</i>Perangkat</a>
         <a href="#/riwayat"><i class="tile3d">${TC.i3d('grafik')}</i>Riwayat</a>
       </div>
 
       ${lastMeal ? `
-        <div class="section-title">${icon('clock')} Sesi Terakhir
+        <div class="section-title">${icon('clock')} Makanan Terakhir
           <span class="push"></span><a class="link" href="#/riwayat">Lihat semua</a></div>
         <a class="card" href="#/sesi/${esc(lastMeal.id)}" style="display:block">
           <div class="session-card">
             ${lastMeal.photo ? `<img src="${lastMeal.photo}" alt="">` : `<span class="ph">${icon('food')}</span>`}
             <div style="min-width:0;flex:1">
               <small>${icon('clock')} ${hhmm(new Date(lastMeal.at))} · ${esc(lastMeal.kind)}</small>
-              <b style="margin-top:2px">${esc(ringkasSesi(lastMeal))}</b>
-              <span class="chip chip--${lastMeal.delta > 45 ? 'r' : lastMeal.delta > 28 ? 'a' : 'g'}" style="margin-top:6px">${esc(lastMeal.category)}</span>
+              <b style="margin-top:2px">${esc(lastMeal.items.map((i) => i.n).join(', '))}</b>
+              <small>${esc(ringkasGizi(lastMeal))}</small>
             </div>
             ${icon('chev', 'chev')}
           </div>
         </a>` : `
-        <div class="section-title">${icon('clock')} Sesi Terakhir</div>
+        <div class="section-title">${icon('clock')} Makanan Terakhir</div>
         <div class="card"><div class="empty" style="padding:26px 10px">${icon('food')}
-          <b>Belum ada sesi tercatat</b>
-          <p>${SIM() ? 'Potret makanan Anda untuk mulai melihat hubungan antara isi piring dan respons tubuh.'
-            : 'Catat isi piring Anda, lalu ukur dengan TeleBand sebelum dan sesudah makan untuk melihat respons tubuh.'}</p>
-          <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi pertama</a></div></div>`}
-
-      ${TC.Meals.peakTrend(6).length > 1 ? `
-        <div class="card mt">
-          <div class="card__head">${icon('drop')}<h3>Puncak Gula Darah</h3>
-            <span class="push"></span><span class="chip">${TC.Meals.peakTrend(6).length} sesi terakhir</span></div>
-          ${SIM() ? '' : '<p class="tiny muted" style="margin:-6px 0 8px">Estimasi eksperimental TeleBand, bukan hasil laboratorium.</p>'}
-          <div style="display:flex;align-items:center;gap:16px">
-            <div><b style="font-size:1.7rem;letter-spacing:-.04em">${TC.Meals.peakTrend(1)[0]}</b>
-              <span class="tiny muted"> mg/dL</span></div>
-            <div class="chart-wrap" style="flex:1"><canvas id="peakChart" style="height:60px"></canvas></div>
-          </div>
-        </div>` : ''}
+          <b>Belum ada makanan tercatat</b>
+          <p>Catat apa yang Anda makan — gizinya dihitung dan dibandingkan dengan kebutuhan harian sesuai tujuan kesehatan Anda.</p>
+          <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat makanan</a></div></div>`}
 
       <div class="section-title">${icon('sparkle')} Wawasan TeleCare AI</div>
-      <div class="insight">
+      <div class="insight" data-wawasan>
         <div class="insight__glow"></div>
         <div class="tag">${icon('sparkle')} TeleCare AI</div>
-        <h5>${esc(insightTitle())}</h5>
-        <p>${esc(insightBody())}</p>
+        <h5 data-wawasan-judul>${esc((wawasanTersimpan() || {}).judul || insightTitle())}</h5>
+        <p data-wawasan-isi>${esc((wawasanTersimpan() || {}).isi || insightBody())}</p>
+        <p class="tiny" data-wawasan-ket style="opacity:.75;margin-top:8px">${wawasanTersimpan()
+          ? 'Disusun AI dari data Anda · bukan pengganti saran tenaga kesehatan' : ''}</p>
         ${TC.FITUR.konsultasi ? `<a class="btn btn--primary btn--sm mt" href="#/konsultasi">Diskusikan dengan dokter ${icon('arrow')}</a>` : ''}
       </div>
 
@@ -376,18 +358,6 @@
     paintSparks(root);
     $('[data-notif]').onclick = () => Router.navigate('/notifikasi');
 
-    const peakCv = $('#peakChart');
-    if (peakCv) {
-      const data = TC.Meals.peakTrend(6);
-      TC.lineChart(peakCv, [{ data, color: TC.tema.warna('--g2'), fill: true, dots: true }],
-        { padL: 8, yLabels: false });
-    }
-
-    // pembaruan langsung
-    let ecg = null;
-    const ecgCv = $('#ecgHome');
-    if (ecgCv) ecg = TC.EcgRenderer(ecgCv);
-
     const un = TC.Vitals.subscribe(() => {
       // Kartu glukosa muncul/hilang mengikuti asal datanya (TeleBand tersambung
       // atau lepas); itu mengubah susunan, jadi beranda digambar ulang.
@@ -400,39 +370,92 @@
       paintVitals(root);
       const sc = $('[data-sumber]', root);
       if (sc) sc.innerHTML = sumberChip();
-      const rr = $('[data-rr]', root), hv = $('[data-hrv]', root);
-      if (rr) rr.textContent = Math.round(60000 / TC.Vitals.state.hr) + ' ms';
-      if (hv) hv.textContent = TC.Vitals.state.hrv + ' ms';
-      const lj = $('[data-laju]', root);
-      if (lj) {
-        const hr = TC.Vitals.state.hr;
-        lj.textContent = hr < 50 ? 'Bradikardia' : hr > 100 ? 'Takikardia' : 'Normal';
+    });
+
+    Router.onLeave(un);
+    muatWawasanAI(root);
+  }
+
+  /* ---------------- WAWASAN TELECARE AI ----------------
+     Teks wawasan disusun AI (Edge Function deteksi-makanan, mode 'wawasan' —
+     kunci API yang sama dengan deteksi makanan) dari RINGKASAN angka: tujuan,
+     target, asupan hari ini, vital terakhir. Nama dan email tidak dikirim.
+     Hasil disimpan per "tanda tangan" data, jadi AI hanya dipanggil lagi bila
+     datanya berubah (makanan baru, hasil ukur baru, ganti tujuan, ganti hari).
+     Selama menunggu, atau bila AI gagal/luring, kalimat berbasis aturan
+     (insightTitle/insightBody) tetap tampil. */
+  const KUNCI_WAWASAN = 'telecare.wawasan.v1';
+  let wawasanJalan = false;
+  let wawasanGagalAt = 0;
+
+  function ringkasanWawasan() {
+    const p = Store.profile();
+    const pr = TC.Meals.progresTarget();
+    // Hasil ukur TERSIMPAN, bukan angka langsung: angka langsung berubah tiap
+    // detik saat mengukur dan akan memicu panggilan AI berulang.
+    const r = TC.Readings.list().find((x) => x.bpm != null || x.spo2 != null);
+    const v = r ? { hr: r.bpm, spo2: r.spo2, at: r.waktu || r.diterima } : null;
+    const awal = new Date(); awal.setHours(0, 0, 0, 0);
+    const rhr = TC.weekTrend().map((d) => d.rhr).filter((x) => typeof x === 'number');
+    return {
+      tanggal: new Date().toDateString(),
+      tujuan: D.goal(p.goal).name,
+      targetHarian: p.targets,
+      profil: { jenisKelamin: p.gender || null, usia: p.age || null, tinggiCm: p.height || null, beratKg: p.weight || null },
+      asupanHariIni: Object.assign({ jumlahMakan: pr.sesi }, pr.total),
+      makananHariIni: Store.state.meals.filter((m) => m.at >= awal.getTime())
+        .flatMap((m) => m.items.map((i) => i.n)).slice(0, 12),
+      vitalTerakhir: v && (v.hr != null || v.spo2 != null)
+        ? { detakJantungBpm: v.hr, spo2Persen: v.spo2, waktu: v.at ? new Date(v.at).toISOString().slice(0, 16) : null } : null,
+      detakIstirahat7Hari: rhr
+    };
+  }
+
+  function bacaWawasan() {
+    try { return JSON.parse(localStorage.getItem(KUNCI_WAWASAN) || 'null'); } catch (e) { return null; }
+  }
+  /** Wawasan AI yang tersimpan untuk data saat ini, atau null. */
+  function wawasanTersimpan() {
+    if (SIM()) return null;
+    const c = bacaWawasan();
+    return c && c.sig === JSON.stringify(ringkasanWawasan()) ? c : null;
+  }
+
+  async function muatWawasanAI(root) {
+    if (SIM() || !TC.DeteksiDB || !TC.DeteksiDB.wawasan) return;
+    if (wawasanTersimpan() || wawasanJalan) return;
+    if (Date.now() - wawasanGagalAt < 120000) return;   // jangan membanjiri layanan saat gagal
+    const data = ringkasanWawasan();
+    const sig = JSON.stringify(data);
+    wawasanJalan = true;
+    const ket = $('[data-wawasan-ket]', root);
+    if (ket) ket.textContent = 'Menyusun wawasan…';
+    try {
+      const h = await TC.DeteksiDB.wawasan(data);
+      try {
+        localStorage.setItem(KUNCI_WAWASAN, JSON.stringify({ sig, judul: h.judul, isi: h.isi, at: Date.now() }));
+      } catch (e) { /* penyimpanan penuh/diblokir: tetap tampil */ }
+      const kartu = $('[data-wawasan]');   // beranda mungkin sudah digambar ulang
+      if (kartu) {
+        $('[data-wawasan-judul]', kartu).textContent = h.judul;
+        $('[data-wawasan-isi]', kartu).textContent = h.isi;
+        $('[data-wawasan-ket]', kartu).textContent = 'Disusun AI dari data Anda · bukan pengganti saran tenaga kesehatan';
       }
-    });
-
-    const mealTimer = setInterval(() => {
-      if (TC.Meals.tick()) Router.render();
-    }, 1000);
-
-    Router.onLeave(() => {
-      un();
-      clearInterval(mealTimer);
-      if (ecg) ecg.stop();
-    });
+    } catch (e) {
+      wawasanGagalAt = Date.now();
+      console.warn('[TeleCare] wawasan AI tertunda:', (e && e.message) || e);
+      const k = $('[data-wawasan-ket]');
+      if (k) k.textContent = '';
+    } finally { wawasanJalan = false; }
   }
 
   // Wawasan disusun dari yang diukur TeleBand (detak jantung dan SpO₂) serta
   // catatan sesi makan. Indeks stres tidak lagi dipakai: TeleBand tidak
   // mengukurnya.
-  /** Ringkasan satu baris sebuah sesi makan untuk daftar & kartu. */
-  function ringkasSesi(m) {
-    if (m.status !== 'done') return 'sesi berjalan';
-    if (m.delta == null) return 'gizi tercatat · titik gula darah belum cukup';
-    if (m.v === 2) {
-      return `puncak +${m.delta} mg/dL` + (m.pulih2jam == null ? ''
-        : m.pulih2jam ? ' · kembali dekat awal dalam 2 jam' : ' · belum kembali dalam 2 jam');
-    }
-    return `puncak +${m.delta} mg/dL · normal dalam ${m.recovery} jam`;
+  /** Ringkasan gizi satu baris sebuah catatan makan untuk daftar & kartu. */
+  function ringkasGizi(m) {
+    const n = m.nutrition || {};
+    return `${n.kcal} kkal · protein ${n.protein} g · karbo ${n.carb} g · lemak ${n.fat} g`;
   }
 
   /** Sumber wawasan tanpa simulasi: vital dari alat saat ini, atau hasil ukur terakhir. */
@@ -471,11 +494,8 @@
     if (v.spo2 != null) bagian.push('SpO₂ ' + v.spo2 + '%');
     const kapan = !SIM() && !TC.Vitals.adaDariAlat() && v.at
       ? 'Hasil ukur ' + relTime(v.at) + ': ' : 'Saat ini: ';
-    const meals = Store.state.meals.filter((m) => m.delta != null).slice(0, 3);
-    const avgDelta = meals.length
-      ? Math.round(meals.reduce((a, m) => a + m.delta, 0) / meals.length) : null;
-    const gula = avgDelta == null ? ''
-      : 'Rata-rata kenaikan gula darah setelah makan ' + avgDelta + ' mg/dL (estimasi). ';
+    const pr = TC.Meals.progresTarget();
+    const gula = pr.sesi ? 'Asupan hari ini ' + pr.total.kcal + ' dari ' + pr.butir[0].target + ' kkal. ' : '';
     const awal = kapan + bagian.join(', ') + '. ';
     if (n === 2) {
       return awal + 'Ada angka di luar rentang umum. Duduk tenang beberapa menit lalu ukur ulang ' +
@@ -618,7 +638,9 @@
 
   /* ---------------- ANALISIS ---------------- */
   function viewAnalysis() {
-    const tab = (location.hash.split('?tab=')[1]) || 'vital';
+    // Tab "Respons" (kurva gula darah sesi makan) sudah dihapus; tautan lama ke sana jatuh ke Vital.
+    const tabUrl = location.hash.split('?tab=')[1];
+    const tab = tabUrl === 'gizi' ? 'gizi' : 'vital';
     TC.topbar('Analisis', { sub: 'Kecenderungan beberapa hari terakhir', back: false });
 
     const week = TC.weekTrend();
@@ -633,7 +655,6 @@
       <div class="seg" id="anaSeg" role="tablist">
         <button data-atab="vital" class="${tab === 'vital' ? 'is-active' : ''}">Vital</button>
         <button data-atab="gizi" class="${tab === 'gizi' ? 'is-active' : ''}">Gizi</button>
-        <button data-atab="sesi" class="${tab === 'sesi' ? 'is-active' : ''}">Respons</button>
       </div>
       <div id="tabBody" class="mt"></div>
     `);
@@ -704,7 +725,7 @@
           </div>
           <div class="note note--i mt">${icon('info')}
             <div><b>Seakurat pencatatan Anda</b>Berbeda dengan detak jantung yang diukur sensor,
-            data gizi bergantung pada sesi yang Anda catat sendiri.</div></div>`;
+            data gizi bergantung pada makanan yang Anda catat sendiri.</div></div>`;
 
         TC.barChart($('#cKcal'), days.map((d) => d.kcal), days.map((d) => d.label), '#E09B12');
         TC.lineChart($('#cMacro'), [
@@ -713,45 +734,6 @@
           { data: days.map((d) => d.fat), color: '#6C5CE7' }
         ], { xLabels: days.map((d) => d.label) });
 
-      } else {
-        // Hanya sesi yang kenaikannya benar-benar terhitung (titik sebelum dan
-        // sesudah makan terukur); sesi "data kurang" tidak punya kurva.
-        const meals = Store.state.meals.filter((m) => m.status === 'done' && m.peak != null).slice(0, 10);
-        body.innerHTML = meals.length ? `
-          <div class="card">
-            <div class="card__head">${icon('drop')}<h3>Puncak gula darah antar sesi</h3></div>
-            <div class="chart-wrap"><canvas id="cPeak" style="height:170px"></canvas></div>
-            <div class="legend">
-              <div><i style="background:#1E6FD9"></i>Puncak (mg/dL)</div>
-              <div><i style="background:#B7D4FB"></i>${SIM() ? 'Baseline' : 'Sebelum makan'}</div></div>
-          </div>
-          <div class="section-title">${icon('doc')} Sesi dengan kenaikan terbesar</div>
-          <div class="list">
-            ${meals.slice().sort((a, b) => b.delta - a.delta).slice(0, 5).map((m) => `
-              <a class="row" href="#/sesi/${esc(m.id)}">
-                <span class="row__ico">${icon('food')}</span>
-                <div style="min-width:0"><b>${esc(m.items.map((i) => i.n).join(', '))}</b>
-                  <small>${esc(TC.shortDate(new Date(m.at)))} · ${esc(m.kind)}</small></div>
-                <span class="chip chip--${m.delta > 45 ? 'r' : m.delta > 28 ? 'a' : 'g'}" style="margin-left:auto">+${m.delta}</span>
-                ${icon('chev', 'chev')}
-              </a>`).join('')}
-          </div>
-          <div class="note note--w mt">${icon('alert')}
-            <div><b>Perkiraan, bukan hasil laboratorium</b>${SIM() ? 'Nilai ini dihitung dari sensor dan catatan asupan.'
-            : 'Gula darah di sini adalah estimasi eksperimental TeleBand dari sinyal PPG jari.'}
-            Tidak dapat dipakai untuk menegakkan diagnosis diabetes.</div></div>` : `
-          <div class="empty">${icon('drop')}<b>Belum cukup data</b>
-            <p>${SIM() ? 'Catat beberapa sesi makan untuk melihat pola respons tubuh Anda.'
-              : 'Catat sesi makan, lalu ukur dengan TeleBand sebelum makan dan 1–2 jam sesudahnya.'}</p>
-            <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi</a></div>`;
-
-        if (meals.length) {
-          const rev = meals.slice().reverse();
-          TC.lineChart($('#cPeak'), [
-            { data: rev.map((m) => m.peak), color: '#1E6FD9', fill: true, dots: true },
-            { data: rev.map((m) => m.baseline), color: '#B7D4FB', dash: [4, 5] }
-          ], { xLabels: rev.map((m) => TC.pad2(new Date(m.at).getDate())) });
-        }
       }
     }
 
@@ -827,7 +809,7 @@
     TC.topbar('Riwayat', { sub: 'Seluruh catatan Anda', back: false });
     setView(`
       <div class="seg">
-        <button data-h="sesi" class="is-active">Sesi Makan</button>
+        <button data-h="sesi" class="is-active">Makanan</button>
         ${TC.FITUR.konsultasi ? '<button data-h="konsul">Konsultasi</button>' : ''}
         <button data-h="sync">${SIM() ? 'Sinkronisasi' : 'Hasil Ukur'}</button>
       </div>
@@ -838,9 +820,9 @@
       if (t === 'sesi') {
         const meals = Store.state.meals;
         b.innerHTML = meals.length ? groupByDay(meals) : `
-          <div class="empty">${icon('food')}<b>Belum ada sesi</b>
-          <p>Setiap sesi makan yang Anda catat muncul di sini.</p>
-          <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat sesi</a></div>`;
+          <div class="empty">${icon('food')}<b>Belum ada makanan tercatat</b>
+          <p>Setiap makanan yang Anda catat muncul di sini beserta gizinya.</p>
+          <a class="btn btn--primary btn--sm mt" href="#/sesi/kamera">Catat makanan</a></div>`;
       } else if (t === 'konsul') {
         const cs = Store.state.consults;
         b.innerHTML = cs.length ? `<div class="list">${cs.map((c) => {
@@ -886,7 +868,9 @@
       }
     }
 
+    /** Riwayat makanan per hari, dengan total gizi hari itu terhadap target. */
     function groupByDay(meals) {
+      const p = Store.profile();
       const groups = {};
       meals.forEach((m) => {
         const d = new Date(m.at); d.setHours(0, 0, 0, 0);
@@ -897,15 +881,18 @@
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const label = +k === today.getTime() ? 'Hari ini'
           : +k === today.getTime() - 86400000 ? 'Kemarin' : TC.shortDate(d);
-        return `<div class="section-title" style="margin-top:16px">${esc(label)}</div>
+        const pr = TC.Meals.progresTarget(meals, null, p.targets, p.goal, +k);
+        const kcal = pr.butir[0];
+        return `<div class="section-title" style="margin-top:16px">${esc(label)}
+            <span class="push"></span>
+            <span class="chip ${CHIP_STATUS[kcal.status]}" style="font-size:.68rem">${kcal.nilai} / ${kcal.target} kkal</span></div>
+          <div class="hari-gizi tiny muted">${pr.butir.slice(1).map((b) =>
+            `<span>${esc(b.label)} <b class="${b.status === 'tercapai' ? 'is-ok' : b.status === 'lebih' ? 'is-lebih' : ''}">${b.nilai}/${b.target} g</b></span>`).join('')}</div>
           <div class="list">${groups[k].map((m) => `
             <a class="row" href="#/sesi/${esc(m.id)}">
               <span class="row__ico">${icon('food')}</span>
               <div style="min-width:0"><b>${esc(m.items.map((i) => i.n).join(', '))}</b>
-                <small>${hhmm(new Date(m.at))} · ${m.nutrition.kcal} kkal · ${m.nutrition.carb} g karbo</small></div>
-              ${m.status !== 'done' ? `<span class="chip chip--a" style="margin-left:auto">berjalan</span>`
-                : m.delta == null ? `<span class="chip" style="margin-left:auto">data kurang</span>`
-                : `<span class="chip chip--${m.delta > 45 ? 'r' : m.delta > 28 ? 'a' : 'g'}" style="margin-left:auto">+${m.delta}</span>`}
+                <small>${hhmm(new Date(m.at))} · ${esc(m.kind || '')} · ${esc(ringkasGizi(m))}</small></div>
               ${icon('chev', 'chev')}
             </a>`).join('')}</div>`;
       }).join('');
@@ -967,6 +954,6 @@
   Object.assign(TC.views, {
     home: viewHome, vital: viewVital, analysis: viewAnalysis,
     history: viewHistory, notifications: viewNotifications, article: viewArticle,
-    deviceBar, bindDeviceBar, kartuTarget
+    deviceBar, bindDeviceBar, kartuTarget, kartuEkg, ringkasGizi
   });
 })(window.TC);

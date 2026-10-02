@@ -623,6 +623,27 @@
       }
       if (data && data.error) throw new Error(data.error);
       return data;
+    },
+
+    /**
+     * Wawasan TeleCare AI untuk Beranda — fungsi & kunci API yang sama dengan
+     * deteksi makanan (mode 'wawasan').
+     * @param {object} ringkasan  angka gizi/vital pasien, tanpa nama & email
+     * @returns {{judul:string, isi:string}}
+     */
+    async wawasan(ringkasan) {
+      await FB.ensureAuth();
+      const { data, error } = await FB.sb.functions.invoke('deteksi-makanan', {
+        body: { mode: 'wawasan', data: ringkasan }
+      });
+      if (error) {
+        let pesan = error.message;
+        try { const b = await error.context.json(); if (b && b.error) pesan = b.error; } catch (e) { /* abaikan */ }
+        throw new Error(pesan);
+      }
+      if (data && data.error) throw new Error(data.error);
+      if (!data || !data.judul || !data.isi) throw new Error('Jawaban kosong.');
+      return data;
     }
   };
 
@@ -652,7 +673,7 @@
       return true;
     },
 
-    /** Menyalin sesi makan (tanpa foto) ke server. */
+    /** Menyalin riwayat makanan (tanpa foto) ke server. */
     async simpanSesi(daftar) {
       const user = await FB.ensureAuth();
       if (!daftar.length) return true;
@@ -660,6 +681,14 @@
         user_id: user.id, id: m.id, at: new Date(m.at).toISOString(), data: m,
         updated_at: new Date().toISOString()
       })), { onConflict: 'user_id,id' });
+      if (error) throw error;
+      return true;
+    },
+
+    /** Menghapus satu catatan makanan milik sendiri dari salinan server. */
+    async hapusSesi(id) {
+      const user = await FB.ensureAuth();
+      const { error } = await FB.sb.from('patient_meals').delete().eq('user_id', user.id).eq('id', id);
       if (error) throw error;
       return true;
     },
@@ -672,7 +701,7 @@
       return data || null;
     },
 
-    /** Riwayat sesi makan seorang pasien (admin), terbaru dulu. */
+    /** Riwayat makanan seorang pasien (admin), terbaru dulu. */
     async sesi(userId, batas) {
       await FB.ensureAuth();
       const { data, error } = await FB.sb.from('patient_meals').select('data')

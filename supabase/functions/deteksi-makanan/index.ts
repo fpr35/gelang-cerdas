@@ -1,4 +1,6 @@
-// Supabase Edge Function: deteksi makanan dari foto dengan Google Gemini.
+// Supabase Edge Function: deteksi makanan dari foto dengan Google Gemini,
+// plus "Wawasan TeleCare AI" di Beranda (mode: 'wawasan') — satu kunci API,
+// satu pemilihan model, satu deploy.
 //
 // Kunci API TIDAK pernah dikirim ke peramban — disimpan sebagai secret:
 //   supabase secrets set GEMINI_API_KEY=...        (wajib)
@@ -11,6 +13,12 @@
 //     foods: [{ n: "Nasi putih", unit: "centong", g: 120 }, ...] }
 // Jawaban:
 //   { makanan: [{ nama, porsi, yakin }], lainnya: ["..."], bukanMakanan: bool }
+//
+// Mode wawasan (POST JSON):
+//   { mode: "wawasan", data: { tujuan, target, hariIni, makananTerakhir,
+//     vital, tren7Hari } }   — ringkasan angka, tanpa nama/email pasien
+// Jawaban:
+//   { judul, isi }   — Bahasa Indonesia, edukatif, bukan diagnosis
 //
 // Nama makanan dibatasi ke daftar `foods` lewat enum pada skema respons, jadi
 // hasilnya selalu bisa dihitung gizinya oleh aplikasi. Makanan yang tidak ada
@@ -75,18 +83,99 @@ async function pesanGoogle(r: Response): Promise<string> {
   try { return (JSON.parse(t).error?.message || '').slice(0, 200); } catch { return ''; }
 }
 
+/**
+ * Memanggil generateContent dengan pemilihan model otomatis:
+ * 404 → pilih ulang model; 503/500 → coba lagi model sama setelah jeda, lalu
+ * dua model cadangan (maks. 4 percobaan). Mengembalikan teks jawaban, atau
+ * Response galat siap kirim.
+ */
+async function panggil(key: string, parts: unknown[], generationConfig: unknown, sibuk: string):
+  Promise<{ teks: string; model: string } | Response> {
+  let model = Deno.env.get('GEMINI_MODEL') || await pilihModel(key);
+  if (!model) return json({ error: 'Tidak ada model Gemini yang bisa dipakai dengan kunci ini. Periksa kunci di Google AI Studio.' }, 502);
+  const minta = (m: string) => fetch(`${API}/models/${encodeURIComponent(m)}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig })
+  });
+  let r = await minta(model);
+  if (r.status === 404) {
+    await r.text();
+    modelTerpilih = null;
+    const pengganti = await pilihModel(key);
+    if (pengganti && pengganti !== model) { model = pengganti; r = await minta(model); }
+  }
+  if (sementara(r.status)) {
+    if (!kandidatModel.length) await pilihModel(key);
+    const antrean = [model, ...kandidatModel.filter((m) => m !== model).slice(0, 2)];
+    for (let i = 0; i < antrean.length && sementara(r.status); i++) {
+      console.warn('Gemini', r.status, 'pada', model, '— mencoba', antrean[i]);
+      await r.text();
+      await tidur(i === 0 ? 1500 : 500);
+      model = antrean[i];
+      r = await minta(model);
+    }
+  }
+  if (!r.ok) {
+    const detail = await pesanGoogle(r);
+    if (sementara(r.status)) return json({ error: sibuk }, 503);
+    return json({ error: `Gemini menolak permintaan (${r.status}, model ${model})${detail ? ': ' + detail : '.'}` }, 502);
+  }
+  try {
+    const d = await r.json();
+    const teks = d?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '{}';
+    return { teks, model };
+  } catch {
+    return json({ error: 'Jawaban layanan AI tidak dapat dibaca.' }, 502);
+  }
+}
+
+/** Wawasan Beranda dari ringkasan angka pasien. */
+async function wawasan(key: string, data: unknown): Promise<Response> {
+  const ringkas = JSON.stringify(data ?? {}).slice(0, 4000);
+  const prompt =
+    'Anda adalah "TeleCare AI", asisten edukasi kesehatan di aplikasi pemantauan TeleCare (Indonesia). ' +
+    'Berdasarkan ringkasan data pengguna berikut (JSON), tulis satu wawasan singkat yang personal.\n' +
+    ringkas + '\n\n' +
+    'Aturan:\n' +
+    '- Bahasa Indonesia yang hangat dan mudah dipahami, sapa dengan "Anda".\n' +
+    '- "judul": maksimal 8 kata. "isi": 2–3 kalimat, maksimal 60 kata.\n' +
+    '- Kaitkan asupan gizi hari ini dengan tujuan kesehatannya (mis. bulking, turun berat, gula stabil) ' +
+    'dan target hariannya, serta detak jantung/SpO₂ bila ada. Beri satu saran praktis (mis. makanan yang perlu ditambah).\n' +
+    '- Hanya gunakan angka yang ada di data; jangan mengarang angka. Bila data kosong, ajak mencatat makanan atau mengukur dengan TeleBand.\n' +
+    '- Jangan mendiagnosis penyakit atau menyarankan obat. Bila detak jantung < 50 atau > 100 bpm saat istirahat, ' +
+    'atau SpO₂ < 94%, sarankan ukur ulang dan hubungi tenaga kesehatan bila ada keluhan.\n' +
+    '- Tekanan darah dan glukosa TeleBand adalah estimasi eksperimental; jangan dijadikan dasar kesimpulan.';
+  const schema = {
+    type: 'OBJECT',
+    properties: { judul: { type: 'STRING' }, isi: { type: 'STRING' } },
+    required: ['judul', 'isi']
+  };
+  const h = await panggil(key, [{ text: prompt }],
+    { temperature: 0.6, responseMimeType: 'application/json', responseSchema: schema },
+    'TeleCare AI sedang sibuk. Coba lagi beberapa saat lagi.');
+  if (h instanceof Response) return h;
+  try {
+    const o = JSON.parse(h.teks);
+    const judul = String(o.judul || '').trim().slice(0, 80);
+    const isi = String(o.isi || '').trim().slice(0, 600);
+    if (!judul || !isi) throw new Error('kosong');
+    return json({ judul, isi, model: h.model });
+  } catch {
+    return json({ error: 'Jawaban layanan AI tidak dapat dibaca.' }, 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Metode tidak didukung.' }, 405);
 
   const key = Deno.env.get('GEMINI_API_KEY');
   if (!key) return json({ error: 'GEMINI_API_KEY belum disetel di Supabase secrets.' }, 500);
-  // GEMINI_MODEL (opsional) memaksa model tertentu; tanpa itu dipilih otomatis.
-  let model = Deno.env.get('GEMINI_MODEL') || await pilihModel(key);
-  if (!model) return json({ error: 'Tidak ada model Gemini yang bisa dipakai dengan kunci ini. Periksa kunci di Google AI Studio.' }, 502);
 
-  let body: { image?: string; mime?: string; foods?: { n: string; unit?: string; g?: number }[] };
+  let body: { mode?: string; data?: unknown; image?: string; mime?: string; foods?: { n: string; unit?: string; g?: number }[] };
   try { body = await req.json(); } catch { return json({ error: 'Badan permintaan bukan JSON.' }, 400); }
+  if (body.mode === 'wawasan') return wawasan(key, body.data);
 
   const image = typeof body.image === 'string' ? body.image : '';
   const mime = /^image\/(jpeg|png|webp)$/.test(body.mime || '') ? body.mime! : 'image/jpeg';
@@ -127,51 +216,18 @@ Deno.serve(async (req) => {
     required: ['makanan']
   };
 
-  const minta = (m: string) => fetch(`${API}/models/${encodeURIComponent(m)}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: image } }] }],
-      generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: schema }
-    })
-  });
-  let r = await minta(model);
-  // 404 = model sudah dipensiunkan/tidak tersedia: pilih ulang dari daftar lalu coba sekali lagi.
-  if (r.status === 404) {
-    await r.text();
-    modelTerpilih = null;
-    const pengganti = await pilihModel(key);
-    if (pengganti && pengganti !== model) { model = pengganti; r = await minta(model); }
-  }
-  // 503/500 = Gemini sedang penuh atau galat sementara. Urutannya: coba model
-  // yang sama sekali lagi setelah jeda, lalu pindah ke dua model cadangan.
-  // Paling banyak 4 percobaan agar pengguna tidak menunggu terlalu lama.
-  if (sementara(r.status)) {
-    if (!kandidatModel.length) await pilihModel(key);
-    const antrean = [model, ...kandidatModel.filter((m) => m !== model).slice(0, 2)];
-    for (let i = 0; i < antrean.length && sementara(r.status); i++) {
-      console.warn('Gemini', r.status, 'pada', model, '— mencoba', antrean[i]);
-      await r.text();
-      await tidur(i === 0 ? 1500 : 500);
-      model = antrean[i];
-      r = await minta(model);
-    }
-  }
-  if (!r.ok) {
-    const detail = await pesanGoogle(r);
-    if (sementara(r.status)) {
-      return json({ error: 'Layanan Gemini sedang sibuk. Coba foto lagi beberapa saat lagi, atau pilih makanan sendiri.' }, 503);
-    }
-    return json({ error: `Gemini menolak permintaan (${r.status}, model ${model})${detail ? ': ' + detail : '.'}` }, 502);
-  }
+  const h = await panggil(key,
+    [{ text: prompt }, { inline_data: { mime_type: mime, data: image } }],
+    { temperature: 0.2, responseMimeType: 'application/json', responseSchema: schema },
+    'Layanan deteksi sedang sibuk. Coba foto lagi beberapa saat lagi, atau pilih makanan sendiri.');
+  if (h instanceof Response) return h;
+  const model = h.model;
 
   let hasil: { makanan?: { nama: string; porsi: number; yakin?: number }[]; lainnya?: string[]; bukan_makanan?: boolean };
   try {
-    const d = await r.json();
-    const teks = d?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '{}';
-    hasil = JSON.parse(teks);
+    hasil = JSON.parse(h.teks);
   } catch {
-    return json({ error: 'Jawaban Gemini tidak dapat dibaca.' }, 502);
+    return json({ error: 'Jawaban layanan deteksi tidak dapat dibaca.' }, 502);
   }
 
   // Validasi ulang di server: nama harus ada di daftar, porsi dibulatkan ke

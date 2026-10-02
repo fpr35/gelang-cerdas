@@ -1,7 +1,7 @@
 /* ============================================================
    TeleCare App — engine.js
    Mesin simulasi fisiologis, pengelola perangkat AIoT, perekam EKG,
-   dan model sesi makan (respons glukosa).
+   dan riwayat makanan & gizi.
 
    CATATAN: seluruh nilai fisiologis di sini dibangkitkan secara
    simulatif untuk keperluan purwarupa. Bila perangkat sungguhan
@@ -161,7 +161,7 @@
       const h = now.getHours();
       if (sim('steps') && h >= 6 && h <= 21 && Math.random() < 0.45) state.steps += rint(0, 14);
 
-      // glukosa mengikuti sesi makan yang sedang berjalan
+      // glukosa simulasi (hanya mode simulasi)
       if (sim('glucose')) state.glucose = Meals.currentGlucose(state.glucose);
 
       state.updatedAt = Date.now();
@@ -295,8 +295,13 @@
          - g(0.44, 0.016, 0.24) + g(0.66, 0.062, 0.29);
   }
 
-  /** Menggambar EKG yang bergulir pada sebuah <canvas>. */
-  function EcgRenderer(canvas) {
+  /**
+   * Menggambar EKG yang bergulir pada sebuah <canvas>.
+   * @param {object} [opsi]  { hr: () => bpm|null } — sumber laju; bawaan
+   *   Vitals.state.hr. Laju null = garis datar (belum ada pengukuran).
+   */
+  function EcgRenderer(canvas, opsi) {
+    const ambilHr = (opsi && opsi.hr) || (() => Vitals.state.hr);
     let raf = null, buf = [], phase = 0, W = 0, H = 0, ctx = null;
     const SPAN = 3.2; // detik yang terlihat
 
@@ -314,11 +319,14 @@
       if (!ctx && !resize()) return;
       const px = W / SPAN;
       const steps = Math.max(1, Math.round(px * dt));
-      const cyc = 60 / clamp(Vitals.state.hr, 35, 200);
+      const hr = ambilHr();
+      const cyc = hr == null ? null : 60 / clamp(hr, 35, 200);
       for (let i = 0; i < steps; i++) {
-        phase += (dt / steps) / cyc;
-        if (phase >= 1) phase -= 1;
-        buf.push(ecgAt(phase) + rnd(-0.012, 0.012));
+        if (cyc) {
+          phase += (dt / steps) / cyc;
+          if (phase >= 1) phase -= 1;
+        }
+        buf.push(cyc ? ecgAt(phase) + rnd(-0.012, 0.012) : rnd(-0.006, 0.006));
         buf.shift();
       }
       const base = H * 0.66, amp = H * 0.44, n = buf.length;
@@ -625,11 +633,17 @@
   })();
 
   /* ============================================================
-     4. SESI MAKAN & RESPONS GLUKOSA
+     4. RIWAYAT MAKANAN & GIZI
+     ============================================================
+     Dulu berupa "sesi makan": kurva gula darah 3–4 titik yang menunggu hasil
+     ukur TeleBand sampai 2 jam setelah makan. Kini (permintaan user) cukup
+     RIWAYAT MAKANAN: setiap catatan langsung tersimpan, dan gizinya dinilai
+     terhadap kebutuhan harian sesuai tujuan kesehatan pengguna (bulking,
+     turun berat, gula stabil, dst. — lihat Gizi di bawah).
+     Catatan lama (v 1/2, punya titik gula darah) tetap dibaca sebagai
+     riwayat makanan biasa; angka kurvanya tidak lagi ditampilkan.
      ============================================================ */
   const Meals = (function () {
-    const HOUR = 3600000;
-
     function mealKind(d) {
       const h = d.getHours();
       for (const k of D.MEAL_KINDS) {
@@ -653,7 +667,7 @@
       return t;
     }
 
-    /** Perkiraan kenaikan puncak glukosa dari komposisi makanan. */
+    /** Perkiraan kenaikan puncak glukosa dari komposisi makanan (hanya akun contoh). */
     function predictDelta(n, items) {
       let giFactor = 1;
       items.forEach((it) => {
@@ -665,240 +679,78 @@
       return Math.round(clamp(raw * clamp(giFactor, 0.7, 1.6), 8, 78));
     }
 
-    /* ---------------- sesi makan dari pengukuran sungguhan ----------------
-       Tanpa simulasi, setiap titik gula darah punya JENDELA waktu, dan hanya
-       diisi oleh hasil ukur TeleBand (paket HASIL berisi glukosa) yang selesai
-       di dalam jendela itu. Jendela yang lewat tanpa pengukuran ditandai
-       `terlewat` — tidak pernah diisi angka karangan. Glukosa TeleBand sendiri
-       hanya estimasi eksperimental, jadi seluruh kurva ikut berlabel begitu. */
-    const MIN = 60000;
-    const TITIK_NYATA = [
-      { key: 'baseline', label: 'Sebelum makan', offset: 0,        dari: -30 * MIN, sampai: 15 * MIN },
-      { key: 'h1',       label: '+1 jam',        offset: HOUR,     dari: 45 * MIN,  sampai: 80 * MIN },
-      { key: 'h2',       label: '+2 jam',        offset: 2 * HOUR, dari: 105 * MIN, sampai: 140 * MIN }
-    ];
-
-    /** Glukosa terbaru dari TeleBand yang selesai dalam [t0, t1], atau null. */
-    function glukosaAlatAntara(t0, t1) {
-      const r = Readings.list().find((x) => {
-        const t = x.waktu ? x.waktu + (x.durasi || 0) * 1000 : x.diterima;
-        return x.glukosa != null && t >= t0 && t <= t1;
+    /**
+     * Mencatat makanan yang sudah disantap. Langsung masuk riwayat.
+     * @param {Array} items  [{ n, qty, g }]
+     * @param {string|null} photo
+     * @param {number} [at]  waktu makan (ms); bawaan sekarang
+     */
+    function catat(items, photo, at) {
+      const t = Math.min(at || Date.now(), Date.now());
+      const entri = {
+        id: uid('meal'), v: 3, at: t, photo: photo || null,
+        kind: mealKind(new Date(t)).name,
+        items, nutrition: nutrition(items), status: 'done'
+      };
+      Store.update((s) => {
+        s.meals.unshift(entri);
+        s.meals.sort((a, b) => b.at - a.at);
+        s.meals = s.meals.slice(0, 300);
       });
-      return r ? r.glukosa : null;
+      return entri;
     }
 
-    function createNyata(items, photo) {
-      const now = Date.now();
-      const meal = {
-        id: uid('meal'), v: 2, at: now, photo: photo || null,
-        kind: mealKind(new Date(now)).name,
-        items, nutrition: nutrition(items), speed: 1,
-        baseline: null, status: 'running', sumber: 'teleband',
-        points: TITIK_NYATA.map((t) => Object.assign({ value: null, done: false }, t))
-      };
-      // Pengukuran yang baru saja dilakukan sebelum sesi dibuat ikut dipakai
-      // sebagai titik "sebelum makan".
-      const awal = glukosaAlatAntara(now + meal.points[0].dari, now);
-      if (awal != null) Object.assign(meal.points[0], { value: awal, done: true });
-      meal.baseline = meal.points[0].value;
-      Store.update((s) => { s.activeMeal = meal; });
-      return meal;
+    /** Menghapus satu catatan dari riwayat (juga dari salinan server, bila bisa). */
+    function hapus(id) {
+      Store.update((s) => { s.meals = s.meals.filter((m) => m.id !== id); });
+      if (TC.PatientsDB && TC.PatientsDB.hapusSesi) {
+        TC.PatientsDB.hapusSesi(id).catch(() => { /* luring / belum dimigrasi */ });
+      }
     }
 
     /**
-     * Dipanggil TeleBandLink setiap kali hasil ukur berisi glukosa masuk.
-     * Mengisi titik sesi berjalan yang jendelanya memuat waktu `t`.
+     * Sesi berjalan peninggalan versi lama dipindahkan ke riwayat — makanannya
+     * memang sudah disantap. Mengembalikan true bila ada yang berubah.
      */
-    function isiGlukosa(nilai, t) {
+    function tick() {
       const m = Store.state.activeMeal;
-      if (!m || m.v !== 2 || m.status !== 'running' || nilai == null) return false;
-      // Titik yang sempat ditandai terlewat masih boleh terisi selama sesi
-      // berjalan: hasil ukur bisa tiba terlambat lewat sinkronisasi alat,
-      // tetapi waktunya tetap waktu pengukuran di alat.
-      const p = m.points.find((x) => (!x.done || x.terlewat) &&
-        t >= m.at + x.dari && t <= m.at + x.sampai);
-      if (!p) return false;
-      p.value = Math.round(nilai);
-      p.done = true;
-      p.terlewat = false;
-      if (p.key === 'baseline') m.baseline = p.value;
-      if (m.points.every((x) => x.done)) finish(m);
-      else Store.save();
+      if (!m) return false;
+      Store.update((s) => {
+        const e = Object.assign({}, m, { status: 'done' });
+        s.meals.unshift(e);
+        s.meals.sort((a, b) => b.at - a.at);
+        s.activeMeal = null;
+      });
       return true;
     }
 
-    /** Status satu titik untuk tampilan: 'terisi' | 'terlewat' | 'sekarang' | 'nanti'. */
-    function statusTitik(m, p, now) {
-      if (p.done) return p.value != null ? 'terisi' : 'terlewat';
-      const t = now || Date.now();
-      if (m.v !== 2) return 'nanti';
-      return t >= m.at + p.dari ? 'sekarang' : 'nanti';
-    }
-
-    /** Membuat sesi baru; titik pengukuran dipercepat pada mode demo. */
-    function create(items, photo, opts) {
-      if (!TC.FITUR.simulasi) return createNyata(items, photo);
-      opts = opts || {};
-      const now = Date.now();
-      const n = nutrition(items);
-      const speed = Store.state.settings.fastDemo ? 60 : 1; // 2 jam -> 2 menit
-      const baseline = Math.round(clamp(Vitals.state.glucose + rnd(-4, 4), 78, 108));
-      const delta = predictDelta(n, items);
-
-      const meal = {
-        id: uid('meal'), at: now, photo: photo || null,
-        kind: mealKind(new Date(now)).name,
-        items, nutrition: n, confidence: opts.confidence || 82,
-        speed, baseline, predictedDelta: delta,
-        status: 'running',
-        points: [
-          { key: 'baseline', label: 'Baseline', offset: -300000, value: baseline, done: true },
-          { key: 't0', label: 'Selesai makan', offset: 0, value: null, done: false },
-          { key: 'h1', label: '+1 jam', offset: HOUR, value: null, done: false },
-          { key: 'h2', label: '+2 jam', offset: 2 * HOUR, value: null, done: false }
-        ]
-      };
-      Store.update((s) => { s.activeMeal = meal; });
-      tick();
-      return meal;
-    }
-
-    /** Waktu nyata (ms) sebuah titik akan tiba. */
-    function pointDue(meal, p) {
-      return meal.at + p.offset / meal.speed;
-    }
-
-    /** Nilai glukosa pada sebuah titik, mengikuti kurva respons. */
-    function valueAt(meal, offsetMs) {
-      const h = offsetMs / HOUR;
-      const d = meal.predictedDelta;
-      if (h <= 0) return meal.baseline + Math.round(rnd(2, 8));
-      // kurva naik cepat lalu turun perlahan (gamma sederhana)
-      const shape = Math.pow(h / 1.0, 1.6) * Math.exp(1.6 * (1 - h / 1.0));
-      return Math.round(meal.baseline + d * clamp(shape, 0, 1.05) + rnd(-3, 3));
-    }
-
-    /** Memperbarui titik yang waktunya sudah lewat. */
-    function tick() {
-      const m = Store.state.activeMeal;
-      if (!m || m.status !== 'running') return;
-      let changed = false;
-      const now = Date.now();
-      if (m.v === 2) {
-        // Jendela yang sudah lewat tanpa pengukuran: terlewat, tanpa angka.
-        m.points.forEach((p) => {
-          if (!p.done && now > m.at + p.sampai) { p.done = true; p.terlewat = true; changed = true; }
-        });
-        if (changed) {
-          if (m.points.every((p) => p.done)) finish(m);
-          else Store.save();
-        }
-        return changed;
-      }
-      m.points.forEach((p) => {
-        if (p.done || p.offset < 0) return;
-        if (now >= pointDue(m, p)) {
-          p.value = valueAt(m, p.offset);
-          p.done = true;
-          changed = true;
-        }
-      });
-      if (changed) {
-        if (m.points.every((p) => p.done)) finish(m);
-        else Store.save();
-      }
-      return changed;
-    }
-
-    function finish(m) {
-      if (m.v === 2) return finishNyata(m);
-      const measured = m.points.filter((p) => p.done && p.value != null);
-      const peakP = measured.reduce((a, b) => (b.value > a.value ? b : a), measured[0]);
-      m.peak = peakP.value;
-      m.peakAt = peakP.label;
-      m.delta = m.peak - m.baseline;
-      m.recovery = m.delta > 45 ? 3 : m.delta > 28 ? 2 : 1.5;
-      m.category = m.delta > 45 ? 'Tinggi' : m.delta > 28 ? 'Sedang' : 'Landai';
-      m.status = 'done';
-      m.doneAt = Date.now();
-      Store.update((s) => {
-        s.meals.unshift(m);
-        s.meals = s.meals.slice(0, 60);
-        s.activeMeal = null;
-      });
-      Store.notify('Sesi selesai',
-        `${m.kind} · puncak ${m.peak} mg/dL (+${m.delta} dari baseline)`, 'ok');
-    }
-
-    /**
-     * Ringkasan dari titik yang benar-benar terukur. Kenaikan hanya dihitung
-     * bila titik "sebelum makan" DAN minimal satu titik sesudah makan ada;
-     * selain itu sesi tetap tersimpan (gizinya nyata) tetapi tanpa angka kurva.
-     */
-    function finishNyata(m) {
-      const base = m.points[0].value;
-      const sesudah = m.points.slice(1).filter((p) => p.value != null);
-      m.baseline = base;
-      if (base != null && sesudah.length) {
-        const puncak = sesudah.reduce((a, b) => (b.value > a.value ? b : a));
-        m.peak = puncak.value;
-        m.peakAt = puncak.label;
-        m.delta = m.peak - base;
-        m.category = m.delta > 45 ? 'Tinggi' : m.delta > 28 ? 'Sedang' : 'Landai';
-        const h2 = m.points[2].value;
-        // "Pulih dalam 2 jam" hanya bisa dinilai bila titik +2 jam terukur.
-        m.pulih2jam = h2 == null ? null : h2 - base <= 10;
-      } else {
-        m.peak = null; m.peakAt = null; m.delta = null; m.pulih2jam = null;
-        m.category = 'Data kurang';
-      }
-      m.recovery = null;
-      m.status = 'done';
-      m.doneAt = Date.now();
-      Store.update((s) => {
-        s.meals.unshift(m);
-        s.meals = s.meals.slice(0, 60);
-        s.activeMeal = null;
-      });
-      Store.notify('Sesi selesai', m.delta != null
-        ? `${m.kind} · puncak ${m.peak} mg/dL (+${m.delta} dari sebelum makan) · estimasi TeleBand`
-        : `${m.kind} · gizi tercatat; titik gula darah belum cukup untuk menghitung kenaikan`, 'ok');
-    }
-
-    function cancel() {
-      Store.update((s) => { s.activeMeal = null; });
-    }
-
-    /** Glukosa saat ini, dipengaruhi sesi yang sedang berjalan. */
+    /** Glukosa simulasi (hanya bila TC.FITUR.simulasi menyala). */
     function currentGlucose(prev) {
-      const m = Store.state.activeMeal;
-      if (!m) return clamp(lerp(prev, 92 + rnd(-5, 5), 0.06), 72, 130);
-      const elapsed = (Date.now() - m.at) * m.speed;
-      const target = valueAt(m, Math.max(0, elapsed));
-      return clamp(lerp(prev, target, 0.25), 65, 260);
+      return clamp(lerp(prev, 92 + rnd(-5, 5), 0.06), 72, 130);
     }
 
-    /** Ringkasan hari ini dari seluruh sesi. */
-    /** @param {Array} [meals] @param {object} [aktif]  bawaan: data pengguna ini. */
-    function today(meals, aktif) {
-      const start = new Date(); start.setHours(0, 0, 0, 0);
-      // Sesi yang masih berjalan ikut dihitung: makanannya sudah disantap.
-      // Dulu sesi baru masuk hitungan setelah selesai (±2 jam kemudian),
-      // sehingga asupan hari ini tampak lebih kecil dari kenyataannya.
-      const active = meals ? aktif : Store.state.activeMeal;
-      const list = (meals || Store.state.meals).concat(active ? [active] : [])
-        .filter((m) => m.at >= start.getTime());
-      const t = { kcal: 0, carb: 0, protein: 0, fat: 0, count: list.length };
+    const awalHari = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+    /** Jumlah gizi satu hari (bawaan hari ini) dari daftar catatan. */
+    function jumlahHari(meals, hari) {
+      const start = awalHari(hari == null ? Date.now() : hari);
+      const list = meals.filter((m) => m.at >= start && m.at < start + 86400000);
+      const t = { kcal: 0, carb: 0, protein: 0, fat: 0, sugar: 0, fiber: 0, count: list.length };
       list.forEach((m) => {
-        t.kcal += m.nutrition.kcal; t.carb += m.nutrition.carb;
-        t.protein += m.nutrition.protein; t.fat += m.nutrition.fat;
+        const n = m.nutrition || {};
+        ['kcal', 'carb', 'protein', 'fat', 'sugar', 'fiber'].forEach((k) => { t[k] += n[k] || 0; });
       });
       Object.keys(t).forEach((k) => { t[k] = Math.round(t[k]); });
       return t;
     }
 
+    /** Ringkasan hari ini. Argumen `aktif` diabaikan (dipertahankan untuk pemanggil lama). */
+    function today(meals) {
+      return jumlahHari(meals || Store.state.meals);
+    }
+
     /**
-     * Capaian target gizi hari ini (Profil → Tujuan Kesehatan).
+     * Capaian target gizi satu hari.
      * Satu butir per zat gizi: { key, label, unit, nilai, target, pct, status, teks }.
      * status: 'sisa' (< 90% target), 'tercapai' (90–110%), 'lebih' (> 110%).
      * Rentang ±10% dipakai karena porsi rumahan tidak pernah persis.
@@ -909,14 +761,8 @@
       { key: 'protein', label: 'Protein', unit: 'g' },
       { key: 'fat', label: 'Lemak', unit: 'g' }
     ];
-    /**
-     * Tanpa argumen: data pengguna ini. Admin memanggilnya dengan data pasien
-     * dari server (riwayat sesi, sesi berjalan, target).
-     */
-    function progresTarget(meals, aktif, targets) {
-      const t = meals ? today(meals, aktif) : today();
-      const target = targets || Store.profile().targets;
-      const butir = ZAT.map((z) => {
+    function butirTarget(t, target) {
+      return ZAT.map((z) => {
         const nilai = t[z.key], tg = target[z.key] || 0;
         const pct = tg ? nilai / tg : 0;
         const status = pct > 1.1 ? 'lebih' : pct >= 0.9 ? 'tercapai' : 'sisa';
@@ -925,18 +771,106 @@
           : 'sisa ' + Math.round(tg - nilai) + ' ' + z.unit;
         return Object.assign({ nilai, target: tg, pct, status, teks }, z);
       });
+    }
+    /**
+     * Tanpa argumen: data pengguna ini, hari ini. Admin memanggilnya dengan
+     * data pasien dari server: progresTarget(meals, null, targets, goalId).
+     */
+    function progresTarget(meals, _aktif, targets, goalId, hari) {
+      const t = jumlahHari(meals || Store.state.meals, hari);
+      const p = Store.profile() || {};
+      const target = targets || p.targets;
+      const goal = goalId || (meals ? null : p.goal);
+      const butir = butirTarget(t, target);
       return {
-        butir, sesi: t.count,
-        tercapai: butir.filter((b) => b.status === 'tercapai').length
+        butir, sesi: t.count, total: t, goal,
+        tercapai: butir.filter((b) => b.status === 'tercapai').length,
+        saran: saranHarian(t, target, goal)
       };
     }
 
-    function peakTrend(n) {
-      return Store.state.meals.filter((m) => m.status === 'done' && m.peak != null)
-        .slice(0, n || 6).map((m) => m.peak).reverse();
+    /* ---------------- penilaian gizi per tujuan ----------------
+       Patokan per makan = target harian ÷ 3 (tiga kali makan utama).
+       Ambang per tujuan:
+         bulking / naik-massa  protein ≥ ¼ target harian per makan (min. 20 g),
+                               energi cukup untuk surplus
+         turun-berat           satu makan ≤ 40% kalori harian, protein cukup
+         gula-stabil           karbo ≤ ⅓ target ×1,2, gula ≤ 15 g, serat ≥ 5 g
+         jaga-berat            kalori 20–40% harian
+       Kalimatnya saran umum, bukan resep diet klinis. */
+    const NAMA_TUJUAN = (id) => (D.goal(id) || {}).name || 'Tujuan Anda';
+
+    /** Penilaian satu catatan makan terhadap target harian & tujuan. */
+    function nilaiMakanan(n, targets, goalId) {
+      const tg = targets || {};
+      const pct = (k) => (tg[k] ? Math.round((n[k] / tg[k]) * 100) : 0);
+      const porsi = ZAT.map((z) => Object.assign({ nilai: n[z.key], target: tg[z.key] || 0, pct: pct(z.key) }, z));
+      const catatan = [];   // { jenis: 'baik' | 'awas' | 'info', teks }
+      const sepertiga = (k) => (tg[k] || 0) / 3;
+      const goal = goalId || 'jaga-berat';
+
+      if (goal === 'bulking' || goal === 'naik-massa') {
+        const minP = Math.max(20, Math.round((tg.protein || 80) / 4));
+        catatan.push(n.protein >= minP
+          ? { jenis: 'baik', teks: `Protein ${n.protein} g sudah memadai untuk ${NAMA_TUJUAN(goal)} (patokan ≥ ${minP} g per makan).` }
+          : { jenis: 'awas', teks: `Protein ${n.protein} g masih kurang untuk ${NAMA_TUJUAN(goal)} — usahakan ≥ ${minP} g per makan (tambah telur, ayam, ikan, tempe/tahu).` });
+        catatan.push(n.kcal >= sepertiga('kcal') * 0.8
+          ? { jenis: 'baik', teks: `Energi ${n.kcal} kkal (${pct('kcal')}% kebutuhan harian) mendukung surplus kalori.` }
+          : { jenis: 'awas', teks: `Energi ${n.kcal} kkal baru ${pct('kcal')}% kebutuhan harian. Untuk surplus, tiap makan utama sekitar ${Math.round(sepertiga('kcal'))} kkal.` });
+      } else if (goal === 'turun-berat') {
+        catatan.push(n.kcal > (tg.kcal || 1700) * 0.4
+          ? { jenis: 'awas', teks: `Satu kali makan ini ${pct('kcal')}% dari batas kalori harian — terlalu besar untuk defisit. Kurangi porsi nasi atau gorengan.` }
+          : { jenis: 'baik', teks: `Energi ${n.kcal} kkal (${pct('kcal')}% harian) masih sejalan dengan defisit kalori.` });
+        catatan.push(n.protein >= sepertiga('protein') * 0.8
+          ? { jenis: 'baik', teks: `Protein ${n.protein} g membantu menjaga massa otot dan rasa kenyang.` }
+          : { jenis: 'info', teks: `Protein ${n.protein} g — tambah lauk berprotein agar lebih lama kenyang saat defisit.` });
+      } else if (goal === 'gula-stabil') {
+        catatan.push(n.carb > sepertiga('carb') * 1.2
+          ? { jenis: 'awas', teks: `Karbohidrat ${n.carb} g melebihi patokan per makan (± ${Math.round(sepertiga('carb'))} g). Kurangi nasi/tepung atau ganti dengan yang berserat.` }
+          : { jenis: 'baik', teks: `Karbohidrat ${n.carb} g masih dalam patokan per makan.` });
+        if (n.sugar > 15) catatan.push({ jenis: 'awas', teks: `Gula ${n.sugar} g cukup tinggi untuk satu kali makan — batasi minuman/kudapan manis.` });
+        catatan.push(n.fiber >= 5
+          ? { jenis: 'baik', teks: `Serat ${n.fiber} g membantu melandaikan kenaikan gula darah.` }
+          : { jenis: 'info', teks: `Serat ${n.fiber} g — tambahkan sayur agar gula darah naik lebih landai.` });
+      } else {
+        const p = pct('kcal');
+        catatan.push(p > 45
+          ? { jenis: 'awas', teks: `Satu kali makan ini ${p}% kebutuhan kalori harian — porsinya besar untuk menjaga berat.` }
+          : p < 15
+          ? { jenis: 'info', teks: `Energi ${n.kcal} kkal (${p}% harian) — tergolong camilan/porsi kecil.` }
+          : { jenis: 'baik', teks: `Energi ${n.kcal} kkal (${p}% harian) seimbang untuk satu kali makan.` });
+      }
+      return { porsi, catatan, goal };
     }
 
-    /** Mensimulasikan pengenalan makanan dari sebuah foto. */
+    /** Satu kalimat saran untuk sisa hari ini sesuai tujuan. */
+    function saranHarian(t, target, goalId) {
+      if (!target) return '';
+      const nama = NAMA_TUJUAN(goalId);
+      const sisa = (k) => Math.round((target[k] || 0) - t[k]);
+      if (!t.count) return `Belum ada makanan tercatat hari ini. Target ${nama}: ${target.kcal} kkal dan protein ${target.protein} g.`;
+      if (goalId === 'bulking' || goalId === 'naik-massa') {
+        if (sisa('kcal') > 0 || sisa('protein') > 0) {
+          return `Untuk ${nama}, masih kurang ${Math.max(0, sisa('kcal'))} kkal dan protein ${Math.max(0, sisa('protein'))} g hari ini.`;
+        }
+        return `Target surplus dan protein ${nama} hari ini sudah terpenuhi.`;
+      }
+      if (goalId === 'turun-berat') {
+        return sisa('kcal') >= 0
+          ? `Sisa jatah kalori hari ini ${sisa('kcal')} kkal untuk tetap defisit.`
+          : `Asupan sudah melewati batas kalori ${-sisa('kcal')} kkal — defisit hari ini tidak tercapai.`;
+      }
+      if (goalId === 'gula-stabil') {
+        return sisa('carb') >= 0
+          ? `Sisa karbohidrat hari ini ${sisa('carb')} g. Pilih yang berserat agar gula darah tetap stabil.`
+          : `Karbohidrat sudah lebih ${-sisa('carb')} g dari target — pilih lauk dan sayur untuk sisa hari ini.`;
+      }
+      return sisa('kcal') >= 0
+        ? `Sisa kebutuhan energi hari ini ${sisa('kcal')} kkal.`
+        : `Asupan energi lebih ${-sisa('kcal')} kkal dari kebutuhan hari ini.`;
+    }
+
+    /** Mensimulasikan pengenalan makanan dari sebuah foto (hanya mode simulasi). */
     function recognize() {
       const combo = pick(D.FOOD_COMBOS);
       const items = combo.map((n) => {
@@ -949,8 +883,8 @@
     }
 
     return {
-      create, tick, cancel, finish, nutrition, predictDelta, valueAt, isiGlukosa, statusTitik,
-      pointDue, currentGlucose, today, progresTarget, peakTrend, recognize, mealKind
+      catat, create: catat, hapus, tick, nutrition, predictDelta, currentGlucose,
+      today, jumlahHari, progresTarget, nilaiMakanan, saranHarian, recognize, mealKind
     };
   })();
 
@@ -1550,10 +1484,6 @@
       }
       const ok = await Readings.terima(r, i || info);
       if (ok) ubahPerangkat({ lastSync: Date.now() });
-      // Glukosa hasil ukur mengisi titik sesi makan yang sedang berjalan.
-      if (r.glukosa != null) {
-        Meals.isiGlukosa(r.glukosa, r.waktuValid ? (r.epoch + r.durasi) * 1000 : Date.now());
-      }
       emit();
       return ok;
     }
