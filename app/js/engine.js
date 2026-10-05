@@ -1283,8 +1283,23 @@
     let mengirim = false;
 
     const kunci = (serial, id, epoch) => serial + ':' + id + ':' + epoch;
-    const semua = () => Store.state.readings || [];
+    // Tiap hasil ditandai `pemilik` (id akun lokal). Satu peramban bisa dipakai
+    // bergantian beberapa akun; tanpa tanda ini hasil akun sebelumnya ikut
+    // tampil setelah keluar-masuk. Logout tidak menghapus apa pun, karena
+    // hasil yang belum terkirim ke server tidak boleh hilang.
+    const saya = () => { const u = Store.user(); return u ? u.id : null; };
+    const semua = () => {
+      const me = saya();
+      return me ? (Store.state.readings || []).filter((x) => x.pemilik === me) : [];
+    };
     const cari = (k) => semua().find((x) => x.kunci === k) || null;
+
+    /** Hasil peninggalan versi lama (belum bertanda) diakui akun yang sedang masuk. */
+    function adopsi() {
+      const me = saya();
+      if (!me || !(Store.state.readings || []).some((x) => !x.pemilik)) return;
+      Store.update((s) => { s.readings.forEach((x) => { if (!x.pemilik) x.pemilik = me; }); });
+    }
 
     /** Terbaru lebih dulu; hasil tanpa stempel waktu valid memakai waktu diterima. */
     function list() {
@@ -1292,8 +1307,9 @@
     }
 
     function tandai(k, patch) {
+      const me = saya();
       Store.update((s) => {
-        const x = (s.readings || []).find((r) => r.kunci === k);
+        const x = (s.readings || []).find((r) => r.kunci === k && r.pemilik === me);
         if (x) Object.assign(x, patch);
       });
     }
@@ -1328,13 +1344,14 @@
      * sudah ada di server — pemanggil memakainya untuk memutuskan HAPUS.
      */
     async function terima(r, info) {
+      adopsi();
       const k = kunci(info.serial, r.id, r.epoch);
       let x = cari(k);
       if (x && x.tersinkron) return true;          // kiriman ulang dari alat
 
       if (!x) {
         x = {
-          kunci: k, serial: info.serial, unit: info.unit, firmware: info.firmware,
+          kunci: k, pemilik: saya(), serial: info.serial, unit: info.unit, firmware: info.firmware,
           idAlat: r.id, epoch: r.epoch, waktuValid: r.waktuValid,
           waktu: r.waktuValid ? r.epoch * 1000 : null,
           durasi: r.durasi, bpm: r.bpm, spo2: r.spo2,
@@ -1383,7 +1400,52 @@
 
     const belumTerkirim = () => semua().filter((x) => !x.tersinkron).length;
 
-    return { list, terima, kirimTertunda, belumTerkirim, keBaris, kunci };
+    /** Kebalikan keBaris: baris device_readings → salinan lokal. */
+    function dariBaris(b) {
+      const waktu = b.measured_at ? new Date(b.measured_at).getTime() : null;
+      return {
+        kunci: kunci(b.device_serial, b.device_result_id, b.device_epoch), pemilik: saya(),
+        serial: b.device_serial, unit: b.device_unit, firmware: b.firmware,
+        idAlat: b.device_result_id, epoch: b.device_epoch,
+        waktuValid: !!b.time_valid, waktu: b.time_valid ? waktu : null,
+        durasi: b.duration_s, bpm: b.bpm, spo2: b.spo2,
+        glukosa: b.glucose_est, sis: b.sys_est, dia: b.dia_est,
+        sumber: b.source, flag: b.flags,
+        diterima: b.received_at ? new Date(b.received_at).getTime() : (waktu || Date.now()),
+        tersinkron: true, galat: null
+      };
+    }
+
+    /**
+     * Menarik hasil ukur akun ini dari server ke salinan lokal. Tanpa ini,
+     * hasil yang diukur lewat perangkat lain (mis. HP) tidak pernah muncul
+     * di peramban ini — layar Analisis & Riwayat hanya membaca salinan lokal.
+     * Mengembalikan jumlah hasil baru.
+     */
+    let menarik = null;
+    function tarik() {
+      if (menarik) return menarik;
+      if (!saya() || !TC.FB || !TC.FB.ready || !TC.ReadingsDB) return Promise.resolve(0);
+      menarik = TC.ReadingsDB.daftar(null, MAKS_LOKAL).then((rows) => {
+        const ada = new Set(semua().map((x) => x.kunci));
+        const baru = (rows || []).map(dariBaris).filter((x) => !ada.has(x.kunci));
+        if (!baru.length) return 0;
+        Store.update((s) => {
+          s.readings = (s.readings || []).concat(baru);
+          if (s.readings.length > MAKS_LOKAL) {
+            // Yang belum terkirim tidak pernah dibuang; sisanya yang terlama.
+            const aman = s.readings.filter((y) => y.tersinkron)
+              .sort((a, b) => (b.waktu || b.diterima) - (a.waktu || a.diterima));
+            const tertunda = s.readings.filter((y) => !y.tersinkron);
+            s.readings = tertunda.concat(aman.slice(0, Math.max(0, MAKS_LOKAL - tertunda.length)));
+          }
+        });
+        return baru.length;
+      }).finally(() => { menarik = null; });
+      return menarik;
+    }
+
+    return { list, terima, kirimTertunda, belumTerkirim, keBaris, kunci, tarik, adopsi };
   })();
 
   /* ============================================================

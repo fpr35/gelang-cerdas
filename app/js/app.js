@@ -431,6 +431,7 @@
     TC.TeleBandLink.pulihkan();
     TC.Vitals.start();
     if (Store.user()) TC.Devices.startBuffer();
+    TC.Readings.adopsi();
     // Hasil TeleBand yang dulu gagal terkirim dicoba lagi saat aplikasi dibuka.
     if (Store.user() && TC.Readings.belumTerkirim()) TC.Readings.kirimTertunda().catch(() => {});
 
@@ -479,10 +480,25 @@
       });
     });
 
+    // Hasil ukur yang dikirim perangkat lain (akun yang sama) ditarik dari
+    // server: saat sesi Supabase siap dan setiap kali tab kembali aktif.
+    // Sesi anonim dilewati — user_id-nya berbeda di tiap perangkat.
+    let tarikTerakhir = 0;
+    function tarikHasil(paksa) {
+      const fb = TC.FB;
+      if (!fb || !fb.uid || fb.anonymous || !Store.user() || !Store.is('pasien')) return;
+      if (!paksa && Date.now() - tarikTerakhir < 30000) return;
+      tarikTerakhir = Date.now();
+      TC.Readings.tarik().then((n) => { if (n) Router.render(); })
+        .catch((e) => console.warn('[TeleCare] gagal menarik hasil ukur:', (e && e.message) || e));
+    }
+    if (TC.FB) TC.FB.onStatus(() => tarikHasil(false));
+
     // Menahan sesi tetap hidup saat tab kembali aktif.
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         if (TC.Meals.tick()) Router.render();
+        tarikHasil(false);
       }
     });
 
