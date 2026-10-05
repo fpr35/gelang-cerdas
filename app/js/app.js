@@ -145,36 +145,87 @@
     return null;
   }
 
-  /* ---------------- SINKRONISASI DATA PASIEN ----------------
-     Hanya yang berubah yang dikirim: tanda tangan (JSON) profil dan tiap
-     catatan makanan dibandingkan dengan kiriman terakhir.
-     Foto makanan tidak pernah dikirim. Gagal (luring, migrasi belum ada)
-     dicoba lagi pada penyimpanan berikutnya. */
+  /* ---------------- SINKRONISASI DATA PASIEN (dua arah) ----------------
+     KIRIM: hanya yang berubah — tanda tangan profil dan tiap catatan makanan
+       dibandingkan dengan yang terakhir tersinkron. Foto tidak pernah dikirim.
+     TARIK: profil dan catatan makanan akun ini diambil dari server (tabel
+       patients & patient_meals), supaya yang dicatat di HP juga tampil di
+       laptop. Dulu hanya dikirim, tidak pernah ditarik kembali.
+
+     `per.sesi[id]` = catatan makanan yang PERNAH tersinkron (terkirim atau
+     tertarik). Itu yang membedakan "baru di sini" dari "sudah dihapus di
+     perangkat lain":
+       ada di server, tidak di sini, pernah tersinkron → dihapus di sini: hapus juga di server
+       ada di server, tidak di sini, belum pernah      → baru dari perangkat lain: ambil
+       ada di sini, tidak di server, pernah tersinkron → dihapus di perangkat lain: buang
+       ada di sini, tidak di server, belum pernah      → baru di sini: kirim
+     Kirim dan tarik berjalan bergantian lewat satu antrean. */
   const sinkronPasien = (function () {
     const KUNCI = 'telecare.sinkron.v1';
-    let timer = null, jalan = false;
+    const BATAS_TARIK = 300;        // sama dengan batas riwayat makanan lokal
+    const MAKS_CATATAN = 400;
+    let timer = null;
+    let antre = Promise.resolve();
+    // Akun Supabase yang datanya sudah pernah ditarik pada pemuatan ini.
+    // Sebelum itu perangkat TIDAK boleh mengirim: profil kosong perangkat
+    // baru akan menimpa profil yang benar di server.
+    const sudahTarik = {};
     const baca = () => { try { return JSON.parse(localStorage.getItem(KUNCI) || '{}'); } catch (e) { return {}; } };
     const tulis = (x) => { try { localStorage.setItem(KUNCI, JSON.stringify(x)); } catch (e) { /* abaikan */ } };
+
+    function antrekan(fn) {
+      const p = antre.then(fn, fn);
+      antre = p.catch(() => {});
+      return p;
+    }
+
+    /** JSON berkunci terurut — jsonb Postgres tidak mempertahankan urutan kunci. */
+    function tandaTangan(x) {
+      if (Array.isArray(x)) return '[' + x.map(tandaTangan).join(',') + ']';
+      if (x && typeof x === 'object') {
+        return '{' + Object.keys(x).filter((k) => x[k] !== undefined).sort()
+          .map((k) => JSON.stringify(k) + ':' + tandaTangan(x[k])).join(',') + '}';
+      }
+      return JSON.stringify(x === undefined ? null : x);
+    }
 
     function tanpaFoto(m) {
       if (!m) return null;
       const o = Object.assign({}, m);
       delete o.photo;
-      o.adaFoto = !!m.photo;
+      // Catatan yang tertarik dari server sudah tanpa foto; tandanya dipertahankan.
+      o.adaFoto = !!m.photo || !!m.adaFoto;
       return o;
     }
 
-    async function jalankan() {
+    /** Sesi Supabase harus milik akun lokal yang sedang masuk (akun Google). */
+    function akunCocok(fb, u) {
+      return !(u && u.googleUid && fb && fb.uid !== u.googleUid);
+    }
+
+    function sesiPasien() {
       const fb = TC.FB, u = Store.user();
-      if (jalan || !fb || !fb.uid || !u || !Store.is('pasien')) return;
-      jalan = true;
+      if (!fb || !fb.uid || !u || !Store.is('pasien') || !akunCocok(fb, u) || !TC.PatientsDB) return null;
+      return { fb, u };
+    }
+
+    function catatanAkun(catat, uid) {
+      return (catat[uid] = catat[uid] || { profil: '', hari: '', sesi: {} });
+    }
+
+    async function kirim() {
+      const s = sesiPasien();
+      if (!s) return;
+      const { fb, u } = s;
+      if (!fb.anonymous && !sudahTarik[fb.uid]) return;   // tunggu tarikan pertama
       try {
         const catat = baca();
-        const per = catat[fb.uid] = catat[fb.uid] || { profil: '', hari: '', sesi: {} };
+        const per = catatanAkun(catat, fb.uid);
         const p = Store.profile();
         const profile = {
           gender: p.gender || null, age: p.age || null, height: p.height || null, weight: p.weight || null,
-          aktivitas: p.aktivitas || null, goal: p.goal, targets: p.targets, targetManual: !!p.targetManual
+          aktivitas: p.aktivitas || null, goal: p.goal, targets: p.targets, targetManual: !!p.targetManual,
+          nickname: p.nickname || null, diubah: p.diubah || 0
         };
         // Sesi makan berjalan sudah dihapus; kolomnya dikosongkan agar admin
         // tidak melihat sisa sesi lama.
@@ -188,25 +239,124 @@
           per.profil = tt; per.hari = hari;
         }
         const berubah = Store.state.meals.slice(0, 60).map(tanpaFoto)
-          .filter((m) => per.sesi[m.id] !== JSON.stringify(m));
+          .filter((m) => per.sesi[m.id] !== tandaTangan(m));
         if (berubah.length) {
           await TC.PatientsDB.simpanSesi(berubah);
-          berubah.forEach((m) => { per.sesi[m.id] = JSON.stringify(m); });
-          // Batasi catatan tanda tangan agar localStorage tidak membengkak.
-          const ids = Object.keys(per.sesi);
-          if (ids.length > 120) ids.slice(0, ids.length - 120).forEach((k) => { delete per.sesi[k]; });
+          berubah.forEach((m) => { per.sesi[m.id] = tandaTangan(m); });
         }
+        rampingkan(per);
         tulis(catat);
       } catch (e) {
         console.warn('[TeleCare] sinkron data pasien tertunda:', (e && e.message) || e);
-      } finally { jalan = false; }
+      }
+    }
+
+    /** Batasi catatan tanda tangan agar localStorage tidak membengkak. */
+    function rampingkan(per) {
+      const ids = Object.keys(per.sesi);
+      if (ids.length > MAKS_CATATAN) ids.slice(0, ids.length - MAKS_CATATAN).forEach((k) => { delete per.sesi[k]; });
+    }
+
+    /**
+     * Profil server dipakai bila lebih baru (`diubah`), atau — untuk profil
+     * dari versi lama tanpa `diubah` — bila profil server lengkap sedangkan
+     * profil di perangkat ini belum (perangkat baru).
+     */
+    function pakaiProfilServer(sv, lok) {
+      const tS = +sv.diubah || 0, tL = +lok.diubah || 0;
+      const lengkap = (p) => !TC.Gizi.kurang(p).length;
+      return tS > tL || (!tS && !tL && lengkap(sv) && !lengkap(lok));
+    }
+
+    /**
+     * Menarik profil & catatan makanan akun ini dari server.
+     * @returns {{profil: boolean, makanan: number}|null} null = tidak dijalankan
+     */
+    async function tarik() {
+      const s = sesiPasien();
+      if (!s || s.fb.anonymous) return null;
+      const uid = s.fb.uid, idLokal = s.u.id;
+      const [baris, daftar] = await Promise.all([
+        TC.PatientsDB.satu(uid), TC.PatientsDB.sesi(uid, BATAS_TARIK)
+      ]);
+      // Akun berganti selagi menunggu jawaban: jangan tulis ke akun yang salah.
+      const kini = Store.user();
+      if (!kini || kini.id !== idLokal || !TC.FB || TC.FB.uid !== uid) return null;
+
+      const catat = baca();
+      const per = catatanAkun(catat, uid);
+      const hasil = { profil: false, makanan: 0 };
+
+      const sv = baris && baris.profile;
+      if (sv && pakaiProfilServer(sv, Store.profile())) {
+        Store.update((st) => {
+          const p = st.profile;
+          ['gender', 'age', 'height', 'weight', 'aktivitas', 'goal'].forEach((k) => {
+            if (sv[k] !== undefined) p[k] = sv[k];
+          });
+          p.targetManual = !!sv.targetManual;
+          if (sv.targets) p.targets = Object.assign({}, p.targets, sv.targets);
+          if (sv.nickname) p.nickname = sv.nickname;
+          p.diubah = +sv.diubah || 0;
+          TC.Gizi.terapkan(p);
+        });
+        hasil.profil = true;
+      }
+
+      const server = new Map();
+      (daftar || []).forEach((m) => { if (m && m.id) server.set(m.id, m); });
+      // Bila jumlahnya mencapai batas, server mungkin punya yang lebih tua:
+      // hanya catatan dalam rentang waktu yang terambil yang boleh dianggap terhapus.
+      const batasAt = server.size >= BATAS_TARIK
+        ? Math.min.apply(null, Array.from(server.values()).map((m) => m.at || 0)) : -Infinity;
+      const lokal = new Map(Store.state.meals.map((m) => [m.id, m]));
+      const tambah = [], buang = new Set(), hapusLagi = [];
+      // Tanda tangan dihitung persis seperti saat kirim (tanpaFoto), supaya
+      // catatan yang baru tertarik tidak dianggap berubah lalu diunggah ulang.
+      server.forEach((m, id) => {
+        if (lokal.has(id)) { if (!(id in per.sesi)) per.sesi[id] = tandaTangan(tanpaFoto(m)); }
+        else if (id in per.sesi) hapusLagi.push(id);
+        else { tambah.push(m); per.sesi[id] = tandaTangan(tanpaFoto(m)); }
+      });
+      lokal.forEach((m, id) => {
+        if (!server.has(id) && (id in per.sesi) && (m.at || 0) >= batasAt) buang.add(id);
+      });
+      if (tambah.length || buang.size) {
+        Store.update((st) => {
+          st.meals = st.meals.filter((m) => !buang.has(m.id)).concat(tambah)
+            .sort((a, b) => b.at - a.at).slice(0, 300);
+        });
+        buang.forEach((id) => { delete per.sesi[id]; });
+        hasil.makanan = tambah.length + buang.size;
+      }
+      for (const id of hapusLagi) {
+        try { await TC.PatientsDB.hapusSesi(id); delete per.sesi[id]; }
+        catch (e) { /* dicoba lagi pada tarikan berikutnya */ }
+      }
+      rampingkan(per);
+      tulis(catat);
+      sudahTarik[uid] = true;
+      return hasil;
+    }
+
+    function jadwalkan(ms) {
+      clearTimeout(timer);
+      timer = setTimeout(() => { antrekan(kirim); }, ms || 0);
     }
 
     return {
-      jadwalkan(ms) { clearTimeout(timer); timer = setTimeout(jalankan, ms || 0); },
-      jalankan
+      jadwalkan,
+      /** Tarik lalu (bila berhasil) kirim perubahan lokal yang tertunda. */
+      tarik() {
+        return antrekan(tarik).then((h) => {
+          if (h) jadwalkan(0);
+          return h;
+        });
+      },
+      akunCocok
     };
   })();
+  TC.SinkronPasien = sinkronPasien;
 
   /* ---------------- KERANGKA ---------------- */
   function applyChrome(opts) {
@@ -484,19 +634,51 @@
       });
     });
 
-    // Hasil ukur yang dikirim perangkat lain (akun yang sama) ditarik dari
-    // server: saat sesi Supabase siap dan setiap kali tab kembali aktif.
+    // Data yang dicatat perangkat lain (akun yang sama) ditarik dari server —
+    // hasil ukur TeleBand, profil & target gizi, dan catatan makanan: saat
+    // sesi Supabase siap, saat berpindah layar, dan saat tab kembali aktif.
     // Sesi anonim dilewati — user_id-nya berbeda di tiap perangkat.
     let tarikTerakhir = 0;
     function tarikHasil(paksa) {
-      const fb = TC.FB;
-      if (!fb || !fb.uid || fb.anonymous || !Store.user() || !Store.is('pasien')) return;
+      const fb = TC.FB, u = Store.user();
+      if (!fb || !fb.uid || fb.anonymous || !u || !Store.is('pasien')) return;
+      if (!sinkronPasien.akunCocok(fb, u)) return;
       if (!paksa && Date.now() - tarikTerakhir < 30000) return;
       tarikTerakhir = Date.now();
-      TC.Readings.tarik().then((n) => { if (n) Router.render(); })
-        .catch((e) => console.warn('[TeleCare] gagal menarik hasil ukur:', (e && e.message) || e));
+      const ukur = TC.Readings.tarik().catch((e) => {
+        console.warn('[TeleCare] gagal menarik hasil ukur:', (e && e.message) || e);
+        return 0;
+      });
+      const data = sinkronPasien.tarik().catch((e) => {
+        console.warn('[TeleCare] gagal menarik profil & catatan makanan:', (e && e.message) || e);
+        return null;
+      });
+      Promise.all([ukur, data]).then(([n, h]) => {
+        if (!n && !(h && (h.profil || h.makanan))) return;
+        segarkanSetelahTarik(h);
+      });
     }
     if (TC.FB) TC.FB.onStatus(() => tarikHasil(false));
+
+    /**
+     * Menggambar ulang setelah data server masuk. Layar formulir tidak
+     * digambar ulang — isian yang sedang diketik akan hilang. Di /lengkapi
+     * (perangkat baru), profil lengkap dari server berarti langkah itu
+     * tidak perlu diulang.
+     */
+    function segarkanSetelahTarik(h) {
+      const path = Router.current.path;
+      if (path === '/lengkapi' && h && h.profil) {
+        if (!TC.Gizi.kurang(Store.profile()).length) {
+          toast('Profil Anda dipulihkan dari akun.');
+          Router.navigate('/home', true);
+          return;
+        }
+      }
+      const FORMULIR = ['/profil/pribadi', '/profil/tujuan', '/sesi/hasil', '/sesi/kamera'];
+      if (FORMULIR.indexOf(path) !== -1) return;
+      Router.render();
+    }
 
     // Menahan sesi tetap hidup saat tab kembali aktif.
     document.addEventListener('visibilitychange', () => {

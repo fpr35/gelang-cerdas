@@ -212,7 +212,11 @@ window.TC = window.TC || {};
       // pengguna mengetik targetnya sendiri — perhitungan tidak menimpanya.
       targets: { kcal: 2000, carb: 250, protein: 60, fat: 65 },
       targetManual: false,
-      bpCal: null                  // { sys, dia, at }
+      bpCal: null,                 // { sys, dia, at }
+      // Kapan pengguna terakhir MENGUBAH profilnya sendiri (ms). Penentu
+      // versi mana yang menang saat profil server digabung (lihat app.js).
+      // Tidak diisi oleh perhitungan otomatis maupun pembuatan akun.
+      diubah: 0
     },
     // turn: { urls, username, credential } — server TURN pilihan pengguna,
     // menimpa bawaan di app/js/rtc-config.js. Lihat Pengaturan → Panggilan.
@@ -221,6 +225,47 @@ window.TC = window.TC || {};
 
   let state = defaults();
 
+  /* ---------------- DATA PER AKUN ----------------
+     Satu peramban bisa dipakai bergantian beberapa akun. Data pribadi di
+     bawah ini dulu satu untuk seluruh peramban, sehingga akun kedua melihat
+     (dan ikut mengunggah atas namanya) profil serta makanan akun pertama.
+     Kini `state.profile`/`meals`/... selalu milik `state.pemilikData`;
+     milik akun lain diparkir di `state.dataAkun[userId]` dan ditukar saat
+     sesi berganti. Layar tetap membaca state.profile/state.meals seperti biasa.
+     Keluar tidak memindahkan apa pun — data tetap milik akun itu sampai
+     akun LAIN masuk. */
+  const DATA_PRIBADI = ['profile', 'meals', 'activeMeal', 'notifications'];
+  const PARKIR_LAMA = '_tanpaPemilik';
+
+  function sesuaikanPemilik() {
+    const uid = state.session ? state.session.userId : null;
+    if (!uid || state.pemilikData === uid) return false;
+    if (!state.dataAkun) state.dataAkun = {};
+    const awal = defaults();
+    if (state.pemilikData === undefined) {
+      // Data dari versi lama (belum bertanda). Diakui akun yang sedang masuk
+      // hanya bila pemiliknya jelas; bila tidak, diparkir agar tidak tampil
+      // ke akun yang salah (akun Google memulihkan datanya dari server).
+      if (Object.keys(state.users || {}).length > 1 && state.pemilikLama !== uid) {
+        state.dataAkun[PARKIR_LAMA] = {};
+        DATA_PRIBADI.forEach((k) => { state.dataAkun[PARKIR_LAMA][k] = state[k]; state[k] = awal[k]; });
+      }
+      delete state.pemilikLama;
+      state.pemilikData = uid;
+      return true;
+    }
+    if (state.pemilikData) {
+      const parkir = {};
+      DATA_PRIBADI.forEach((k) => { parkir[k] = state[k]; });
+      state.dataAkun[state.pemilikData] = parkir;
+    }
+    const milik = state.dataAkun[uid] || {};
+    DATA_PRIBADI.forEach((k) => { state[k] = milik[k] !== undefined ? milik[k] : awal[k]; });
+    delete state.dataAkun[uid];
+    state.pemilikData = uid;
+    return true;
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
@@ -228,6 +273,9 @@ window.TC = window.TC || {};
     } catch (e) {
       console.warn('[TeleCare] penyimpanan lokal tidak terbaca, memakai data awal.', e);
     }
+    // Data lama tanpa tanda pemilik: bila sedang ada sesi, pemiliknya akun itu.
+    if (state.pemilikData === undefined && state.session) state.pemilikLama = state.session.userId;
+    if (sesuaikanPemilik()) save();
     return state;
   }
 
@@ -244,7 +292,16 @@ window.TC = window.TC || {};
     get state() { return state; },
     load, save,
     reset() { state = defaults(); save(); },
-    update(fn) { fn(state); save(); },
+    // Jaring pengaman: bila `fn` mengganti sesi, data pribadi ikut ditukar.
+    // Pengganti sesi sebaiknya memakai masuk() LEBIH DULU, baru mengubah
+    // profil — perubahan di dalam `fn` yang sama masih mengenai pemilik lama.
+    update(fn) { fn(state); sesuaikanPemilik(); save(); },
+    /** Memulai sesi akun lokal; profil & makanan berganti ke milik akun itu. */
+    masuk(userId) {
+      state.session = { userId, at: Date.now() };
+      sesuaikanPemilik();
+      save();
+    },
     onSave(fn) { pendengarSimpan.add(fn); return () => pendengarSimpan.delete(fn); },
     user() { return state.session ? state.users[state.session.userId] || null : null; },
     /** Peran pengguna aktif; 'pasien' bila belum ditetapkan. */

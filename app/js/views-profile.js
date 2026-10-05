@@ -341,7 +341,8 @@
           age: +f.age.value || null,
           height: +f.height.value || null,
           weight: +f.weight.value || null,
-          aktivitas: f.aktivitas.value || null
+          aktivitas: f.aktivitas.value || null,
+          diubah: Date.now()
         });
         TC.Gizi.terapkan(s.profile);
       });
@@ -433,6 +434,7 @@
         const g = D.goal(b.dataset.goal);
         Store.update((s) => {
           s.profile.goal = g.id;
+          s.profile.diubah = Date.now();
           TC.Gizi.terapkan(s.profile, true);
         });
         toast('Tujuan diperbarui: ' + g.name + ' · ' + Store.profile().targets.kcal + ' kkal/hari');
@@ -451,6 +453,7 @@
           fat: clamp(+f.fat.value || 65, 10, 250)
         };
         s.profile.targetManual = true;
+        s.profile.diubah = Date.now();
       });
       toast('Target sendiri tersimpan. Perubahan profil tidak akan menimpanya.');
       Router.render();
@@ -458,7 +461,7 @@
 
     const ulang = $('[data-hitung-ulang]');
     if (ulang) ulang.onclick = () => {
-      Store.update((s) => { TC.Gizi.terapkan(s.profile, true); });
+      Store.update((s) => { TC.Gizi.terapkan(s.profile, true); s.profile.diubah = Date.now(); });
       toast('Target dihitung ulang dari profil.');
       Router.render();
     };

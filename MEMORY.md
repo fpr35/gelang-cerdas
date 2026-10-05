@@ -5,7 +5,7 @@ selesai** — supaya siapa pun (termasuk sesi kerja berikutnya) bisa melanjutkan
 menebak-nebak. Untuk cara memakai dan menjalankan proyek, lihat [README.md](README.md);
 berkas ini khusus soal *progres* dan *alasan di balik keputusan*.
 
-**Diperbarui:** 25 September 2026
+**Diperbarui:** 5 Oktober 2026
 
 ---
 
@@ -296,6 +296,41 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
       tanda tangan data (pakai hasil ukur TERSIMPAN, bukan angka langsung), jeda 2 mnt bila gagal.
       **Perlu deploy ulang fungsi** — versi lama menjawab 400 dan Beranda tetap memakai kalimat aturan.
       Diuji via CDP dengan wawasan tiruan (panggil, cache, panggil ulang saat makanan baru, gagal).
+40. **Hasil ukur lintas perangkat** (5 Okt, commit f905dc5..3f33b73). Tren 7 hari & detail pasien admin
+    memakai RATA-RATA harian (bukan terendah). `Readings` kini bertanda `pemilik` (id akun lokal) +
+    `adopsi()` untuk hasil lama, dan `Readings.tarik()` menarik `device_readings` akun ini dari server
+    (dipanggil `tarikHasil` di app.js: onStatus, hashchange, visibilitychange; jeda 30 dtk).
+    `FB._authOnce` ikut diganti di onAuthStateChange (anonim → Google), kalau tidak kueri "milik
+    saya" memakai user_id lama.
+41. **Profil & makanan per akun + sinkron dua arah** (5 Okt, keluhan user: "login Google di HP, ukur
+    di HP, buka di laptop dengan Google sama — catatannya tidak ada").
+    - Sebab: profil, target gizi, dan catatan makanan hanya DIKIRIM ke server (untuk admin), tidak
+      pernah ditarik; dan semuanya satu untuk seluruh peramban sehingga akun kedua melihat — dan
+      mengunggah atas namanya — data akun pertama.
+    - core.js: `profile`, `meals`, `activeMeal`, `notifications` milik `state.pemilikData`; milik
+      akun lain diparkir di `state.dataAkun[userId]` dan ditukar oleh `sesuaikanPemilik()` (dipanggil
+      `Store.masuk(userId)`, `Store.update` sebagai jaring pengaman, dan `load`). Semua titik masuk di
+      views-auth.js memakai `Store.masuk()` LEBIH DULU baru mengubah profil. Data versi lama: diakui
+      akun yang sedang masuk saat upgrade, atau satu-satunya akun; bila ambigu diparkir di
+      `dataAkun._tanpaPemilik` (akun Google memulihkannya dari server).
+    - `profile.diubah` (ms) diisi HANYA saat pengguna mengubah profil (Lengkapi Data, Informasi
+      Pribadi, pilih tujuan, target sendiri, hitung ulang). Profil server dipakai bila `diubah`-nya
+      lebih baru, atau (profil lama tanpa `diubah`) bila server lengkap dan lokal belum.
+    - app.js `sinkronPasien` (diekspor `TC.SinkronPasien`): kirim + tarik dalam satu antrean.
+      Perangkat TIDAK mengirim sebelum tarikan pertama berhasil (dulu laptop baru menimpa profil server
+      dengan profil kosong). Makanan digabung lewat `per.sesi[id]` (pernah tersinkron) — hapus di satu
+      perangkat ikut terhapus di perangkat lain, tidak "hidup lagi". Tanda tangan memakai JSON berkunci
+      terurut (jsonb tidak menyimpan urutan kunci) → semua catatan terkirim ulang SEKALI setelah update
+      (upsert, aman). Profil ikut membawa `nickname` & `diubah`. Sesi Supabase harus milik akun lokal
+      (`googleUid`), kalau tidak tarik & kirim diam. Di /lengkapi, profil lengkap dari server langsung
+      ke Beranda; layar formulir tidak digambar ulang saat data masuk.
+    - Diuji: Node 26/26 (per akun, migrasi lama, laptop baru, hapus lintas perangkat, hapus luring,
+      konflik profil, ganti akun saat menunggu, akun tidak cocok) + Edge headless 16/16 dengan
+      `*.supabase.co` DIBLOKIR (`--host-resolver-rules`) supaya produksi tidak tersentuh. Catatan uji:
+      menulis localStorage lalu reload tidak berguna — `pagehide` menyimpan state memori di atasnya;
+      suntik lewat `Page.addScriptToEvaluateOnNewDocument`.
+    - Tidak bisa diperbaiki mundur: makanan akun A yang dulu terunggah atas nama akun B di server.
+    - sw.js `v31`.
 
 ---
 

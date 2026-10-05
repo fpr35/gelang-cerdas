@@ -80,7 +80,7 @@
   }
 
   function signIn(user) {
-    Store.update((s) => { s.session = { userId: user.id, at: Date.now() }; });
+    Store.masuk(user.id);
     TC.Devices.startBuffer();
     Router.navigate(TC.DATA.role(user.role || 'pasien').home, true);
     toast('Selamat datang kembali, ' + (user.nickname || user.name) + '!');
@@ -234,12 +234,12 @@
       photo: meta.avatar_url || meta.picture || null, role: 'pasien',
       nickname: name.split(/\s+/)[0], createdAt: Date.now()
     };
-    Store.update((s) => {
-      s.users[id] = user;
-      s.onboarded = true;
-      s.profile.nickname = user.nickname;
-      s.session = { userId: id, at: Date.now() };
-    });
+    // Sesi dulu, baru profil: masuk() menukar profil ke milik akun ini.
+    // `diubah` sengaja tidak diisi — profil di server (dari perangkat lain)
+    // harus menang atas profil kosong perangkat baru ini.
+    Store.update((s) => { s.users[id] = user; s.onboarded = true; });
+    Store.masuk(id);
+    Store.update((s) => { s.profile.nickname = user.nickname; });
     TC.Devices.startBuffer();
     Router.navigate('/lengkapi', true);
     toast('Berhasil masuk sebagai ' + name + '.');
@@ -304,8 +304,8 @@
             s.users[id] = u;
           }
           s.onboarded = true;
-          s.session = { userId: u.id, at: Date.now() };
         });
+        Store.masuk(u.id);
         Router.navigate('/faskes', true);
         toast('Masuk sebagai admin.');
       } catch (err) {
@@ -333,12 +333,9 @@
       pass: null, role, doctorId: null, facilityId: null,
       createdAt: Date.now(), demo: true
     };
-    Store.update((s) => {
-      s.users[id] = user;
-      s.onboarded = true;
-      s.profile = Object.assign(s.profile, { nickname: nama });
-      s.session = { userId: id, at: Date.now() };
-    });
+    Store.update((s) => { s.users[id] = user; s.onboarded = true; });
+    Store.masuk(id);
+    Store.update((s) => { s.profile.nickname = nama; });
     if (redirect === false) return;
     Router.navigate(TC.DATA.role(role).home, true);
     toast('Masuk sebagai tamu · peran ' + TC.DATA.role(role).name + '.');
@@ -390,9 +387,9 @@
       role: role, doctorId: prof.doctorId || null, facilityId: prof.facilityId || null,
       createdAt: Date.now(), demo: true
     };
+    Store.update((s) => { s.users[id] = user; s.onboarded = true; });
+    Store.masuk(id);   // sebelum mengisi profil & riwayat contoh (milik akun ini)
     Store.update((s) => {
-      s.users[id] = user;
-      s.onboarded = true;
       s.profile = Object.assign(s.profile, {
         nickname: prof.nick, gender: 'perempuan', age: 29, height: 162, weight: 57,
         goal: 'gula-stabil',
@@ -465,7 +462,6 @@
         { id: uid('n'), title: 'Sinkronisasi selesai', body: '124 sampel dipindahkan dari TeleBand.', kind: 'ok', at: Date.now() - 3600000, read: false },
         { id: uid('n'), title: 'Detak jantung istirahat naik', body: 'Rata-rata detak jantung istirahat naik 6 bpm dibanding pekan lalu.', kind: 'warn', at: Date.now() - 18000000, read: false }
       ];
-      s.session = { userId: id, at: Date.now() };
     });
     TC.Devices.startBuffer();
     if (redirect === false) return;
@@ -546,12 +542,9 @@
         id, name, email, phone, pass,
         nickname: name.split(/\s+/)[0], createdAt: Date.now()
       };
-      Store.update((s) => {
-        s.users[id] = user;
-        s.onboarded = true;
-        s.profile.nickname = user.nickname;
-        s.session = { userId: id, at: Date.now() };
-      });
+      Store.update((s) => { s.users[id] = user; s.onboarded = true; });
+      Store.masuk(id);
+      Store.update((s) => { s.profile.nickname = user.nickname; });
       TC.Devices.startBuffer();
       Router.navigate('/lengkapi', true);
       toast('Akun dibuat. Lengkapi data agar target lebih sesuai.');
@@ -618,7 +611,8 @@
           height: +f.height.value || null,
           weight: +f.weight.value || null,
           aktivitas: f.aktivitas.value || null,
-          goal: goalId
+          goal: goalId,
+          diubah: Date.now()
         });
         TC.Gizi.terapkan(s.profile, true);
       });
