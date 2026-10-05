@@ -407,7 +407,7 @@
         .flatMap((m) => m.items.map((i) => i.n)).slice(0, 12),
       vitalTerakhir: v && (v.hr != null || v.spo2 != null)
         ? { detakJantungBpm: v.hr, spo2Persen: v.spo2, waktu: v.at ? new Date(v.at).toISOString().slice(0, 16) : null } : null,
-      detakIstirahat7Hari: rhr
+      detakRataRataHarian7Hari: rhr
     };
   }
 
@@ -667,15 +667,15 @@
         body.innerHTML = `
           <div class="grid2">
             <div class="card">
-              <div class="card__head">${icon('heart')}<h3>Detak jantung istirahat</h3></div>
+              <div class="card__head">${icon('heart')}<h3>Rata-rata detak jantung harian</h3></div>
               <div class="chart-wrap"><canvas id="cRhr" style="height:150px"></canvas></div>
               <div class="legend"><div><i style="background:#1E6FD9"></i>7 hari terakhir (bpm)</div></div>
             </div>
 
             <div class="card">
-              <div class="card__head">${icon('spo2')}<h3>Saturasi terendah harian</h3></div>
+              <div class="card__head">${icon('spo2')}<h3>Rata-rata saturasi harian</h3></div>
               <div class="chart-wrap"><canvas id="cSpo2" style="height:150px"></canvas></div>
-              <div class="legend"><div><i style="background:#0E7FB8"></i>SpO₂ terendah (%)</div></div>
+              <div class="legend"><div><i style="background:#0E7FB8"></i>SpO₂ rata-rata (%)</div></div>
             </div>
           </div>
 
@@ -684,7 +684,7 @@
               !SIM()
                 ? (hariAda
                   ? `Tren dihitung dari ${week.reduce((a, d) => a + d.n, 0)} hasil ukur TeleBand yang tersimpan. ` +
-                    'Detak istirahat didekati dengan detak terendah tiap hari.'
+                    'Tiap titik adalah rata-rata semua pengukuran pada hari itu.'
                   : 'Belum ada hasil ukur. Sambungkan TeleBand dan lakukan pengukuran, lalu buka lagi layar ini.')
                 : hariAda
                 ? 'Tren dihitung dari pembacaan yang benar-benar berjalan di perangkat ini' +
@@ -773,17 +773,17 @@
     const separuh = Math.ceil(ada.length / 2);
     const awal = ada.slice(0, separuh).reduce((a, d) => a + d.rhr, 0) / separuh;
     const akhir = ada.slice(-separuh).reduce((a, d) => a + d.rhr, 0) / separuh;
-    if (akhir - awal > 2.5) return 'Detak jantung istirahat cenderung naik';
-    if (awal - akhir > 2.5) return 'Detak jantung istirahat membaik';
+    if (akhir - awal > 2.5) return 'Detak jantung harian cenderung naik';
+    if (awal - akhir > 2.5) return 'Detak jantung harian cenderung turun';
     return 'Ritme pekan ini relatif stabil';
   }
 
   function weekSummaryBody(week) {
     const bagian = [];
     const rhr = rerata(week, 'rhr');
-    if (rhr != null) bagian.push(`Detak jantung istirahat rata-rata ${Math.round(rhr)} bpm`);
+    if (rhr != null) bagian.push(`Detak jantung rata-rata ${Math.round(rhr)} bpm`);
     const spo2 = rerata(week, 'spo2');
-    if (spo2 != null) bagian.push(`saturasi terendah rata-rata ${Math.round(spo2)}%`);
+    if (spo2 != null) bagian.push(`saturasi rata-rata ${Math.round(spo2)}%`);
     return bagian.length ? bagian.join(', ') + '.' : 'Belum ada ukuran yang terkumpul.';
   }
 

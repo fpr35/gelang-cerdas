@@ -1617,10 +1617,12 @@
     Store.update((s) => {
       if (!s.dailyVitals) s.dailyVitals = {};
       const r = s.dailyVitals[k] || {
-        n: 0, hrSum: 0, hrMin: null, stressSum: 0, spo2Min: null, steps: 0, sumber: 'sim'
+        n: 0, hrSum: 0, hrMin: null, stressSum: 0, spo2Sum: 0, spo2Min: null, steps: 0, sumber: 'sim'
       };
       r.n += 1;
       r.hrSum += hr;
+      // Agregat lama belum punya spo2Sum; mulai dari nol saja.
+      r.spo2Sum = (r.spo2Sum || 0) + spo2;
       r.hrMin = r.hrMin == null ? hr : Math.min(r.hrMin, hr);
       r.stressSum += stres;
       r.spo2Min = r.spo2Min == null ? spo2 : Math.min(r.spo2Min, spo2);
@@ -1644,8 +1646,9 @@
    */
   /**
    * Tren 7 hari dari daftar hasil ukur: [{ t, bpm, spo2 }].
-   * Detak istirahat didekati dengan bpm terendah hari itu, saturasi dengan
-   * SpO₂ terendah. Hari tanpa hasil ukur: `ada: false`, nilai null.
+   * Tiap hari diwakili rekap seluruh pengukurannya: `rhr` = rata-rata bpm,
+   * `spo2` = rata-rata SpO₂ dari semua hasil ukur hari itu (bukan hanya yang
+   * pertama). Hari tanpa hasil ukur: `ada: false`, nilai null.
    * Dipakai layar Analisis pasien dan layar dokter (hasil dari server).
    */
   function trenDariHasil(hasil) {
@@ -1660,14 +1663,16 @@
         label: TC.DAYS[d.getDay()].slice(0, 3),
         ada: bpm.length + spo2.length > 0,
         n: hari.length,
-        rhr: bpm.length ? Math.min.apply(null, bpm) : null,
-        spo2: spo2.length ? Math.min.apply(null, spo2) : null,
+        rhr: bpm.length ? Math.round(rerata(bpm)) : null,
+        spo2: spo2.length ? Math.round(rerata(spo2)) : null,
         stress: null, steps: 0,
         sumber: hari.length ? 'device' : null
       });
     }
     return out;
   }
+
+  function rerata(v) { return v.reduce((a, x) => a + x, 0) / v.length; }
 
   /** Hasil ukur lokal (TeleBand) dalam bentuk { t, bpm, spo2, ... }. */
   function hasilLokal() {
@@ -1709,10 +1714,10 @@
       out.push({
         label: TC.DAYS[d.getDay()].slice(0, 3),
         ada,
-        // Detak jantung istirahat didekati dengan nilai terendah hari itu.
-        rhr: ada ? Math.round(r.hrMin) : null,
+        // Rata-rata seluruh pembacaan hari itu, sama seperti trenDariHasil.
+        rhr: ada ? Math.round(r.hrSum / r.n) : null,
         stress: ada ? Math.round(r.stressSum / r.n) : null,
-        spo2: ada && r.spo2Min != null ? Math.round(r.spo2Min) : null,
+        spo2: ada && r.spo2Sum ? Math.round(r.spo2Sum / r.n) : (ada && r.spo2Min != null ? Math.round(r.spo2Min) : null),
         steps: r ? Math.round(r.steps) : 0,
         sumber: r ? r.sumber : null
       });

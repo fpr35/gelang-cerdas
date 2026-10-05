@@ -301,7 +301,7 @@
         </div>
 
         <div class="card mt">
-          <div class="card__head">${icon('chart')}<h3>Detak jantung terendah · 7 hari</h3>
+          <div class="card__head">${icon('chart')}<h3>Rata-rata detak jantung harian · 7 hari</h3>
             <span class="push"></span><span class="chip">${tren.filter((d) => d.ada).length} hari berdata</span></div>
           ${tren.some((d) => d.rhr != null)
             ? `<div class="chart-wrap"><canvas id="cPat" style="height:150px"></canvas></div>`
