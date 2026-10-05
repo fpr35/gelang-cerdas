@@ -78,6 +78,10 @@
         FB.uid = u ? u.id : null;
         FB.authUser = u || null;
         FB.anonymous = !!(u && u.is_anonymous);
+        // ensureAuth() menyimpan pengguna pertama yang ia temukan. Bila sesi
+        // berganti (mis. anonim → Google), simpanan itu ikut diganti; kalau
+        // tidak, kueri "milik saya" memakai user_id lama dan kembali kosong.
+        if (u) FB._authOnce = Promise.resolve(u);
         if (!FB._firstAuthResolved) { FB._firstAuthResolved = true; FB._resolveFirstAuth(u || null); }
         emit();
       });

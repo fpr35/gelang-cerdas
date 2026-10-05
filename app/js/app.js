@@ -436,6 +436,10 @@
     if (Store.user() && TC.Readings.belumTerkirim()) TC.Readings.kirimTertunda().catch(() => {});
 
     window.addEventListener('hashchange', Router.render);
+    // Juga saat berpindah layar: setelah masuk lewat Google (pengalihan),
+    // sesi lokal baru terbentuk SESUDAH sesi Supabase siap, jadi tarikan
+    // pertama pada onStatus terlewati.
+    window.addEventListener('hashchange', () => tarikHasil(false));
 
     if (!location.hash || location.hash === '#') {
       const s = Store.state;
