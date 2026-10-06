@@ -1,0 +1,117 @@
+rules_version = '2';
+
+// ============================================================
+// TeleCare — aturan keamanan Cloud Firestore
+// Pengganti Row Level Security (RLS) Supabase. Koleksi meniru tabel lama:
+//   admins          (20260927_admins.sql)
+//   patients        (20260928_patients.sql + 20260929_data_pasien.sql)
+//   patient_meals   (20260929_data_pasien.sql)
+//   device_readings (20260925_device_readings.sql)
+// Semua yang tidak diizinkan di sini DITOLAK.
+// Dipasang dengan:  firebase deploy --only firestore
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function masuk() { return request.auth != null; }
+    function saya(uid) { return masuk() && request.auth.uid == uid; }
+    // Admin = punya dokumen admins/{uid}. Hanya bisa dibuat dari Firebase Console.
+    function admin() {
+      return masuk() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function teks(x, maks) { return x is string && x.size() <= maks; }
+    function teksAtauNull(x, maks) { return x == null || teks(x, maks); }
+    // Waktu disimpan sebagai teks ISO 8601, sama seperti yang dikirim Supabase.
+    function waktu(x) { return x is string && x.size() >= 10 && x.size() <= 40; }
+    function bulat(x, a, b) { return x is int && x >= a && x <= b; }
+    function bulatAtauNull(x, a, b) { return x == null || bulat(x, a, b); }
+
+    /* ---------------- admins ---------------- */
+    // Admin hanya boleh melihat dokumennya sendiri; tidak ada tulisan dari aplikasi.
+    match /admins/{uid} {
+      allow read: if saya(uid);
+      allow write: if false;
+    }
+
+    /* ---------------- patients ---------------- */
+    // Pasien mendaftarkan & memperbarui dirinya sendiri; admin membaca semua
+    // dan boleh menghapus (fitur "Hapus data pengguna"). Akun admin tidak
+    // boleh terdaftar sebagai pasien.
+    match /patients/{uid} {
+      function pasienSah(d) {
+        return d.keys().hasOnly(['user_id', 'name', 'email', 'anonymous', 'created_at', 'last_seen',
+                                 'profile', 'sesi_berjalan'])
+          && d.keys().hasAll(['user_id', 'name', 'anonymous', 'created_at', 'last_seen'])
+          && d.user_id == uid
+          && teks(d.name, 80) && d.name.size() >= 1
+          && teksAtauNull(d.get('email', null), 120)
+          && d.anonymous is bool
+          && waktu(d.created_at) && waktu(d.last_seen)
+          && (d.get('profile', null) == null || (d.profile is map && d.profile.size() <= 20))
+          && d.get('sesi_berjalan', null) == null;
+      }
+      allow read: if saya(uid) || admin();
+      allow create: if saya(uid) && !admin() && pasienSah(request.resource.data);
+      allow update: if saya(uid) && pasienSah(request.resource.data)
+        && request.resource.data.created_at == resource.data.created_at;
+      allow delete: if admin();
+    }
+
+    /* ---------------- patient_meals ---------------- */
+    // ID dokumen = {uid}_{idCatatan}, jadi setiap catatan pasti milik pemilik ID itu.
+    match /patient_meals/{docId} {
+      function makananSah(d) {
+        return d.keys().hasOnly(['user_id', 'id', 'at', 'data', 'updated_at'])
+          && d.keys().hasAll(['user_id', 'id', 'at', 'data', 'updated_at'])
+          && d.user_id == request.auth.uid
+          && teks(d.id, 60) && d.id.size() >= 1
+          && docId == request.auth.uid + '_' + d.id
+          && waktu(d.at) && waktu(d.updated_at)
+          && d.data is map;
+      }
+      allow read: if masuk() && (resource.data.user_id == request.auth.uid || admin());
+      allow create, update: if masuk() && makananSah(request.resource.data);
+      // Menghapus milik sendiri (juga yang sudah tidak ada) atau admin.
+      allow delete: if masuk() && (docId.matches(request.auth.uid + '_.+') || admin());
+    }
+
+    /* ---------------- device_readings ---------------- */
+    // Hasil ukur TeleBand. Tidak bisa diubah setelah tersimpan (tidak ada
+    // UPDATE); dedup lewat ID dokumen {uid}_{serial}_{idAlat}_{epoch}.
+    // Batas nilai sengaja longgar (rentang tipe byte, sama seperti tabel lama):
+    // hasil yang ditolak server tidak pernah di-HAPUS dari alat dan akan
+    // dikirim ulang terus.
+    match /device_readings/{docId} {
+      function hasilSah(d) {
+        return d.keys().hasOnly(['user_id', 'device_serial', 'device_unit', 'firmware', 'device_result_id',
+                                 'device_epoch', 'measured_at', 'time_valid', 'duration_s', 'bpm', 'spo2',
+                                 'glucose_est', 'sys_est', 'dia_est', 'source', 'flags', 'received_at'])
+          && d.keys().hasAll(['user_id', 'device_serial', 'device_result_id', 'device_epoch',
+                              'time_valid', 'source', 'flags', 'received_at'])
+          && d.user_id == request.auth.uid
+          && d.device_serial is string && d.device_serial.matches('^[0-9A-F]{12}$')
+          && bulatAtauNull(d.get('device_unit', null), 0, 255)
+          && teksAtauNull(d.get('firmware', null), 20)
+          && bulat(d.device_result_id, 0, 65535)
+          && d.device_epoch is int && d.device_epoch >= 0
+          && docId == request.auth.uid + '_' + d.device_serial + '_' +
+                      string(d.device_result_id) + '_' + string(d.device_epoch)
+          && (d.get('measured_at', null) == null || waktu(d.measured_at))
+          && d.time_valid is bool
+          && bulatAtauNull(d.get('duration_s', null), 0, 65535)
+          && bulatAtauNull(d.get('bpm', null), 1, 255)
+          && bulatAtauNull(d.get('spo2', null), 1, 255)
+          && bulatAtauNull(d.get('glucose_est', null), 1, 65535)
+          && bulatAtauNull(d.get('sys_est', null), 1, 255)
+          && bulatAtauNull(d.get('dia_est', null), 1, 255)
+          && d.source in ['tombol', 'web']
+          && bulat(d.flags, 0, 255)
+          && waktu(d.received_at);
+      }
+      allow read: if masuk() && (resource.data.user_id == request.auth.uid || admin());
+      allow create: if masuk() && hasilSah(request.resource.data);
+      allow update: if false;
+      allow delete: if admin();
+    }
+  }
+}

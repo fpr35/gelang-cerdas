@@ -17,22 +17,22 @@ berkas ini khusus soal *progres* dan *alasan di balik keputusan*.
 | **Komisaris pembimbing** | Dr. Fuad Anwar, S.Si., M.Si. |
 | **Tim** | Fajar Jelang Riyadi (M0222027) · Faizal Tri Widiandika (M0222026) · Sholeh Putra Utama (M0222083) — Fisika, FMIPA |
 | **Teknologi** | HTML, CSS, JavaScript **native** — tanpa framework, tanpa build step |
-| **Hosting** | **Vercel** (statis, dari akar repo) |
-| **Backend** | **Supabase** — Auth, Postgres, Realtime, Edge Function `send-push` |
-| **TURN** | **metered.ca** |
+| **Hosting** | **Firebase Hosting** (statis, dari akar repo; `firebase deploy`) |
+| **Backend** | **Firebase paket Spark (gratis)** — Auth, Cloud Firestore, AI Logic (Gemini Developer API) |
+| **Batasan** | **Tidak boleh paket Blaze** (keputusan Team Lead, 5 Okt 2026): tanpa Cloud Functions, tanpa push server |
 | **Versi kontrol** | Git, branch `main` → https://github.com/fpr35/gelang-cerdas |
 
-Sejak 21 September 2026 proyek **tidak lagi memakai Firebase** (Hosting, RTDB, Auth, FCM).
-Satu-satunya sisa yang masih dimuat adalah dashboard landing page — lihat §7.
+Perjalanan backend: Firebase lama `telecare-id` (s.d. 21 Sep 2026) → Vercel + Supabase +
+metered.ca (21 Sep – 5 Okt) → **Firebase project baru** (sejak 5 Okt, butir #42). Data era
+Supabase tidak dipindahkan — mulai dari nol. Langkah Console untuk pemilik project:
+[PANDUAN-FIREBASE.md](PANDUAN-FIREBASE.md).
 
-### Tautan demo cepat
+### Masuk
 
 | Peran | Tautan |
 | --- | --- |
-| Pasien | `/app/?demo=pasien` |
-| Dokter | `/app/?demo=dokter` |
-| Admin Faskes | `/app/?demo=admin-faskes` |
-| Admin Platform | `/app/?demo=admin` |
+| Pasien | `/app/` → Masuk dengan Google |
+| Admin | `/app/#/masuk/admin` (akun email dibuat di Console + dokumen `admins/{uid}`) |
 
 ---
 
@@ -49,31 +49,26 @@ Legenda: ✅ selesai & terverifikasi · 🟡 berjalan, ada batasan · ⬜ belum 
 | Perangkat + viewer GLB Three.js | ✅ | Auto-fit kamera, fallback geometris bila GLB gagal |
 | Perbandingan TeleBand vs TeleRing | ✅ | Render Blender + halo SVG |
 | Diagram arsitektur, Health 5.0, roadmap, tim | ✅ | |
-| Dashboard pratinjau | 🟡 | Masih membaca `telecare/live` dari Firebase lama; praktis selalu simulasi |
+| Dashboard pratinjau | 🟡 | Simulasi lokal berlabel "SIMULASI LOKAL" (sumber RTDB lama dicabut 5 Okt) |
 | 404, robots.txt, sitemap.xml, OG | ✅ | |
 
 ### Aplikasi (`/app/`)
 
 | Bagian | Status | Catatan |
 | --- | --- | --- |
-| Onboarding, daftar, masuk, lupa sandi | ✅ | Akun lokal di localStorage |
-| Masuk dengan Google | ✅ | Supabase OAuth (PKCE, pengalihan) |
-| Sesi anonim otomatis | ✅ | Supabase Anonymous Sign-ins |
-| Masuk sebagai Tamu, 4 peran | ✅ | pasien · dokter · admin-faskes · admin |
-| Hub perangkat AIoT | ✅ | 6 jenis simulasi + TeleBand fisik |
-| **TeleBand fisik (protokol BLE tim)** | ✅ | `teleband-ble.js` + layar `#/teleband`. **Terkonfirmasi jalan dengan alat fisik** di Android lewat situs Vercel (25 Sep 2026), setelah firmware yang menghapus bond basi |
-| Web Bluetooth GATT standar (generik) | 🟡 | Parser terverifikasi, belum diuji perangkat fisik |
-| Vital + EKG langsung | 🟡 | Asal angka dilacak **per metrik** dan dilabeli per kartu (alat / estimasi eksperimental / simulasi) |
-| Riwayat makanan + gizi per tujuan, analisis | ✅ | Sesi makan 4 titik dihapus (2 Okt) |
-| **Chat via Supabase** | ✅ | Tabel `consults`/`consult_members`/`messages`, `postgres_changes` |
-| **Pesan kartu antarperangkat** | 🟡 | Kode siap; **migrasi `messages.kind/data` perlu dijalankan** di SQL Editor |
-| **Panggilan WebRTC** | ✅ | Sinyal Realtime Broadcast, TURN metered.ca |
-| **Panggilan masuk berdering** | ✅ | `doctor_directory` + Presence `duty:` + tabel `inbox` |
-| **Web Push** | 🟡 | Klien menyimpan langganan; pengiriman oleh Edge Function `send-push` (kode di luar repo) |
-| PWA | ✅ | manifest + service worker `v8` |
-| Balasan dokter otomatis | 🟡 | Pola kata kunci; berhenti saat dokter nyata hadir |
-| Layar dokter, admin faskes, admin platform | ✅ | |
-| Profil, kalibrasi TD, pengaturan, ekspor | ✅ | |
+| Masuk dengan Google (pasien) | ✅ | Firebase Auth, popup (cadangan: pengalihan). Diuji di emulator |
+| Masuk admin (email + sandi) | ✅ | Firebase Auth + dokumen `admins/{uid}` |
+| Profil, makanan, hasil ukur lintas perangkat | ✅ | Firestore, sinkron dua arah, data per akun (#41, #42). E2E emulator 41/41 |
+| Aturan keamanan Firestore | ✅ | `firestore.rules`, 54 kasus uji emulator |
+| **TeleBand fisik (protokol BLE tim)** | ✅ | Terkonfirmasi dengan alat fisik (25 Sep, era Vercel); jalur simpan kini Firestore — **uji ulang dengan alat fisik setelah deploy** |
+| Deteksi makanan & Wawasan AI | 🟡 | Firebase AI Logic; logika diuji dengan model tiruan (20/20), **belum dicoba ke Gemini sungguhan** |
+| Riwayat makanan + gizi per tujuan, analisis | ✅ | |
+| Dasbor admin (semua pasien) | ✅ | Diuji E2E: daftar, detail, hapus data |
+| Vital + EKG | 🟡 | Vital dari TeleBand; kartu EKG kosong (alat belum punya EKG) |
+| PWA | ✅ | service worker `v40-firebase` |
+| Notifikasi | 🟡 | Hanya lokal; push server tidak ada (butuh Blaze) |
+| Konsultasi/chat/panggilan, dokter, unit | ⬜ | Tersembunyi; kodenya masih era Supabase — perlu diport sebelum dinyalakan |
+| **Project Firebase sungguhan** | 🟡 | Project `app-telecare` dibuat; config & `.firebaserc` terisi (5 Okt). Menunggu `firebase deploy` + uji Bagian 8 panduan |
 
 ---
 
@@ -330,11 +325,68 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
       menulis localStorage lalu reload tidak berguna — `pagehide` menyimpan state memori di atasnya;
       suntik lewat `Page.addScriptToEvaluateOnNewDocument`.
     - Tidak bisa diperbaiki mundur: makanan akun A yang dulu terunggah atas nama akun B di server.
-    - sw.js `v31`.
+    - Pengaturan → "Data Anda": teks lama "Tidak ada data yang dikirim ke server" (salah sejak #34)
+      diganti rincian apa yang disalin ke server, siapa yang bisa membaca, dan apa yang tetap lokal;
+      versi admin terpisah (hitungan makanan/hasil ukur disembunyikan). Konfirmasi "Hapus semua data
+      lokal" kini menyebut salinan server tetap ada dan dipulihkan saat masuk lagi. (sw.js `v32`)
+    - sw.js `v31` (commit dbff997).
+42. **Pindah ke Firebase project baru, paket Spark** (5 Okt, perintah Team Lead: tanpa Vercel,
+    Supabase, metered.ca; WAJIB 100% gratis; data lama tidak dipindah; Firestore; fitur konsultasi
+    tetap mati).
+    - Klien: `app/js/firebase-config.js` (config + `TELECARE_AI.models`), `firebase-init.js` (SDK
+      12.10.0 dari gstatic lewat `import()` dinamis di skrip klasik → `window.TELECARE_FB`, event
+      `telecare:fb-ready`/`-error`), `firebase.js` (menimpa sisa Firebase lama) dengan API SAMA:
+      `TC.FB`, `TC.ReadingsDB`, `TC.PatientsDB`, `TC.DeteksiDB`. Layar tidak diubah kecuali teks.
+    - Firestore meniru tabel lama: `patients/{uid}`, `patient_meals/{uid}_{id}`,
+      `device_readings/{uid}_{serial}_{id}_{epoch}`, `admins/{uid}`; field snake_case, waktu teks ISO.
+      RLS → `firestore.rules`; RPC `saya_admin`/`hapus_data_pasien` → `exists(admins)` + batch hapus
+      dari klien; upsert ignoreDuplicates → setDoc + aturan "tanpa update" (ditolak & dokumen ada =
+      berhasil). Indeks gabungan di `firestore.indexes.json` (user_id+received_at, user_id+at).
+    - Tidak ada sesi anonim lagi: `FB.ensureAuth()` menunggu `authStateReady()` dan melempar
+      `belum-masuk`. Google lewat popup (cadangan redirect). `FB.uidKini()` membaca
+      `auth.currentUser` langsung; `sesiTidakSah()` mengeluarkan sesi lokal pasien/admin bila sesi
+      Firebase berakhir atau milik akun lain (setelah `settled`).
+    - Gemini: Edge Function → Firebase AI Logic (Gemini Developer API, gratis), dipanggil dari klien;
+      model dicoba berurutan (404 → berikutnya, 429/500/503 → ulang sekali), validasi enum/porsi
+      dipindah ke klien. Tanpa App Check (kuota bisa dipakai orang lain; tidak ada biaya).
+    - Hemat kuota (50 rb baca/hari): tarik data per 5 menit **per akun** (dulu 30 dtk global — bug
+      tertangkap E2E: akun kedua tidak pernah ditarik sehingga tidak pernah terdaftar), hasil ukur
+      inkremental (`state.kursorHasil[idLokal]`, `ReadingsDB.daftar(..., { sejak })`), kueri admin
+      disimpan 60 dtk. Tulisan Firestore diberi batas waktu 15 dtk (luring → tidak pernah selesai).
+    - Dicabut: `supabase-init.js`, `supabase.js`, `rtc-config.js` (kredensial TURN), `supabase/`,
+      `vercel.json`, `.vercelignore`, `js/firebase-init.js` (landing → RTDB lama; dashboard kini
+      selalu "SIMULASI LOKAL"), `database.rules.json`, `functions/`. Push server (`send-push`, VAPID)
+      dimatikan — `Push.daftarWebPush()` kini no-op. `firebase.json`: Hosting + Firestore;
+      `.firebaserc` berisi `GANTI-projectId`. sw.js `v40-firebase`, host Firebase tanpa cache.
+    - Diuji: aturan Firestore 54/54 di emulator; E2E Edge ↔ emulator Auth+Firestore 41/41 (HP →
+      laptop, hapus lintas perangkat, dua akun satu peramban, admin masuk/tolak/daftar/detail/hapus,
+      11 layar tanpa galat); AI Logic dengan SDK Schema asli + model tiruan 20/20; uji lama 26/26 &
+      19/19. Emulator butuh Java 21 (komputer ini Java 17 → JRE 21 portabel di folder sementara).
+      Produksi diblokir di Edge (`--host-resolver-rules`), konfigurasi uji disuntik lewat CDP
+      `Fetch.fulfillRequest`, service worker dilewati (`Network.setBypassServiceWorker`).
+    - Belum: project sungguhan (PANDUAN-FIREBASE.md), uji Gemini sungguhan, uji ulang TeleBand
+      fisik. Fitur konsultasi/dokter/unit masih kode Supabase (tersembunyi).
+    - Pelajaran: jangan menulis teks berisi backtick lewat `node -e "..."` di Bash — backtick
+      dijalankan sebagai perintah. Dan jangan potong berkas dengan `slice(indexOf(...))` tanpa
+      memeriksa -1: MEMORY.md sempat terpotong ke 73 baris (dipulihkan dari git sebelum commit).
+43. **TeleBand dipakai di pergelangan tangan, sensor di titik denyut nadi — bukan jari** (5 Okt,
+    penegasan user). Aplikasi dulu menyuruh "tempelkan ujung jari" (terbawa dari label state di
+    `tools/web-test` teknisi), padahal firmware (`ppg.cpp`, salinan 25 Sep di
+    `D:\Data_C_Fito\joki\TeleCare`) disetel untuk pergelangan: arus LED maksimum dan
+    `SPO2_WRIST_OFFSET = +16.8` pada SETIAP hasil. Akibat mengukur di jari: SpO₂ hampir selalu 100%.
+    Teks diganti di views-teleband.js (subjudul + petunjuk mengukur), teleband-ble.js (state 1 =
+    "sensor belum menempel", sesuai `TC_ST_TAK_MENEMPEL` di tc_proto.h), data.js (desc TeleBand),
+    views-home.js (penjelasan glukosa), views-profile.js (langkah kalibrasi TD). Teks TeleRing
+    (cincin, tersembunyi) tetap menyebut jari — memang benar untuk cincin.
 
 ---
 
 ## 4. Keputusan teknis & alasannya
+
+> Butir bertanda Supabase/RTDB/Realtime/TURN di bawah ini berlaku untuk era sebelum #42. Yang
+> masih relevan setelah pindah ke Firebase: native tanpa framework, skrip global, nama API
+> dipertahankan, data lokal di localStorage, keputusan TeleBand 4A–4D, Vitals per metrik,
+> service worker jaringan-lebih-dulu.
 
 **Native, tanpa framework.** Diminta secara eksplisit. Routing, state, dan komponen ditulis sendiri
 di [app/js/core.js](app/js/core.js). Berkas yang di-deploy sama persis dengan yang ada di repo.
@@ -476,88 +528,76 @@ sidik isi; cache-first membuat deploy baru butuh dua kali muat ulang.
 
 ## 7. Utang teknis & batasan yang diketahui
 
-Urut dari yang paling perlu diselesaikan.
+Urut dari yang paling perlu diselesaikan. (Daftar era Supabase ada di riwayat git, commit dbff997.)
 
-1. **⚠️ Skema Supabase dan RLS tidak ada di repo.** Tabel `consults`, `consult_members`, `messages`,
-   `inbox`, `doctor_directory`, `push_subscriptions` serta Edge Function `send-push` hanya ada di
-   dashboard. Keamanan bergantung sepenuhnya pada RLS, tetapi tidak dapat ditinjau atau
-   direproduksi. Perlu `supabase db dump --schema public` (atau salin dari SQL Editor) ke
-   `supabase/`, plus kode Edge Function.
-2. **⚠️ Kredensial TURN metered.ca ter-commit** di [app/js/rtc-config.js](app/js/rtc-config.js)
-   pada repo publik. Perlu diganti ke kredensial sementara lewat `fetchFrom` (Edge Function yang
-   memanggil API metered.ca), lalu kredensial lama diputar ulang.
-3. **Dua migrasi perlu dijalankan** di SQL Editor:
-   [20260925_messages_kind_data.sql](supabase/migrations/20260925_messages_kind_data.sql) (tanpa ini
-   kartu chat tampil sebagai teks) dan
-   [20260925_device_readings.sql](supabase/migrations/20260925_device_readings.sql) (tanpa ini hasil
-   TeleBand **tidak pernah** tersimpan ke server, sehingga juga tidak pernah di-HAPUS dari alat;
-   alat menampung 64 hasil lalu menimpa yang tertua).
-3b. **TeleBand tahap 2 belum dikerjakan:** tampilan hasil untuk dokter (RLS sudah mengizinkan lawan
-   bicara konsultasi membaca lewat `sekonsultasi_dengan()`), dan UI `SET_KALIBRASI`.
-4. **Dashboard landing page masih Firebase.** [js/firebase-init.js](js/firebase-init.js) membaca
-   `telecare/live` dari RTDB lama; bila proyek Firebase sudah dimatikan, dashboard selalu simulasi.
-   Pilihan: pindahkan ke tabel/kanal Supabase, atau buang dan labeli jujur sebagai simulasi.
-5. **Berkas sisa Firebase** belum dihapus: `app/js/firebase.js`, `database.rules.json`,
-   `functions/`, `firebase.json`, `.firebaserc`. `tools/cek-deploy.ps1` kemungkinan masih
-   membandingkan dengan domain Firebase.
-6. **Peran belum tepercaya di server.** `user.role` di `localStorage`; siapa pun dapat meng-upsert
-   `doctor_directory` untuk dokter katalog mana pun dan menerima panggilannya (tergantung RLS).
-7. **Urutan `Chat.ensure` vs pesan pertama.** `Consult.start()` memanggil `ensure()` (INSERT
-   `consults`) lalu langsung `push()` dua pesan pembuka tanpa menunggu. Bila skema memakai foreign
-   key ke `consults`, pesan pembuka bisa ditolak. Perlu dipastikan terhadap skema sebenarnya.
-8. **Tautan undangan selalu `?demo=1`** — perangkat baru yang membukanya dibuatkan akun pasien.
-9. **Nilai fisiologis simulasi bila tidak ada perangkat**; GATT belum diuji perangkat fisik.
-10. **Balasan dokter masih otomatis** (`REPLY_RULES`); data pasien/faskes adalah contoh.
-11. **Belum ada uji otomatis yang tersimpan.**
+1. **Project Firebase `app-telecare` belum di-deploy.** Config, `.firebaserc`, dan domain
+   (`app-telecare.web.app` di `index.html`, `robots.txt`, `sitemap.xml`) sudah diisi. Sisa:
+   `firebase deploy`, lalu daftar uji Bagian 8 [PANDUAN-FIREBASE.md](PANDUAN-FIREBASE.md).
+2. **Gemini via AI Logic belum dicoba ke layanan sungguhan.** Logika diuji dengan model tiruan.
+   Nama model di `TELECARE_AI.models` bisa dipensiunkan Google — ubah daftar itu bila deteksi gagal.
+3. **TeleBand fisik perlu diuji ulang** dengan jalur simpan Firestore (terakhir terbukti di era Vercel).
+4. **AI Logic tanpa App Check** — kuota Gemini gratis project bisa dipakai siapa pun yang tahu
+   konfigurasinya (tidak ada biaya; kuota bisa habis). App Check + reCAPTCHA bisa ditambahkan.
+5. **Kuota gratis Firestore (50 rb baca/hari).** Sudah dihemat (tarik per 5 menit per akun, hasil
+   ukur inkremental, kueri admin 60 dtk), tetapi dasbor admin membaca hingga 2.000 hasil ukur + 1.000
+   pasien setiap kali simpanan 60 dtk-nya habis. Pantau Console → Firestore → Usage bila pengguna bertambah.
+6. **Fitur tersembunyi masih kode Supabase:** konsultasi/chat/panggilan (`views-care.js`,
+   `ring.js`, `ring-ui.js`, `Consult` di engine.js, layar TURN di Pengaturan), dokter (`TC.CareDB`),
+   unit (`TC.FacilityDB`). Jangan nyalakan `TC.FITUR` terkait sebelum diport. Panggilan video butuh
+   TURN dari luar Firebase.
+7. **Push dari server tidak ada** (butuh Cloud Functions/Blaze). Hanya notifikasi lokal.
+8. **Vercel & Supabase lama masih hidup** sampai dimatikan pemiliknya (PANDUAN Bagian 9); selama itu
+   `gelang-cerdas.vercel.app` menayangkan versi Supabase. Kredensial TURN metered.ca pernah ada di
+   repo publik — perlu diputar ulang.
+9. **Uji otomatis belum tersimpan di repo** (Node, aturan Firestore, E2E emulator ada di folder
+   sementara sesi kerja). Sebaiknya dipindah ke `tests/` (perlu `package.json` + Java 21).
+10. **Kartu EKG kosong** sampai firmware TeleBand mengirim sampel EKG; UI `SET_KALIBRASI` belum ada.
 
 ---
 
 ## 8. Rencana berikutnya
 
-- [ ] Jalankan migrasi di Supabase: device_readings → facilities → admins → patients → data_pasien
-- [x] Uji TeleBand dengan alat fisik (25 Sep 2026, Android + Vercel)
-- [x] Hasil ukur pasien di layar dokter (care_links, 25 Sep) — perlu migrasi dijalankan
+- [ ] Pemilik project mengerjakan PANDUAN-FIREBASE.md (project, Auth, Firestore, AI Logic, admin)
+- [ ] Isi `firebase-config.js` + `.firebaserc`, `firebase deploy`, coba alur Bagian 8 panduan
+- [ ] Uji TeleBand fisik & deteksi makanan Gemini di situs Firebase
+- [ ] Matikan Vercel & Supabase, putar ulang kredensial metered.ca
+- [ ] Simpan uji (aturan Firestore, E2E emulator, Node) ke `tests/`
+- [ ] App Check untuk AI Logic (opsional)
 - [ ] TeleBand tahap 2: UI kalibrasi per unit (`SET_KALIBRASI`)
-- [ ] Perbarui tangkapan `assets/img/app-beranda.webp` (masih data contoh)
-- [ ] Ekspor skema + RLS + Edge Function `send-push` ke `supabase/` di repo
-- [ ] Ganti kredensial TURN statis dengan kredensial sementara (`fetchFrom`), putar ulang yang lama
-- [ ] Putuskan nasib dashboard landing page (Supabase atau simulasi berlabel), lalu hapus sisa Firebase
-- [ ] Peran tepercaya di server (tabel profil yang hanya dapat diubah admin, atau custom claims)
-- [ ] Simpan uji Node (`tests/`) agar dapat dijalankan ulang; tambah uji RLS dengan dua sesi anonim
-- [ ] Penyimpanan catatan klinis bersama antar-dokter
+- [ ] Bila konsultasi dibutuhkan lagi: port chat ke Firestore (`onSnapshot`), sinyal WebRTC ke
+      Firestore, cari TURN gratis/self-hosted
 
 ---
 
 ## 9. Peta berkas singkat
 
 ```
-index.html · css/style.css · css/fx.css      situs penelitian
+index.html · css/style.css · css/fx.css · css/neu.css   situs penelitian
 js/three-scenes.js · js/transitions.js       3 scene Three.js, transisi
-js/app.js · js/firebase-init.js              dashboard landing (Firebase lama, jatuh ke simulasi)
+js/app.js                                    dashboard landing (simulasi berlabel)
 
 app/index.html                               shell aplikasi + sprite ikon
 app/css/app.css                              sistem desain aplikasi
-app/js/supabase-init.js                      SDK Supabase dari CDN + client (URL, anon key)
-app/js/core.js                               util, Store, router, UI, grafik
-app/js/data.js                               perangkat, dokter, makanan, peran, faskes, pasien
-app/js/rtc-config.js                         STUN/TURN metered.ca
-app/js/supabase.js                           TC.FB / TC.Chat / TC.RTC
+app/js/firebase-config.js                    config project Firebase + model Gemini (diisi per project)
+app/js/firebase-init.js                      memuat Firebase SDK 12.10.0 → window.TELECARE_FB
+app/js/core.js                               util, Store (data per akun), router, UI, grafik, TC.FITUR
+app/js/data.js                               perangkat, makanan, tujuan, peran (+ katalog contoh)
+app/js/firebase.js                           TC.FB / ReadingsDB / PatientsDB / DeteksiDB
 app/js/ble.js                                GATT standar + IEEE-11073 (perangkat generik)
 app/js/teleband-ble.js                       protokol BLE TeleBand (alat fisik tim)
 app/js/views-teleband.js                     layar #/teleband
-app/js/engine.js                             vital, kalibrasi, perangkat, makan, konsultasi, catatan
-app/js/push-config.js · app/js/push.js       ambang eskalasi, notifikasi, Web Push
-app/js/ring.js · app/js/ring-ui.js           panggilan masuk
+app/js/engine.js                             vital, perangkat, makanan & gizi, Readings, TeleBandLink
+app/js/push-config.js · app/js/push.js       ambang eskalasi, notifikasi lokal
+app/js/ring.js · ring-ui.js · views-care.js  konsultasi/panggilan — TERSEMBUNYI, kode era Supabase
 app/js/views-*.js                            layar per bagian dan per peran
-app/js/app.js                                rute, navigasi per peran, boot
-app/manifest.webmanifest · app/sw.js         PWA + penerima push
+app/js/app.js                                rute, navigasi, sinkron data pasien dua arah, boot
+app/manifest.webmanifest · app/sw.js         PWA
 
-supabase/migrations/                         perubahan skema yang dilacak
-vercel.json · .vercelignore                  hosting
+firebase.json · .firebaserc                  Hosting + Firestore, ID project
+firestore.rules · firestore.indexes.json     aturan keamanan & indeks Firestore
+PANDUAN-FIREBASE.md                          langkah Console/deploy untuk pemula
 blender/build_assets.py                      generator aset 3D
 tools/                                       server lokal, uji headless, video, cek deploy
-
-SISA (tidak dipakai): app/js/firebase.js, database.rules.json, functions/, firebase.json, .firebaserc
 ```
 
 ---
@@ -568,7 +608,15 @@ SISA (tidak dipakai): app/js/firebase.js, database.rules.json, functions/, fireb
 # jalankan lokal — pakai tools/serve.py, BUKAN python -m http.server (MIME .js di Windows)
 python tools/serve.py 8950
 
-# migrasi skema: tempel isi supabase/migrations/*.sql ke Supabase Dashboard → SQL Editor
+# deploy (situs + aturan + indeks); hanya situs: --only hosting; hanya aturan: --only firestore
+firebase login
+firebase deploy
+
+# bandingkan berkas lokal dengan yang tersaji di <projectId>.web.app
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cek-deploy.ps1
+
+# emulator (butuh Java 21+), dengan firebase.json yang menunjuk ke firestore.rules
+firebase emulators:start --only firestore,auth --project demo-telecare
 
 # bangun ulang aset 3D (± 2–5 menit; --stills-only melewati video)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -noaudio \

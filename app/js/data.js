@@ -23,7 +23,7 @@
       type: 'teleband', name: 'TeleBand (alat fisik)', icon: 'watch', prefix: 'TeleCare',
       tagline: 'ESP32-C6 + MAX30102',
       caps: ['hr', 'spo2', 'bp', 'glucose'],
-      desc: 'Pengukuran sesaat lewat PPG jari (MAX30102): detak jantung dan SpO₂. ' +
+      desc: 'Dipakai di pergelangan tangan, sensor PPG (MAX30102) di titik denyut nadi: detak jantung dan SpO₂. ' +
             'Tensi dan glukosa hanya estimasi eksperimental. Tidak mengukur suhu.',
       battery: [0, 100], rateHz: 0, nyata: true
     },

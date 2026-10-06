@@ -136,7 +136,11 @@ window.TC = window.TC || {};
      Ubah ke `true` untuk memunculkannya kembali. */
   const FITUR = {
     daftarAkun: false,   // layar Daftar (/daftar) dan tautan "Daftar sekarang"
-    konsultasi: false,   // konsultasi dokter, chat, panggilan, janji temu, dering panggilan
+    // Konsultasi dokter, chat, panggilan, janji temu, dering panggilan.
+    // JANGAN dinyalakan sebelum dipindah ke Firebase: kodenya (TC.Chat, TC.RTC,
+    // ring.js, views-care.js) masih ditulis untuk Supabase dan TURN metered.ca,
+    // yang sudah dicabut (Oktober 2026).
+    konsultasi: false,
     // Data simulasi purwarupa: vital acak saat alat tidak tersambung, perangkat
     // dan buffer simulasi, kurva gula darah acak, isian akun tamu, katalog
     // pasien contoh. Mati = hanya angka dari TeleBand dan perhitungan
@@ -148,14 +152,16 @@ window.TC = window.TC || {};
     // tetap ada: tanpa simulasi ia memakai unit sungguhan (tabel facilities).
     peranAdmin: false,
     // Peran dokter (klinik, pasien binaan, kode dokter, nakes unit) — dihapus
-    // dari produk atas permintaan lead engineer; kodenya tetap ada.
+    // dari produk atas permintaan lead engineer; kodenya tetap ada, tetapi
+    // TC.CareDB belum dipindah ke Firebase.
     peranDokter: false,
     // "Masuk sebagai Tamu" dan tautan ?demo= — tidak ada lagi akun tamu.
     akunTamu: false,
     // Baris "Ganti peran" di Profil.
     gantiPeran: false,
     // Unit faskes berkode (pasien bergabung dengan kode unit). Mati = admin
-    // otomatis memantau SEMUA pasien (tabel patients, 20260928_patients.sql).
+    // otomatis memantau SEMUA pasien (koleksi Firestore `patients`).
+    // TC.FacilityDB belum dipindah ke Firebase — biarkan mati.
     unit: false
   };
 

@@ -1271,7 +1271,7 @@
      ============================================================
      Satu hasil = satu sesi ukur diskrit. Disimpan dua kali:
        - salinan lokal (Store.state.readings) segera, supaya tidak hilang;
-       - tabel Supabase `device_readings`, sumber kebenaran.
+       - koleksi Firestore `device_readings`, sumber kebenaran.
 
      Alat baru boleh menghapus hasilnya (HAPUS) setelah SERVER mengonfirmasi.
      Salinan lokal saja tidak cukup: peramban bisa dibersihkan. Hasil yang
@@ -1422,11 +1422,22 @@
      * di peramban ini — layar Analisis & Riwayat hanya membaca salinan lokal.
      * Mengembalikan jumlah hasil baru.
      */
+    // Kursor = received_at terbesar yang sudah ditarik, per akun lokal. Tarikan
+    // berikutnya hanya meminta yang lebih baru: setiap dokumen yang dibaca
+    // memotong kuota gratis Firestore (50.000/hari). Disimpan di state agar
+    // ikut hilang bila data lokal dihapus (lalu semuanya ditarik ulang).
     let menarik = null;
     function tarik() {
       if (menarik) return menarik;
-      if (!saya() || !TC.FB || !TC.FB.ready || !TC.ReadingsDB) return Promise.resolve(0);
-      menarik = TC.ReadingsDB.daftar(null, MAKS_LOKAL).then((rows) => {
+      const me = saya();
+      if (!me || !TC.FB || !TC.FB.ready || !TC.ReadingsDB) return Promise.resolve(0);
+      const kursor = (Store.state.kursorHasil || {})[me] || null;
+      menarik = TC.ReadingsDB.daftar(null, MAKS_LOKAL, kursor ? { sejak: kursor } : null).then((rows) => {
+        if (saya() !== me) return 0;   // akun berganti selagi menunggu
+        const terbaru = (rows || []).reduce((m, r) => (r.received_at && r.received_at > m ? r.received_at : m), kursor || '');
+        if (terbaru && terbaru !== kursor) {
+          Store.update((s) => { s.kursorHasil = Object.assign({}, s.kursorHasil, { [me]: terbaru }); });
+        }
         const ada = new Set(semua().map((x) => x.kunci));
         const baru = (rows || []).map(dariBaris).filter((x) => !ada.has(x.kunci));
         if (!baru.length) return 0;
@@ -1460,7 +1471,7 @@
           Vitals. HASIL yang disimpan permanen.
        B. Glukosa disimpan dan ditampilkan dengan label eksperimental.
        C. Suhu tetap simulasi (berlabel) — alat tidak punya sensor suhu.
-       D. HASIL ke Supabase; HAPUS setelah server mengonfirmasi.
+       D. HASIL ke server (Firestore); HAPUS setelah server mengonfirmasi.
      ============================================================ */
   const TeleBandLink = (function () {
     const EKSPERIMENTAL = ['glucose', 'sys', 'dia'];

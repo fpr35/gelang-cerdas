@@ -85,14 +85,16 @@
     return (Store.profile().nickname || u.name || 'Dokter').slice(0, 80);
   }
 
-  /** Pesan galat Supabase yang bisa dipahami, termasuk migrasi yang belum dijalankan. */
-  function pesanGalat(e, berkas) {
-    if (TC.CareDB && TC.CareDB.belumDimigrasi(e)) {
-      return (berkas ? 'Tabel yang dibutuhkan' : 'Tabel hubungan dokter–pasien') +
-        ' belum ada di server. Jalankan supabase/migrations/' +
-        (berkas || '20260926_care_links.sql') + ' di Supabase SQL Editor.';
+  /**
+   * Pesan galat server yang bisa dipahami. `berkas` sisa era Supabase
+   * (nama migrasi) diabaikan. Fitur dokter & unit (TC.CareDB/FacilityDB)
+   * belum dipindah ke Firebase — layarnya tersembunyi lewat TC.FITUR.
+   */
+  function pesanGalat(e) {
+    if (!TC.CareDB && /CareDB|FacilityDB/.test((e && e.message) || '')) {
+      return 'Fitur ini belum tersedia di versi Firebase.';
     }
-    return (e && e.message) || 'Gagal memuat data dari server.';
+    return TC.FB && TC.FB.pesanGalat ? TC.FB.pesanGalat(e) : ((e && e.message) || 'Gagal memuat data dari server.');
   }
 
   /** Pasien tertaut beserta hasil ukur terakhirnya. */
@@ -723,8 +725,7 @@
       toast('Data ' + nama + ' dihapus.');
       selesai();
     } catch (e) {
-      toast(TC.CareDB && TC.CareDB.belumDimigrasi(e)
-        ? 'Server belum siap: jalankan migrasi 20260929_data_pasien.sql.' : ((e && e.message) || 'Gagal menghapus.'), 'err');
+      toast(pesanGalat(e), 'err');
     }
   }
 
@@ -768,7 +769,7 @@
     const capaian = tg ? TC.views.kartuTarget(TC.Meals.progresTarget(meals, null, tg, pf.goal), { admin: true }) : '';
 
     const riwayat = belum ? `<div class="note note--w">${icon('alert')}<div>Riwayat makanan belum bisa dimuat
-        (migrasi 20260929_data_pasien.sql belum dijalankan).</div></div>`
+        dari server. Coba muat ulang halaman.</div></div>`
       : meals.length ? `<div class="list">${meals.slice(0, 10).map((m) => `
         <div class="row" style="align-items:flex-start">
           <span class="row__ico">${icon('food')}</span>

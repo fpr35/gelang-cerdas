@@ -3,6 +3,9 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      ".firebaserc",
+      "firestore.rules",
+      "firestore.indexes.json",
       "**/.*",
       "**/.*/**",
       ".git/**",
@@ -12,13 +15,14 @@
       "tools/**",
       "build/**",
       "functions/**",
+      "supabase/**",
+      "New folder/**",
+      "**/*.zip",
       "*.blend",
       "*.blend1",
       "*.log",
-      "database.rules.json",
       "**/*.py",
-      "**/*.md",
-      "blender/build.log"
+      "**/*.md"
     ],
     "cleanUrls": true,
     "headers": [
@@ -97,9 +101,11 @@
           }
         ]
       }
-    ]
+    ],
+    "trailingSlash": true
   },
-  "database": {
-    "rules": "database.rules.json"
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

@@ -5,16 +5,16 @@
    luring dengan memakai data yang sudah tersimpan di localStorage.
 
    Yang TIDAK pernah disentuh service worker ini:
-   - Supabase (REST, Auth, Realtime, Edge Functions). Permintaan ke
-     sana harus selalu menembus jaringan; menyimpannya akan membuat
-     aplikasi menampilkan percakapan atau sesi basi.
+   - Firebase (Firestore, Auth, AI Logic). Permintaan ke sana harus
+     selalu menembus jaringan; menyimpannya akan membuat aplikasi
+     menampilkan data atau sesi basi.
    - Semua permintaan selain GET.
 
    Menaikkan VERSION akan membuang seluruh cache lama saat aktivasi.
    ============================================================ */
 'use strict';
 
-const VERSION = 'v31';
+const VERSION = 'v40-firebase';
 const CACHE = `telecare-app-${VERSION}`;
 
 // Kerangka aplikasi. Urutan skrip mengikuti app/index.html.
@@ -23,11 +23,11 @@ const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'css/app.css',
+  'js/firebase-config.js',
+  'js/firebase-init.js',
   'js/core.js',
   'js/data.js',
-  'js/rtc-config.js',
-  'js/supabase-init.js',
-  'js/supabase.js',
+  'js/firebase.js',
   'js/ble.js',
   'js/teleband-ble.js',
   'js/engine.js',
@@ -50,8 +50,16 @@ const SHELL = [
 ];
 
 // Host yang selalu dilewatkan ke jaringan, tanpa cache sama sekali.
+// (Sengaja tidak memakai "googleapis.com" utuh: fonts.googleapis.com boleh di-cache.)
 const LEWATI_HOST = [
-  'supabase.co',                // Database, Auth, Realtime, Edge Functions
+  'firestore.googleapis.com',           // Cloud Firestore
+  'identitytoolkit.googleapis.com',     // Firebase Auth
+  'securetoken.googleapis.com',         // token Firebase Auth
+  'firebaseinstallations.googleapis.com',
+  'firebasevertexai.googleapis.com',    // Firebase AI Logic (Gemini)
+  'firebaselogging.googleapis.com',
+  'firebase.googleapis.com',
+  'firebaseapp.com',                    // halaman masuk Google (/__/auth/handler)
   'google-analytics.com',
   'googletagmanager.com',
   'accounts.google.com',
@@ -62,7 +70,7 @@ const LEWATI_HOST = [
 const CACHE_LINTAS_ASAL = [
   'fonts.googleapis.com',
   'fonts.gstatic.com',
-  'www.gstatic.com'            // SDK Firebase (build compat)
+  'www.gstatic.com'            // Firebase JS SDK (versi dikunci di firebase-init.js)
 ];
 
 const cocok = (host, daftar) =>
@@ -197,9 +205,11 @@ async function simpan(req, res) {
 }
 
 /* ---------------- push dari server (Web Push) ----------------
-   Dikirim Edge Function Supabase `send-push`. Ditangani sendiri supaya
-   aplikasi cukup memakai satu service worker. Tiga bentuk muatan yang
-   lazim (notification, webpush.notification, data-only) tetap diterima.
+   Saat ini TIDAK ada pengirimnya: push dari server butuh Cloud Functions
+   (paket Blaze), sedangkan project memakai paket gratis Spark. Penerima ini
+   dibiarkan agar push bisa dinyalakan kelak tanpa mengubah service worker.
+   Tiga bentuk muatan yang lazim (notification, webpush.notification,
+   data-only) diterima.
    ------------------------------------------------------- */
 /**
  * Menyusun judul dan opsi notifikasi dari muatan push.

@@ -817,7 +817,7 @@
           ['Siapkan tensimeter lengan', 'Gunakan alat yang sudah teruji — hasilnya menjadi acuan.'],
           ['Duduk tenang lima menit', 'Punggung bersandar, kaki menapak lantai, lengan setinggi jantung.'],
           ['Ukur dan catat hasilnya', 'Catat angka sistolik dan diastolik dari tensimeter.'],
-          ['Pastikan perangkat terpasang', 'Jam melekat cukup rapat, sekitar satu jari di atas tulang pergelangan.'],
+          ['Pastikan perangkat terpasang', 'TeleBand melekat cukup rapat di pergelangan, sensor tepat di titik denyut nadi (sisi dalam, segaris ibu jari).'],
           ['Masukkan hasilnya di bawah', 'Aplikasi akan menyesuaikan pembacaan sensor terhadap angka ini.']
         ].map((s, i) => `<div class="row" style="align-items:flex-start">
           <span class="row__ico" style="font-weight:800">${i + 1}</span>
@@ -955,12 +955,25 @@
       </div>
       </div>
 
-      <div class="section-title">${icon('shield')} Data di perangkat ini</div>
+      <div class="section-title">${icon('shield')} Data Anda</div>
       <div class="card">
-        <p class="small" style="color:var(--ink-2)">Seluruh data aplikasi — akun, riwayat makanan,
-        percakapan, dan daftar perangkat — disimpan di penyimpanan lokal peramban ini.
-        Tidak ada data yang dikirim ke server.</p>
-        <div class="stat-row mt">
+        ${Store.is('pasien') ? `
+        <p class="small" style="color:var(--ink-2)">Data Anda tersimpan di peramban ini <b>dan</b> disalin ke
+        server TeleCare (Firebase), supaya muncul juga saat Anda masuk dengan akun Google yang sama di
+        perangkat lain:</p>
+        <ul class="small mt" style="color:var(--ink-2);display:grid;gap:4px;padding-left:18px;list-style:disc">
+          <li>profil: nama panggilan, email, jenis kelamin, usia, tinggi, berat, aktivitas, tujuan &amp; target gizi;</li>
+          <li>catatan makanan (tanpa foto);</li>
+          <li>hasil ukur TeleBand.</li>
+        </ul>
+        <p class="small mt" style="color:var(--ink-2)">Yang dapat membacanya hanya Anda dan admin TeleCare.
+        Foto makanan tidak disimpan di server — foto hanya dikirim sesaat ke layanan AI untuk dikenali,
+        sama seperti ringkasan angka untuk Wawasan TeleCare AI (tanpa nama dan email).
+        Notifikasi, kalibrasi tekanan darah, daftar perangkat, dan pengaturan hanya ada di peramban ini.</p>`
+        : `<p class="small" style="color:var(--ink-2)">Data pasien di dasbor dibaca langsung dari server
+        TeleCare dan tidak disimpan di peramban ini. Yang tersimpan di sini hanya akun admin lokal,
+        notifikasi, dan pengaturan.</p>`}
+        <div class="stat-row mt" ${Store.is('pasien') ? '' : 'hidden'}>
           <div><b>${Store.state.meals.length}</b><span>Makanan</span></div>
           ${TC.FITUR.konsultasi
             ? `<div><b>${Store.state.consults.length}</b><span>Konsultasi</span></div>`
@@ -1123,7 +1136,10 @@
     $('[data-wipe]').onclick = async () => {
       const ok = await confirmSheet({
         title: 'Hapus semua data lokal?',
-        body: 'Akun, riwayat makanan, percakapan, dan daftar perangkat pada peramban ini akan hilang permanen.',
+        body: 'Semua data TeleCare di peramban ini dihapus: akun lokal, profil, catatan makanan beserta fotonya, ' +
+              'notifikasi, dan daftar perangkat. Salinan di server tidak ikut terhapus — setelah masuk lagi ' +
+              'dengan Google, profil, catatan makanan (tanpa foto), dan hasil ukur dipulihkan. Data yang belum ' +
+              'sempat terkirim ke server akan hilang permanen.',
         ok: 'Hapus semuanya', danger: true
       });
       if (!ok) return;
@@ -1171,16 +1187,15 @@
         <div class="card__head">${icon('link')}<h3>Teknologi yang dipakai</h3></div>
         <div class="stack--sm stack">
           <div style="display:flex;gap:10px;align-items:flex-start">
-            <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('chat')}</span>
-            <div><b style="font-size:.87rem">Supabase (Postgres + Realtime)</b>
-              <small class="tiny muted" style="display:block">${TC.FITUR.konsultasi
-                ? 'Percakapan konsultasi dan hasil ukur TeleBand tersimpan dan tersinkron antarperangkat.'
-                : 'Hasil ukur TeleBand tersimpan di server, bukan hanya di peramban.'}</small></div>
+            <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('shield')}</span>
+            <div><b style="font-size:.87rem">Firebase (Auth + Cloud Firestore)</b>
+              <small class="tiny muted" style="display:block">Masuk dengan akun Google; profil, catatan makanan,
+                dan hasil ukur TeleBand tersimpan di server dan tersinkron antarperangkat.</small></div>
           </div>
-          <div style="display:flex;gap:10px;align-items:flex-start" ${TC.FITUR.konsultasi ? '' : 'hidden'}>
-            <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('video')}</span>
-            <div><b style="font-size:.87rem">WebRTC peer-to-peer</b>
-              <small class="tiny muted" style="display:block">Panggilan suara dan video berjalan langsung antarperangkat, dengan pertukaran sinyal lewat Supabase Realtime dan relai TURN metered.ca bila jalur langsung terhalang.</small></div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('sparkle')}</span>
+            <div><b style="font-size:.87rem">Firebase AI Logic (Gemini)</b>
+              <small class="tiny muted" style="display:block">Mengenali makanan dari foto dan menyusun Wawasan TeleCare AI.</small></div>
           </div>
           <div style="display:flex;gap:10px;align-items:flex-start">
             <span class="row__ico" style="width:32px;height:32px;border-radius:10px">${icon('bt')}</span>

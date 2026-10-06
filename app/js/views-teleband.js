@@ -54,7 +54,7 @@
               <b style="font-size:.98rem">${on ? esc(L.nama()) : 'TeleBand belum tersambung'}</b>
               <small class="muted" style="font-size:.8rem">${on && info
                 ? 'serial ' + esc(info.serial) + ' · firmware ' + esc(info.firmware)
-                : 'ESP32-C6 + MAX30102 · pengukuran lewat jari'}</small>
+                : 'ESP32-C6 + MAX30102 · dipakai di pergelangan tangan'}</small>
             </div>
             <span class="chip ${on ? 'chip--g' : ''}" style="margin-left:auto">
               ${on ? '<i class="dotlive"></i> tersambung' : 'terputus'}</span>
@@ -194,11 +194,12 @@
       const pet = $('#tbPetunjuk');
       if (pet) {
         pet.textContent = !mengukur
-          ? 'Tekan Mulai ukur, lalu tempelkan ujung jari pada sensor dan tahan diam.'
-          : (l && l.state === 1 ? 'Tempelkan ujung jari pada sensor.'
+          ? 'Kenakan TeleBand di pergelangan tangan dengan sensor tepat di titik denyut nadi ' +
+            '(sisi dalam pergelangan, segaris ibu jari), tekan Mulai ukur, lalu tahan tangan diam.'
+          : (l && l.state === 1 ? 'Sensor belum menempel di kulit. Kencangkan tali dan pastikan sensor tepat di titik denyut nadi pergelangan.'
             : l && l.state === 5 ? 'Sensor tidak terdeteksi di alat — periksa perangkat kerasnya.'
             : l && l.cukup ? 'Data sudah cukup. Tekan stop untuk menyimpan hasil.'
-            : 'Tahan jari tetap diam sampai kemajuan penuh.');
+            : 'Tahan tangan tetap diam dan rileks sampai kemajuan penuh.');
       }
 
       const hasilEl = $('#tbHasil');

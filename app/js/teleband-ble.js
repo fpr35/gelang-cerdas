@@ -45,8 +45,10 @@
 
   const PANJANG = { info: 10, status: 10, live: 14, hasil: 16 };
 
-  // Byte state sensor (LIVE byte 1, STATUS byte 3).
-  const STATE = ['sensor mati', 'tempelkan jari', 'menstabilkan sinyal',
+  // Byte state sensor (LIVE byte 1, STATUS byte 3). 1 = TC_ST_TAK_MENEMPEL di
+  // tc_proto.h ("belum ada kulit"): TeleBand dipakai di pergelangan, sensor di
+  // titik denyut nadi — BUKAN di jari (firmware disetel untuk pergelangan).
+  const STATE = ['sensor mati', 'sensor belum menempel', 'menstabilkan sinyal',
                  'mencari detak', 'stabil', 'sensor tidak terdeteksi'];
 
   // Flag metrik (LIVE byte 12, HASIL byte 15).

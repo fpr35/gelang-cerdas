@@ -525,7 +525,7 @@
             about: 'Perkiraan tidak langsung dari bentuk gelombang nadi. Wajib dikalibrasi dengan tensimeter lengan dan hanya untuk melihat kecenderungan.' },
     glucose: { title: 'Glukosa', unit: 'mg/dL', color: '#1759BA', key: 'glucose',
             normal: '70–140 mg/dL (acuan umum, bukan untuk estimasi ini)',
-            about: 'Pada TeleBand, angka ini diperkirakan dari sinyal PPG jari dengan model yang menurut firmware-nya sendiri SANGAT eksperimental dan belum punya dasar ilmiah yang kuat. Jangan dipakai untuk keputusan apa pun.' }
+            about: 'Pada TeleBand, angka ini diperkirakan dari sinyal PPG di pergelangan tangan dengan model yang menurut firmware-nya sendiri SANGAT eksperimental dan belum punya dasar ilmiah yang kuat. Jangan dipakai untuk keputusan apa pun.' }
   };
 
   function viewVital(params) {

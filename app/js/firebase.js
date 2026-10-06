@@ -1,39 +1,80 @@
 /* ============================================================
    TeleCare App — firebase.js
-   Dua hal yang membutuhkan server: percakapan konsultasi
-   (Realtime Database) dan sinyal panggilan WebRTC.
+   Lapisan server: Firebase Auth, Cloud Firestore, dan Firebase AI
+   Logic (Gemini). Menggantikan supabase.js dengan nama API yang SAMA
+   (TC.FB, TC.ReadingsDB, TC.PatientsDB, TC.DeteksiDB) supaya layar-layar
+   tidak perlu diubah.
 
-   Bila Firebase tidak dapat dijangkau, seluruh modul di sini
-   melapor "luring" dan aplikasi kembali memakai penyimpanan lokal
-   sehingga tetap dapat dipakai.
+   Koleksi Firestore meniru tabel Supabase lama — nama koleksi, nama
+   field, dan bentuk nilainya sama (waktu = teks ISO 8601):
+     admins/{uid}                                  (diisi manual di Console)
+     patients/{uid}
+     patient_meals/{uid}_{idCatatan}
+     device_readings/{uid}_{serial}_{idAlat}_{epoch}
+   Aturan aksesnya di firestore.rules; indeks di firestore.indexes.json.
+
+   Paket Spark (gratis): tidak ada Cloud Functions, jadi semua logika
+   ada di sini dan di aturan Firestore. Fitur konsultasi/chat/panggilan
+   (TC.Chat, TC.RTC) BELUM dipindah ke Firebase — lihat TC.FITUR.
    ============================================================ */
 (function (TC) {
   'use strict';
 
-  const CONFIG = {
-    apiKey: "AIzaSyBhMi3nXhZFDKFXaZi6Ptm2yPTh1FDIf-Y",
-    authDomain: "telecare-id.firebaseapp.com",
-    databaseURL: "https://telecare-id-default-rtdb.firebaseio.com",
-    projectId: "telecare-id",
-    storageBucket: "telecare-id.firebasestorage.app",
-    messagingSenderId: "110142041439",
-    appId: "1:110142041439:web:9fe1c6449b51c5d2431aea"
-  };
+  /* ============================================================
+     0. MENUNGGU SDK (firebase-init.js memuatnya secara asinkron)
+     ============================================================ */
+  function fbKlien() {
+    if (window.TELECARE_FB) return Promise.resolve(window.TELECARE_FB);
+    if (window.TELECARE_FB_ERROR) return Promise.reject(new Error(window.TELECARE_FB_ERROR));
+    return new Promise((resolve, reject) => {
+      const siap = () => { bersih(); resolve(window.TELECARE_FB); };
+      const gagal = (e) => { bersih(); reject(new Error((e && e.detail) || 'Firebase gagal dimuat.')); };
+      const t = setTimeout(() => { bersih(); reject(new Error('Waktu tunggu Firebase habis.')); }, 15000);
+      function bersih() {
+        clearTimeout(t);
+        window.removeEventListener('telecare:fb-ready', siap);
+        window.removeEventListener('telecare:fb-error', gagal);
+      }
+      window.addEventListener('telecare:fb-ready', siap);
+      window.addEventListener('telecare:fb-error', gagal);
+    });
+  }
 
-  // Seluruh data purwarupa dikurung di bawah satu cabang agar mudah
-  // dibersihkan dan dibatasi lewat aturan keamanan.
-  const ROOT = 'telecare/demo';
+  /**
+   * Firestore tidak pernah menolak tulisan saat luring — janjinya baru
+   * selesai ketika server mengonfirmasi, yang bisa tak kunjung terjadi.
+   * Batas waktu membuat pemanggil tahu tulisan BELUM tersimpan (mis. hasil
+   * TeleBand tidak di-HAPUS dari alat). Tulisan itu tetap antre di SDK dan
+   * dikirim begitu tersambung; pengiriman ulang dari aplikasi aman.
+   */
+  function batasWaktu(janji, ms, pesan) {
+    let t;
+    const habis = new Promise((_, tolak) => {
+      t = setTimeout(() => {
+        const e = new Error(pesan || 'Server tidak menjawab. Periksa koneksi internet.');
+        e.code = 'waktu-habis';
+        tolak(e);
+      }, ms);
+    });
+    return Promise.race([janji, habis]).finally(() => clearTimeout(t));
+  }
+  const TULIS_MS = 15000;
+  const BACA_MS = 20000;
+  const tidur = (ms) => new Promise((r) => setTimeout(r, ms));
+  const kini = () => new Date().toISOString();
 
   /* ============================================================
-     1. KONEKSI
+     1. SESI & STATUS
      ============================================================ */
   const FB = {
-    ready: false,
-    online: false,
-    settled: false,   // sudah menerima kabar pertama dari .info/connected
+    ready: false,       // true sejak init() — fungsi lain menunggu SDK sendiri
+    online: navigator.onLine !== false,
+    settled: false,     // status masuk sudah diketahui (atau Firebase gagal dimuat)
     uid: null,
-    db: null,
+    authUser: null,
+    anonymous: false,   // tidak ada lagi sesi anonim; dipertahankan untuk pemanggil lama
     error: null,
+    authFatal: null,
     _subs: new Set()
   };
 
@@ -48,664 +89,528 @@
     return () => FB._subs.delete(fn);
   };
 
+  /** Pengguna Firebase → bentuk yang dipakai layar (sama dengan versi Supabase). */
+  function normal(u) {
+    if (!u) return null;
+    const penyedia = (u.providerData || []).map((p) => p.providerId);
+    return {
+      id: u.uid,
+      email: u.email || null,
+      phone: u.phoneNumber || '',
+      is_anonymous: !!u.isAnonymous,
+      provider: penyedia.indexOf('google.com') !== -1 ? 'google' : (penyedia[0] || null),
+      user_metadata: { full_name: u.displayName || null, avatar_url: u.photoURL || null }
+    };
+  }
+
   FB.init = function () {
     if (FB.ready) return;
-    if (typeof firebase === 'undefined' || !firebase.initializeApp) {
-      FB.error = 'SDK Firebase tidak termuat';
-      FB.settled = true;
-      emit();
-      return;
-    }
-    try {
-      firebase.initializeApp(CONFIG);
-      FB.db = firebase.database();
-      FB.ready = true;
-
-      FB.db.ref('.info/connected').on('value', (snap) => {
-        FB.online = !!snap.val();
+    FB.ready = true;   // SEBELUM SDK siap; setiap fungsi menunggu fbKlien() sendiri.
+    window.addEventListener('online', () => { FB.online = true; emit(); });
+    window.addEventListener('offline', () => { FB.online = false; emit(); });
+    fbKlien().then((k) => {
+      k.authM.onAuthStateChanged(k.auth, (u) => {
+        FB.uid = u ? u.uid : null;
+        FB.authUser = normal(u);
+        FB.anonymous = !!(u && u.isAnonymous);
         FB.settled = true;
         emit();
       });
-      // Bila dalam 8 detik tidak ada kabar, anggap luring agar UI tidak
-      // menggantung pada keadaan "menghubungkan" selamanya.
-      setTimeout(() => { if (!FB.settled) { FB.settled = true; emit(); } }, 8000);
-
-      // Sejak aturan database mensyaratkan `auth != null`, identitas lokal
-      // tidak lagi cukup: setiap tulisan menunggu sesi Firebase yang sah.
-      FB.uid = null;
-      if (firebase.auth) {
-        // Janji ini selesai pada kabar pertama dari onAuthStateChanged, yaitu
-        // setelah SDK selesai memulihkan sesi tersimpan (bila ada). Menunggu
-        // kabar itu mencegah pembuatan sesi anonim baru yang tidak perlu.
-        FB._firstAuth = new Promise((resolve) => {
-          let settled = false;
-          firebase.auth().onAuthStateChanged((u) => {
-            FB.uid = u ? u.uid : null;
-            FB.authUser = u || null;
-            FB.anonymous = !!(u && u.isAnonymous);
-            if (!settled) { settled = true; resolve(u || null); }
-            emit();
-          });
-        });
-        // Sesi disiapkan sejak awal agar layar pertama yang menulis tidak
-        // perlu menunggu proses masuk.
-        FB.ensureAuth().catch(() => {});
-      }
-    } catch (e) {
+    }).catch((e) => {
       FB.error = e.message;
       FB.ready = false;
       FB.settled = true;
       console.warn('[TeleCare] Firebase tidak aktif:', e.message);
       emit();
-    }
-  };
-
-  /* ---------------- Sesi wajib untuk menulis ke database ----------------
-     Aturan database menolak tulisan tanpa autentikasi. Pengguna yang belum
-     masuk (termasuk mode Tamu dan tautan ?demo=) diberi sesi anonim Firebase
-     supaya alur peragaan tetap utuh tanpa membuka database ke publik.
-     -------------------------------------------------------------------- */
-  FB._authOnce = null;
-
-  FB.ensureAuth = function () {
-    if (!(window.firebase && firebase.auth)) {
-      return Promise.reject(new Error('Firebase Authentication tidak termuat.'));
-    }
-    if (FB._authOnce) return FB._authOnce;
-
-    FB._authOnce = (FB._firstAuth || Promise.resolve(null))
-      .then((u) => {
-        const cur = firebase.auth().currentUser || u;
-        if (cur) return cur;
-        return firebase.auth().signInAnonymously().then((res) => res.user);
-      })
-      .then((user) => { FB.authFatal = null; emit(); return user; })
-      .catch((err) => {
-        FB._authOnce = null;               // biar percobaan berikutnya bisa jalan
-        const code = (err && err.code) || '';
-        if (code === 'auth/operation-not-allowed' || code === 'auth/admin-restricted-operation') {
-          FB.authFatal = 'Metode masuk Anonim belum diaktifkan pada proyek Firebase. ' +
-            'Aktifkan di Firebase Console → Authentication → Sign-in method → Anonymous.';
-        } else {
-          FB.authFatal = FB.authError(err);
-        }
-        console.warn('[TeleCare] sesi Firebase gagal:', FB.authFatal);
-        emit();
-        throw err;
-      });
-
-    return FB._authOnce;
-  };
-
-  /**
-   * Benar hanya bila data sungguh dapat disinkronkan: tersambung **dan**
-   * bersesi sah. Tanpa pemeriksaan sesi, aplikasi bisa mengaku "tersambung"
-   * padahal setiap tulisan ditolak aturan database.
-   */
-  FB.canSync = function () {
-    return !!(FB.ready && FB.online && FB.uid && !FB.authFatal);
-  };
-
-  /**
-   * Menunggu sambungan siap. Dipakai sebelum menulis sinyal WebRTC, karena
-   * pada saat layar panggilan dibuka koneksi sering belum selesai terbentuk.
-   */
-  FB.waitOnline = function (ms) {
-    if (FB.online) return Promise.resolve(true);
-    if (!FB.ready) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      let done = false;
-      const off = FB.onStatus((s) => {
-        if (s.online && !done) { done = true; off(); resolve(true); }
-      });
-      setTimeout(() => { if (!done) { done = true; off(); resolve(false); } }, ms || 7000);
     });
   };
 
-  /* ---------------- Masuk dengan Google ---------------- */
-  FB.googleAvailable = () => !!(window.firebase && firebase.auth);
-
-  /**
-   * Membuka jendela masuk Google. Pada peramban yang memblokir popup
-   * (umumnya di ponsel), otomatis beralih ke alur pengalihan halaman.
-   */
-  FB.signInGoogle = function () {
-    if (!FB.googleAvailable()) {
-      return Promise.reject(new Error('Firebase Authentication belum termuat.'));
+  /** Pengguna yang sedang masuk. Tanpa sesi → galat `belum-masuk` (tidak ada sesi anonim). */
+  FB.ensureAuth = async function () {
+    const k = await fbKlien();
+    await k.auth.authStateReady();
+    const u = k.auth.currentUser;
+    if (!u) {
+      const e = new Error('Belum masuk ke akun.');
+      e.code = 'belum-masuk';
+      throw e;
     }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    return firebase.auth().signInWithPopup(provider)
-      .then((res) => res.user)
-      .catch((err) => {
-        const code = err && err.code ? err.code : '';
-        if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request' ||
-            code === 'auth/operation-not-supported-in-this-environment') {
-          return firebase.auth().signInWithRedirect(provider).then(() => null);
-        }
-        throw err;
-      });
-  };
-
-  /** Hasil alur pengalihan, dipanggil sekali saat aplikasi dimuat. */
-  FB.redirectResult = function () {
-    if (!FB.googleAvailable()) return Promise.resolve(null);
-    return firebase.auth().getRedirectResult()
-      .then((res) => (res && res.user ? res.user : null))
-      .catch(() => null);
+    return normal(u);
   };
 
   /**
-   * Keluar dari akun, lalu kembali ke sesi anonim. Tanpa langkah kedua,
-   * aplikasi kehilangan hak tulis ke database setelah pengguna keluar.
+   * uid pengguna yang sedang masuk, dibaca LANGSUNG dari Auth (tanpa
+   * menunggu event onAuthStateChanged, yang bisa datang sesaat setelah
+   * signInWithPopup selesai). null = tidak ada sesi. Hanya bermakna
+   * setelah `settled`.
    */
+  FB.uidKini = function () {
+    const k = window.TELECARE_FB;
+    const u = k && k.auth.currentUser;
+    return u ? u.uid : null;
+  };
+
+  FB.canSync = () => !!(FB.ready && FB.online && FB.uid);
+  FB.waitOnline = () => Promise.resolve(FB.online);
+  FB.googleAvailable = () => FB.ready;
+
+  /* ---------------- Masuk dengan Google ----------------
+     Jendela popup lebih dulu: pengalihan halaman bermasalah di peramban
+     yang memblokir penyimpanan pihak ketiga, karena halaman login ada di
+     domain *.firebaseapp.com. Popup diblokir → pengalihan sebagai cadangan. */
+  FB.signInGoogle = async function () {
+    const k = await fbKlien();
+    const p = new k.authM.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: 'select_account' });
+    try {
+      const r = await k.authM.signInWithPopup(k.auth, p);
+      return normal(r.user);
+    } catch (e) {
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
+        await k.authM.signInWithRedirect(k.auth, p);
+        return null;   // halaman berpindah
+      }
+      throw e;
+    }
+  };
+
+  /** Pengguna Google yang sedang masuk (hasil pengalihan, atau sesi tersimpan), atau null. */
+  FB.redirectResult = async function () {
+    try {
+      const k = await fbKlien();
+      try { await k.authM.getRedirectResult(k.auth); }
+      catch (e) { console.warn('[TeleCare] hasil masuk Google:', e.code || e.message); }
+      await k.auth.authStateReady();
+      const u = normal(k.auth.currentUser);
+      return u && u.provider === 'google' ? u : null;
+    } catch (e) { return null; }
+  };
+
   FB.signOut = function () {
-    FB._authOnce = null;
-    if (!FB.googleAvailable()) return Promise.resolve();
-    return firebase.auth().signOut()
-      .then(() => FB.ensureAuth().catch(() => null))
-      .catch(() => null);
+    return fbKlien().then((k) => k.authM.signOut(k.auth)).catch(() => null);
   };
 
-  /** Menerjemahkan kode galat Firebase Auth ke bahasa yang bisa dibaca. */
-  FB.authError = function (err) {
-    const c = (err && err.code) || '';
-    if (c === 'auth/operation-not-allowed') {
-      return 'Metode masuk Google belum diaktifkan pada proyek Firebase. ' +
-             'Aktifkan di Firebase Console → Authentication → Sign-in method → Google.';
-    }
-    if (c === 'auth/unauthorized-domain') {
-      return 'Domain ini belum diizinkan pada Firebase Authentication.';
-    }
-    if (c === 'auth/popup-closed-by-user') return 'Jendela masuk ditutup sebelum selesai.';
-    if (c === 'auth/network-request-failed') return 'Jaringan bermasalah. Coba lagi.';
-    return (err && err.message) || 'Masuk dengan Google gagal.';
-  };
-
-  /* ---------------- Kehadiran dokter pada percakapan ---------------- */
-  // Dipakai agar balasan otomatis berhenti ketika dokter sungguhan hadir.
-  FB.presence = function (consultId, role) {
-    const r = FB.ref('consults/' + consultId + '/meta/doctorOnline');
-    if (!r || role !== 'dokter') return () => {};
-    // Menulis kehadiran memerlukan sesi sah dan keanggotaan percakapan.
-    Chat.join(consultId).then(() => {
-      r.set(true).catch(() => {});
-      try { r.onDisconnect().set(false); } catch (e) { /* abaikan */ }
-    }).catch(() => {});
-    return () => { r.set(false).catch(() => {}); };
-  };
-
-  FB.watchPresence = function (consultId, fn) {
-    const r = FB.ref('consults/' + consultId + '/meta/doctorOnline');
-    if (!r) return () => {};
-    let handler = null;
-    // Membaca pun menuntut keanggotaan, jadi bergabung dulu.
-    Chat.join(consultId).then(() => {
-      handler = r.on('value', (s) => fn(!!s.val()));
-    }).catch(() => {});
-    return () => { if (handler) r.off('value', handler); };
-  };
-
-  FB.ref = (path) => (FB.db ? FB.db.ref(ROOT + '/' + path) : null);
-  FB.stamp = () => (window.firebase && firebase.database
-    ? firebase.database.ServerValue.TIMESTAMP : Date.now());
-
-  /* ============================================================
-     2. CHAT — pesan konsultasi di Realtime Database
-     ============================================================ */
-  const Chat = {
-    /**
-     * Mendaftarkan diri sebagai peserta percakapan. Aturan database hanya
-     * mengizinkan setiap orang menulis kunci miliknya sendiri
-     * (`meta/members/$uid` dengan `$uid == auth.uid`), dan seluruh akses
-     * baca-tulis percakapan bertumpu pada daftar itu. Konsekuensinya: yang
-     * memegang ID percakapan boleh bergabung — ID itulah kapabilitasnya,
-     * karena itu dibangkitkan secara kriptografis.
-     */
-    _joined: Object.create(null),
-
-    join(consultId) {
-      return FB.ensureAuth().then((user) => {
-        const key = user.uid + '@' + consultId;
-        // Ditulis sekali per sesi; janji yang sama dipakai ulang agar pemanggil
-        // lain (kirim pesan, langganan, sinyal panggilan) cukup menunggunya.
-        if (Chat._joined[key]) return Chat._joined[key];
-        const r = FB.ref('consults/' + consultId + '/meta/members/' + user.uid);
-        if (!r) return false;
-        Chat._joined[key] = r.set(true).then(() => true).catch((e) => {
-          delete Chat._joined[key];
-          throw e;
-        });
-        return Chat._joined[key];
-      });
-    },
-
-    /** Melupakan keanggotaan yang tersimpan (dipakai saat ID ternyata tak dikenal). */
-    _forget(consultId) {
-      if (!FB.uid) return;
-      delete Chat._joined[FB.uid + '@' + consultId];
-    },
-
-    /**
-     * Menuliskan metadata percakapan bila belum ada.
-     *
-     * Memakai `update()` dan bukan `set()`/`transaction()` pada simpul `meta`
-     * secara sengaja: aturan database tidak memberi izin tulis pada `meta`
-     * itu sendiri, hanya pada masing-masing field. Sebabnya izin tulis di
-     * Firebase menurun ke seluruh anak — izin di `meta` akan membuat siapa pun
-     * peserta bisa mengubah daftar `members`, termasuk menambah atau membuang
-     * orang lain. `update()` dinilai per-anak, jadi tetap sah, dan `members`
-     * sama sekali tidak tersentuh.
-     */
-    ensure(consultId, meta) {
-      return Chat.join(consultId).then(() => {
-        const r = FB.ref('consults/' + consultId + '/meta');
-        if (!r) return false;
-        // doctorId menjadi penanda "percakapan sudah disiapkan", sebab `join`
-        // sudah lebih dulu membuat simpul meta berisi members.
-        return r.child('doctorId').get().then((s) => {
-          if (s.exists()) return true;
-          return r.update({
-            doctorId: meta.doctorId,
-            mode: meta.mode || 'chat',
-            startedAt: meta.startedAt || Date.now(),
-            status: 'active'
-          }).then(() => true);
-        });
-      }).catch((e) => {
-        console.warn('[TeleCare] gagal menyiapkan percakapan:', e.message);
-        return false;
-      });
-    },
-
-    /** Mendengarkan pesan baru. Mengembalikan fungsi pemutus langganan. */
-    subscribe(consultId, onMessage) {
-      const r = FB.ref('consults/' + consultId + '/messages');
-      if (!r) return () => {};
-      const q = r.limitToLast(200);
-      let handler = null;
-      let stopped = false;
-      // Membaca pesan menuntut keanggotaan, jadi langganan dipasang setelah
-      // sesi siap dan diri terdaftar sebagai peserta.
-      Chat.join(consultId).then(() => {
-        if (stopped) return;
-        handler = q.on('child_added', (snap) => {
-          const v = snap.val();
-          if (v) onMessage(Object.assign({ key: snap.key }, v));
-        }, (err) => {
-          console.warn('[TeleCare] gagal membaca percakapan:', err.message);
-        });
-      }).catch((e) => {
-        console.warn('[TeleCare] tidak dapat mengikuti percakapan:', e.message);
-      });
-      return () => {
-        stopped = true;
-        if (handler) q.off('child_added', handler);
-      };
-    },
-
-    /** Mengirim satu pesan. Menolak (reject) bila sesi atau server gagal. */
-    send(consultId, msg) {
-      if (!FB.db) return Promise.reject(new Error('Firebase belum siap'));
-      // Keanggotaan wajib lebih dulu, kalau tidak aturan menolak tulisan ini.
-      return Chat.join(consultId).then(() => {
-        const r = FB.ref('consults/' + consultId + '/messages');
-        if (!r) throw new Error('Firebase belum siap');
-        // `uid` wajib sama dengan auth.uid — divalidasi oleh aturan database.
-        // Tulisan saat luring diantre oleh SDK dan dikirim setelah tersambung.
-        return r.push(Object.assign({ at: Date.now() }, msg, { uid: FB.uid }));
-      });
-    },
-
-    /**
-     * Mengambil metadata percakapan (dipakai saat membuka tautan undangan).
-     * Mengembalikan null bila percakapan tidak ada — ditandai oleh tidak
-     * adanya `doctorId`, sebab `join` di atas sudah membuat simpul `members`
-     * lebih dulu sehingga meta selalu "ada" secara teknis. Keanggotaan yang
-     * telanjur tertulis untuk ID tak dikenal dibersihkan kembali.
-     */
-    meta(consultId) {
-      if (!FB.db) return Promise.resolve(null);
-      return Chat.join(consultId)
-        .then(() => {
-          const r = FB.ref('consults/' + consultId + '/meta');
-          if (!r) return null;
-          return r.get().then((s) => {
-            const v = s.exists() ? s.val() : null;
-            if (v && v.doctorId) return v;
-            if (FB.uid) {
-              const mine = FB.ref('consults/' + consultId + '/meta/members/' + FB.uid);
-              if (mine) mine.remove().catch(() => {});
-              Chat._forget(consultId);
-            }
-            return null;
-          });
-        })
-        .catch(() => null);
-    },
-
-    setStatus(consultId, status) {
-      const r = FB.ref('consults/' + consultId + '/meta/status');
-      if (r) FB.ensureAuth().then(() => r.set(status)).catch(() => {});
-    }
-  };
-
-  /* ============================================================
-     3. WEBRTC — panggilan suara/video dengan sinyal lewat RTDB
-     ============================================================
-     Pola yang dipakai: peserta pertama pada sebuah ruang menjadi
-     pemanggil (menulis offer), peserta berikutnya menjadi penerima
-     (menulis answer). Kandidat ICE dipertukarkan lewat dua daftar
-     terpisah agar tidak saling menimpa.
-     ============================================================ */
-  const STUN_CADANGAN = [
-    'stun:stun.l.google.com:19302',
-    'stun:stun1.l.google.com:19302',
-    'stun:stun.services.mozilla.com'
-  ];
-
-  const RTC = {
-    supported() {
-      return !!(window.RTCPeerConnection && navigator.mediaDevices &&
-                navigator.mediaDevices.getUserMedia);
-    },
-
-    /** Konfigurasi mentah dari app/js/rtc-config.js, bila berkas itu dimuat. */
-    config() {
-      return window.TELECARE_RTC || {};
-    },
-
-    /**
-     * TURN yang diisi pengguna lewat Profil → Pengaturan → Panggilan.
-     * Tersimpan di perangkat itu saja dan menimpa bawaan proyek, supaya
-     * penguji dapat memakai server sendiri tanpa mengubah kode.
-     */
-    turnDariPengaturan() {
-      const st = TC.Store && TC.Store.state;
-      const t = st && st.settings && st.settings.turn;
-      if (!t || !t.urls) return null;
-      const urls = String(t.urls).split(',').map((u) => u.trim()).filter(Boolean);
-      if (!urls.length) return null;
-      const s = { urls };
-      if (t.username) s.username = t.username;
-      if (t.credential) s.credential = t.credential;
-      return s;
-    },
-
-    /**
-     * Mengambil kredensial TURN sementara dari endpoint penerbit, bila diatur.
-     * Kegagalan tidak menghentikan panggilan — hanya menurunkannya ke STUN.
-     */
-    async turnDariEndpoint() {
-      const url = RTC.config().fetchFrom;
-      if (!url) return [];
-      try {
-        const res = await fetch(url, { credentials: 'omit' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const j = await res.json();
-        if (Array.isArray(j.iceServers)) return j.iceServers;
-        if (j.urls) return [j];
-        return [];
-      } catch (e) {
-        console.warn('[TeleCare] penerbit TURN tidak terjangkau:', e.message);
-        return [];
-      }
-    },
-
-    /** Daftar TURN yang berlaku, menurut urutan prioritas. */
-    async turnAktif() {
-      const dariPengaturan = RTC.turnDariPengaturan();
-      if (dariPengaturan) return [dariPengaturan];
-      const dariEndpoint = await RTC.turnDariEndpoint();
-      if (dariEndpoint.length) return dariEndpoint;
-      const statis = RTC.config().servers;
-      return Array.isArray(statis) ? statis.filter((s) => s && s.urls) : [];
-    },
-
-    /** Benar bila ada TURN yang dapat dipakai (tanpa menghubunginya). */
-    turnTersedia() {
-      if (RTC.turnDariPengaturan()) return true;
-      if (RTC.config().fetchFrom) return true;
-      const s = RTC.config().servers;
-      return !!(Array.isArray(s) && s.some((x) => x && x.urls));
-    },
-
-    /** Konfigurasi RTCPeerConnection yang sudah lengkap. */
-    async rtcConfig() {
-      const cfg = RTC.config();
-      const stun = Array.isArray(cfg.stun) && cfg.stun.length ? cfg.stun : STUN_CADANGAN;
-      const turn = await RTC.turnAktif();
-      const out = {
-        iceServers: [{ urls: stun }].concat(turn),
-        iceCandidatePoolSize: 8
-      };
-      // 'relay' membuang kandidat host dan srflx, jadi media dipaksa lewat TURN.
-      if (cfg.paksaRelay && turn.length) out.iceTransportPolicy = 'relay';
-      return out;
-    },
-
-    /**
-     * Menguji konektivitas ICE tanpa membuka kamera maupun mikrofon:
-     * satu RTCPeerConnection berisi data channel kosong dikumpulkan
-     * kandidatnya, lalu jenisnya dihitung.
-     *
-     *   host  — alamat di jaringan lokal
-     *   srflx — alamat publik hasil STUN
-     *   relay — jalur lewat TURN; hanya ini yang menembus NAT ketat
-     */
-    async diagnose(timeoutMs) {
-      if (!window.RTCPeerConnection) {
-        return { didukung: false, alasan: 'Peramban ini tidak mendukung WebRTC.' };
-      }
-      const cfg = await RTC.rtcConfig();
-      const pc = new RTCPeerConnection(cfg);
-      const jenis = { host: 0, srflx: 0, prflx: 0, relay: 0 };
-      const protokolRelay = new Set();
-
-      try {
-        pc.createDataChannel('probe');
-        await new Promise((resolve) => {
-          let selesai = false;
-          const tutup = () => { if (!selesai) { selesai = true; resolve(); } };
-
-          pc.onicecandidate = (ev) => {
-            if (!ev.candidate) { tutup(); return; }
-            const c = ev.candidate;
-            const t = c.type || (c.candidate.split(' ')[7]);
-            if (t && jenis[t] !== undefined) jenis[t]++;
-            if (t === 'relay') protokolRelay.add(c.protocol || '?');
-          };
-          pc.onicegatheringstatechange = () => {
-            if (pc.iceGatheringState === 'complete') tutup();
-          };
-
-          pc.createOffer()
-            .then((o) => pc.setLocalDescription(o))
-            .catch((e) => { console.warn('[TeleCare] diagnosa ICE gagal:', e.message); tutup(); });
-
-          setTimeout(tutup, timeoutMs || 8000);
-        });
-      } finally {
-        try { pc.close(); } catch (e) { /* abaikan */ }
-      }
-
-      const adaTurn = RTC.turnTersedia();
-      return {
-        didukung: true,
-        jenis,
-        turnDikonfigurasi: adaTurn,
-        relayBerhasil: jenis.relay > 0,
-        protokolRelay: Array.from(protokolRelay),
-        jumlahServer: cfg.iceServers.length,
-        // Kesimpulan yang bisa langsung ditampilkan ke pengguna.
-        ringkasan: !adaTurn
-          ? 'TURN belum dikonfigurasi — panggilan dapat gagal di balik NAT ketat.'
-          : (jenis.relay > 0
-              ? 'TURN bekerja: kandidat relay diperoleh, panggilan dapat menembus NAT ketat.'
-              : 'TURN dikonfigurasi tetapi tidak menghasilkan kandidat relay — periksa alamat, port, dan kredensial.')
-      };
-    },
-
-    /**
-     * Bergabung ke sebuah ruang panggilan.
-     * @param {string} roomId  pengenal ruang (dipakai bersama kedua sisi)
-     * @param {object} opts    { video:boolean, audio:boolean }
-     * @param {object} on      { onLocal, onRemote, onState, onRole }
-     */
-    async join(roomId, opts, on) {
-      on = on || {};
-      const wantVideo = opts.video !== false;
-
-      if (!RTC.supported()) throw new Error('Peramban ini tidak mendukung WebRTC.');
-
-      const local = await navigator.mediaDevices.getUserMedia({
-        video: wantVideo ? { facingMode: 'user' } : false,
-        audio: true
-      });
-      if (on.onLocal) on.onLocal(local);
-
-      const pc = new RTCPeerConnection(await RTC.rtcConfig());
-      local.getTracks().forEach((t) => pc.addTrack(t, local));
-
-      const remote = new MediaStream();
-      pc.ontrack = (ev) => {
-        ev.streams[0].getTracks().forEach((t) => remote.addTrack(t));
-        if (on.onRemote) on.onRemote(remote);
-      };
-      pc.onconnectionstatechange = () => {
-        if (on.onState) on.onState(pc.connectionState);
-      };
-
-      const roomRef = FB.ref('rooms/' + roomId);
-      let linked = roomRef ? await FB.waitOnline(7000) : false;
-      // Sinyal panggilan hanya boleh ditulis peserta percakapan yang sama;
-      // tanpa sesi dan keanggotaan, aturan database menolak seluruh tulisan.
-      if (linked) {
-        try { await Chat.join(roomId); }
-        catch (e) {
-          console.warn('[TeleCare] sesi panggilan tidak sah:', e.message);
-          linked = false;
-        }
-      }
-      if (!roomRef || !linked) {
-        // Tanpa server sinyal, panggilan tetap menampilkan pratinjau lokal.
-        if (on.onRole) on.onRole('solo');
-        return session(pc, local, remote, null, [], 'solo');
-      }
-
-      const snap = await roomRef.child('offer').get();
-      const isCaller = !snap.exists();
-      const myList = isCaller ? 'callerCandidates' : 'calleeCandidates';
-      const theirList = isCaller ? 'calleeCandidates' : 'callerCandidates';
-      if (on.onRole) on.onRole(isCaller ? 'caller' : 'callee');
-
-      pc.onicecandidate = (ev) => {
-        if (ev.candidate) roomRef.child(myList).push(ev.candidate.toJSON()).catch(() => {});
-      };
-
-      const offs = [];
-
-      if (isCaller) {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await roomRef.child('offer').set({ type: offer.type, sdp: offer.sdp });
-        await roomRef.child('createdAt').set(Date.now());
-
-        const aRef = roomRef.child('answer');
-        const aH = aRef.on('value', async (s) => {
-          const v = s.val();
-          if (v && !pc.currentRemoteDescription) {
-            try { await pc.setRemoteDescription(new RTCSessionDescription(v)); }
-            catch (e) { console.warn('[TeleCare] answer ditolak:', e.message); }
-          }
-        });
-        offs.push(() => aRef.off('value', aH));
-      } else {
-        const offer = snap.val();
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await roomRef.child('answer').set({ type: answer.type, sdp: answer.sdp });
-      }
-
-      const cRef = roomRef.child(theirList);
-      const cH = cRef.on('child_added', async (s) => {
-        try { await pc.addIceCandidate(new RTCIceCandidate(s.val())); }
-        catch (e) { /* kandidat usang, abaikan */ }
-      });
-      offs.push(() => cRef.off('child_added', cH));
-
-      return session(pc, local, remote, roomRef, offs, isCaller ? 'caller' : 'callee');
-    },
-
-    /** Membersihkan ruang yang sudah selesai dipakai. */
-    clearRoom(roomId) {
-      const r = FB.ref('rooms/' + roomId);
-      if (r) r.remove().catch(() => {});
-    }
-  };
-
-  function session(pc, local, remote, roomRef, offs, role) {
-    return {
-      pc, local, remote, role,
-
-      /**
-       * Jalur yang sungguh dipakai setelah tersambung, dibaca dari getStats().
-       * Mengembalikan mis. { lokal: 'relay', jauh: 'srflx', viaTurn: true }.
-       * Berguna untuk membuktikan TURN benar-benar terpakai, bukan sekadar
-       * dikonfigurasi.
-       */
-      async jalurTerpakai() {
-        try {
-          const stats = await pc.getStats();
-          let pair = null;
-          const kandidat = new Map();
-          stats.forEach((r) => {
-            if (r.type === 'local-candidate' || r.type === 'remote-candidate') {
-              kandidat.set(r.id, r);
-            }
-            if (r.type === 'candidate-pair' && (r.selected || r.state === 'succeeded')) {
-              if (!pair || r.selected) pair = r;
-            }
-          });
-          if (!pair) return null;
-          const l = kandidat.get(pair.localCandidateId);
-          const j = kandidat.get(pair.remoteCandidateId);
-          const lt = l && (l.candidateType || l.type);
-          const jt = j && (j.candidateType || j.type);
-          return { lokal: lt || null, jauh: jt || null, viaTurn: lt === 'relay' || jt === 'relay' };
-        } catch (e) {
-          return null;
-        }
-      },
-      toggleAudio(on) { local.getAudioTracks().forEach((t) => { t.enabled = on; }); },
-      toggleVideo(on) { local.getVideoTracks().forEach((t) => { t.enabled = on; }); },
-      async switchCamera() {
-        const vt = local.getVideoTracks()[0];
-        if (!vt) return false;
-        const cur = vt.getSettings().facingMode === 'environment' ? 'user' : 'environment';
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cur }, audio: false });
-          const nt = s.getVideoTracks()[0];
-          const sender = pc.getSenders().find((x) => x.track && x.track.kind === 'video');
-          if (sender) await sender.replaceTrack(nt);
-          vt.stop();
-          local.removeTrack(vt);
-          local.addTrack(nt);
-          return true;
-        } catch (e) { return false; }
-      },
-      hangup(removeRoom) {
-        offs.forEach((f) => { try { f(); } catch (e) {} });
-        try { pc.getSenders().forEach((s) => s.track && s.track.stop()); } catch (e) {}
-        try { local.getTracks().forEach((t) => t.stop()); } catch (e) {}
-        try { pc.close(); } catch (e) {}
-        if (roomRef && removeRoom) roomRef.remove().catch(() => {});
-      }
-    };
+  /* ---------------- Admin (email + kata sandi) ----------------
+     Admin = pengguna Firebase Auth yang punya dokumen admins/{uid}.
+     Dokumen itu hanya bisa dibuat dari Firebase Console (aturan menolak
+     tulisan dari aplikasi). Akun yang bukan admin langsung dikeluarkan. */
+  async function adminKah(k, uid) {
+    const s = await batasWaktu(k.fsM.getDoc(k.fsM.doc(k.db, 'admins', uid)), BACA_MS);
+    return s.exists();
   }
 
+  FB.signInAdmin = async function (email, pass) {
+    const k = await fbKlien();
+    const r = await k.authM.signInWithEmailAndPassword(k.auth, String(email || '').trim(), pass);
+    let admin = false, galat = null;
+    try { admin = await adminKah(k, r.user.uid); } catch (e) { galat = e; }
+    if (!admin) {
+      await k.authM.signOut(k.auth).catch(() => null);
+      if (galat) throw galat;
+      const e = new Error('Akun ini bukan akun admin.');
+      e.code = 'BUKAN_ADMIN';
+      throw e;
+    }
+    return normal(r.user);
+  };
+
+  /** Apakah sesi saat ini milik admin? Galat dianggap bukan admin. */
+  FB.cekAdmin = async function () {
+    try {
+      const k = await fbKlien();
+      await k.auth.authStateReady();
+      const u = k.auth.currentUser;
+      return u ? await adminKah(k, u.uid) : false;
+    } catch (e) { return false; }
+  };
+
+  /** Pesan galat Firebase Auth yang bisa dipahami pengguna. */
+  FB.authError = function (err) {
+    const kode = (err && err.code) || '';
+    const PESAN = {
+      'auth/operation-not-allowed': 'Metode masuk ini belum diaktifkan. Buka Firebase Console → Authentication → Sign-in method.',
+      'auth/configuration-not-found': 'Authentication belum diaktifkan di Firebase Console (Authentication → Get started).',
+      'auth/unauthorized-domain': 'Domain ini belum diizinkan. Tambahkan di Firebase Console → Authentication → Settings → Authorized domains.',
+      'auth/popup-closed-by-user': 'Jendela masuk ditutup sebelum selesai.',
+      'auth/cancelled-popup-request': 'Jendela masuk ditutup sebelum selesai.',
+      'auth/network-request-failed': 'Jaringan bermasalah. Coba lagi.',
+      'auth/invalid-credential': 'Email atau kata sandi salah.',
+      'auth/wrong-password': 'Email atau kata sandi salah.',
+      'auth/user-not-found': 'Email atau kata sandi salah.',
+      'auth/invalid-email': 'Format email belum benar.',
+      'auth/user-disabled': 'Akun ini dinonaktifkan.',
+      'auth/too-many-requests': 'Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.'
+    };
+    return PESAN[kode] || (err && err.message) || 'Masuk gagal.';
+  };
+
+  /** Pesan galat Firestore yang bisa dipahami (dipakai layar admin). */
+  FB.pesanGalat = function (e) {
+    const kode = (e && e.code) || '';
+    const isi = (e && e.message) || '';
+    if (kode === 'permission-denied') {
+      return 'Akses ditolak server. Pastikan aturan Firestore sudah dipasang (firebase deploy --only firestore) ' +
+        'dan akun ini berhak membuka data tersebut.';
+    }
+    if (kode === 'failed-precondition' && /index/i.test(isi)) {
+      return 'Indeks Firestore belum dibuat. Jalankan: firebase deploy --only firestore';
+    }
+    if (kode === 'unavailable' || kode === 'waktu-habis') return 'Server tidak terjangkau. Periksa koneksi internet.';
+    if (kode === 'belum-masuk') return 'Sesi sudah berakhir. Silakan masuk kembali.';
+    return isi || 'Gagal menghubungi server.';
+  };
+
+  /* ============================================================
+     2. BANTUAN FIRESTORE
+     ============================================================ */
+  const baris = (snap) => Object.assign({ id: snap.id }, snap.data());
+
+  /** Kueri dengan batas waktu → array baris. */
+  async function ambil(koleksi, kendala) {
+    const k = await fbKlien();
+    const f = k.fsM;
+    const s = await batasWaktu(f.getDocs(f.query(f.collection(k.db, koleksi), ...kendala(f))), BACA_MS);
+    return s.docs.map(baris);
+  }
+
+  /** Simpanan sementara 60 dtk untuk kueri admin yang besar (kuota baca gratis 50.000/hari). */
+  const simpanan = new Map();
+  async function bersimpan(kunci, fn) {
+    const x = simpanan.get(kunci);
+    if (x && Date.now() - x.at < 60000) return x.isi;
+    const isi = await fn();
+    simpanan.set(kunci, { at: Date.now(), isi });
+    return isi;
+  }
+  const lupakanSimpanan = () => simpanan.clear();
+
+  /* ============================================================
+     3. HASIL UKUR PERANGKAT — koleksi device_readings
+     ============================================================ */
+  // Semua kolom selalu dikirim (null bila kosong): aturan Firestore memeriksa
+  // setiap field, dan field yang hilang berbeda dari field bernilai null.
+  const KOLOM_HASIL = ['device_serial', 'device_unit', 'firmware', 'device_result_id', 'device_epoch',
+    'measured_at', 'time_valid', 'duration_s', 'bpm', 'spo2', 'glucose_est', 'sys_est', 'dia_est',
+    'source', 'flags'];
+
+  const ReadingsDB = {
+    /**
+     * Menyimpan satu hasil. Duplikat (serial + id + epoch yang sama) dianggap
+     * BERHASIL — hasil itu memang sudah ada di server, jadi alat boleh
+     * menghapusnya. Melempar galat bila penyimpanan gagal.
+     */
+    async simpan(row) {
+      const k = await fbKlien();
+      const user = await FB.ensureAuth();
+      const f = k.fsM;
+      const d = { user_id: user.id, received_at: kini() };
+      KOLOM_HASIL.forEach((c) => { d[c] = row[c] === undefined ? null : row[c]; });
+      const id = [user.id, d.device_serial, d.device_result_id, d.device_epoch].join('_');
+      const ref = f.doc(k.db, 'device_readings', id);
+      try {
+        await batasWaktu(f.setDoc(ref, d), TULIS_MS);
+      } catch (e) {
+        // Dokumen sudah ada → aturan menolak penimpaan (hasil ukur tidak boleh
+        // berubah). Setara ignoreDuplicates di versi Supabase.
+        if (e && e.code === 'permission-denied') {
+          const s = await batasWaktu(f.getDoc(ref), BACA_MS).catch(() => null);
+          if (s && s.exists()) return true;
+        }
+        throw e;
+      }
+      return true;
+    },
+
+    /**
+     * Hasil milik pengguna tertentu (bawaan: diri sendiri), terbaru diterima dulu.
+     * @param {object} [opsi]  { sejak: ISO } — hanya yang diterima server SETELAH waktu itu
+     */
+    async daftar(userId, batas, opsi) {
+      const user = await FB.ensureAuth();
+      return ambil('device_readings', (f) => {
+        const k = [f.where('user_id', '==', userId || user.id)];
+        if (opsi && opsi.sejak) k.push(f.where('received_at', '>', opsi.sejak));
+        return k.concat([f.orderBy('received_at', 'desc'), f.limit(batas || 50)]);
+      });
+    },
+
+    /** Hasil milik beberapa pengguna sekaligus, terbaru dulu (kueri `in` maks. 30 id). */
+    async daftarBanyak(userIds, batas) {
+      await FB.ensureAuth();
+      if (!userIds || !userIds.length) return [];
+      const potong = [];
+      for (let i = 0; i < userIds.length; i += 30) potong.push(userIds.slice(i, i + 30));
+      const hasil = await Promise.all(potong.map((ids) => ambil('device_readings', (f) => [
+        f.where('user_id', 'in', ids), f.orderBy('received_at', 'desc'), f.limit(batas || 1000)
+      ])));
+      return [].concat(...hasil)
+        .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))
+        .slice(0, batas || 1000);
+    },
+
+    /** Hasil ukur terbaru dari semua pengguna yang boleh dibaca (admin: semuanya). */
+    async terbaru(batas) {
+      await FB.ensureAuth();
+      return bersimpan('terbaru:' + (batas || 2000), () => ambil('device_readings', (f) => [
+        f.orderBy('received_at', 'desc'), f.limit(batas || 2000)
+      ]));
+    }
+  };
+
+  /* ============================================================
+     4. DATA PASIEN — koleksi patients & patient_meals
+     Pasien mendaftarkan dirinya sendiri; admin membaca semuanya.
+     ============================================================ */
+  const PatientsDB = {
+    /** @param {object} [ekstra]  { profile, sesi_berjalan } */
+    async daftarkan(nama, email, ekstra) {
+      const k = await fbKlien();
+      const user = await FB.ensureAuth();
+      const f = k.fsM;
+      const ref = f.doc(k.db, 'patients', user.id);
+      const lama = await batasWaktu(f.getDoc(ref), BACA_MS);
+      const d = {
+        user_id: user.id,
+        name: String(nama || 'Pasien').trim().slice(0, 80) || 'Pasien',
+        email: email ? String(email).slice(0, 120) : null,
+        anonymous: !!user.is_anonymous,
+        // created_at diisi sekali saat pertama terdaftar, lalu dipertahankan.
+        created_at: lama.exists() && lama.data().created_at ? lama.data().created_at : kini(),
+        last_seen: kini(),
+        profile: ekstra && ekstra.profile ? ekstra.profile : null,
+        sesi_berjalan: null
+      };
+      await batasWaktu(f.setDoc(ref, d), TULIS_MS);
+      return true;
+    },
+
+    /** Menyalin catatan makanan (tanpa foto) ke server. */
+    async simpanSesi(daftar) {
+      const k = await fbKlien();
+      const user = await FB.ensureAuth();
+      if (!daftar.length) return true;
+      const f = k.fsM;
+      for (let i = 0; i < daftar.length; i += 400) {
+        const b = f.writeBatch(k.db);
+        daftar.slice(i, i + 400).forEach((m) => {
+          b.set(f.doc(k.db, 'patient_meals', user.id + '_' + m.id), {
+            user_id: user.id, id: String(m.id), at: new Date(m.at).toISOString(),
+            data: m, updated_at: kini()
+          });
+        });
+        await batasWaktu(b.commit(), TULIS_MS);
+      }
+      return true;
+    },
+
+    /** Menghapus satu catatan makanan milik sendiri dari salinan server. */
+    async hapusSesi(id) {
+      const k = await fbKlien();
+      const user = await FB.ensureAuth();
+      await batasWaktu(k.fsM.deleteDoc(k.fsM.doc(k.db, 'patient_meals', user.id + '_' + id)), TULIS_MS);
+      return true;
+    },
+
+    /** Satu pasien lengkap dengan profilnya (pasien sendiri atau admin). */
+    async satu(userId) {
+      const k = await fbKlien();
+      await FB.ensureAuth();
+      const s = await batasWaktu(k.fsM.getDoc(k.fsM.doc(k.db, 'patients', userId)), BACA_MS);
+      return s.exists() ? baris(s) : null;
+    },
+
+    /** Riwayat makanan seorang pasien, terbaru dulu. */
+    async sesi(userId, batas) {
+      await FB.ensureAuth();
+      const rows = await ambil('patient_meals', (f) => [
+        f.where('user_id', '==', userId), f.orderBy('at', 'desc'), f.limit(batas || 60)
+      ]);
+      return rows.map((r) => r.data);
+    },
+
+    /**
+     * Admin menghapus seluruh data seorang pasien di server: hasil ukur,
+     * catatan makanan, lalu dokumen pasiennya. Akun login-nya (Firebase
+     * Auth) tidak ikut terhapus — itu hanya dari Console.
+     */
+    async hapusData(userId) {
+      const k = await fbKlien();
+      await FB.ensureAuth();
+      const f = k.fsM;
+      for (const koleksi of ['device_readings', 'patient_meals']) {
+        for (;;) {
+          const s = await batasWaktu(f.getDocs(f.query(f.collection(k.db, koleksi),
+            f.where('user_id', '==', userId), f.limit(400))), BACA_MS);
+          if (s.empty) break;
+          const b = f.writeBatch(k.db);
+          s.docs.forEach((d) => b.delete(d.ref));
+          await batasWaktu(b.commit(), TULIS_MS);
+        }
+      }
+      await batasWaktu(f.deleteDoc(f.doc(k.db, 'patients', userId)), TULIS_MS);
+      lupakanSimpanan();
+      return true;
+    },
+
+    /** Semua pasien (hanya berhasil untuk admin), terakhir aktif lebih dulu. */
+    async semua(batas) {
+      await FB.ensureAuth();
+      return bersimpan('pasien:' + (batas || 1000), () => ambil('patients', (f) => [
+        f.orderBy('last_seen', 'desc'), f.limit(batas || 1000)
+      ]));
+    }
+  };
+
+  /* ============================================================
+     5. DETEKSI MAKANAN & WAWASAN — Firebase AI Logic (Gemini)
+     Dulu Edge Function di server; paket gratis tidak punya Cloud
+     Functions, jadi Gemini dipanggil langsung lewat AI Logic (kuncinya
+     dikelola Firebase, tidak ada di kode). Validasi yang dulu di server
+     kini di sini: nama makanan harus dari daftar, porsi dibulatkan.
+     ============================================================ */
+  const PORSI = [0.5, 1, 1.5, 2, 3];
+  const MAKS_GAMBAR = 3000000;   // ± 2,2 MB biner dalam base64
+  const statusAI = (e) => (e && e.customErrorData && e.customErrorData.status) || 0;
+
+  /**
+   * Mencoba model satu per satu (TELECARE_AI.models). Model tidak ada (404)
+   * → model berikutnya; sibuk/kuota (429/500/503) → ulangi sekali, lalu
+   * model berikutnya. Mengembalikan teks jawaban (JSON).
+   */
+  async function panggilAI(isi, generationConfig) {
+    const k = await fbKlien();
+    const daftar = ((window.TELECARE_AI || {}).models || []).filter(Boolean);
+    if (!daftar.length) throw new Error('Daftar model AI kosong (app/js/firebase-config.js).');
+    let akhir = null, sibuk = false;
+    for (const nama of daftar) {
+      const model = k.aiM.getGenerativeModel(k.ai, { model: nama, generationConfig });
+      for (let coba = 0; coba < 2; coba++) {
+        try {
+          const r = await batasWaktu(model.generateContent(isi), 60000, 'Layanan AI tidak menjawab.');
+          return r.response.text();
+        } catch (e) {
+          akhir = e;
+          const st = statusAI(e);
+          if (st === 404 || (st === 400 && /not found|not supported|unsupported/i.test(e.message || ''))) {
+            console.warn('[TeleCare] model AI tidak tersedia:', nama);
+            break;
+          }
+          if (st === 429 || st === 500 || st === 503 || e.code === 'waktu-habis') {
+            sibuk = true;
+            if (coba === 0) { await tidur(1500); continue; }
+            break;
+          }
+          throw e;
+        }
+      }
+    }
+    if (sibuk) {
+      const e = new Error('Layanan AI sedang sibuk. Coba lagi beberapa saat lagi.');
+      e.code = 'sibuk';
+      throw e;
+    }
+    throw akhir || new Error('Tidak ada model AI yang tersedia.');
+  }
+
+  const DeteksiDB = {
+    /**
+     * @param {string} dataUrl  foto (data:image/jpeg;base64,...)
+     * @param {Array} foods     daftar makanan yang boleh dijawab (TC.DATA.FOODS)
+     * @returns {{makanan:[{nama,porsi,yakin}], lainnya:string[], bukanMakanan:boolean}}
+     */
+    async makanan(dataUrl, foods) {
+      const k = await fbKlien();
+      const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl || '');
+      if (!m) throw new Error('Foto tidak terbaca.');
+      if (m[2].length > MAKS_GAMBAR) throw new Error('Foto terlalu besar.');
+      const daftar = (foods || []).filter((x) => x && typeof x.n === 'string').slice(0, 120);
+      if (!daftar.length) throw new Error('Daftar makanan kosong.');
+      const nama = daftar.map((x) => x.n);
+      const S = k.aiM.Schema;
+
+      const prompt =
+        'Anda membantu aplikasi pencatat gizi di Indonesia. Kenali makanan dan minuman pada foto.\n' +
+        'Pilih HANYA nama dari daftar berikut, dan perkirakan jumlah porsinya (0.5, 1, 1.5, 2, atau 3) ' +
+        'relatif terhadap ukuran porsi yang tertulis:\n' +
+        daftar.map((x) => `- ${x.n} (1 porsi = 1 ${x.unit || 'porsi'}, ±${x.g || '?'} g)`).join('\n') + '\n' +
+        'Makanan yang terlihat tetapi tidak ada di daftar, tulis namanya di "lainnya". ' +
+        'Isi "yakin" dengan keyakinan 0–1 per butir. Bila foto bukan makanan, isi bukan_makanan = true ' +
+        'dan kosongkan "makanan". Jangan menebak makanan yang tidak terlihat.';
+
+      const skema = S.object({
+        properties: {
+          makanan: S.array({ items: S.object({
+            properties: { nama: S.enumString({ enum: nama }), porsi: S.number(), yakin: S.number() },
+            optionalProperties: ['yakin']
+          }) }),
+          lainnya: S.array({ items: S.string() }),
+          bukan_makanan: S.boolean()
+        },
+        optionalProperties: ['lainnya', 'bukan_makanan']
+      });
+
+      const teks = await panggilAI(
+        [prompt, { inlineData: { mimeType: m[1], data: m[2] } }],
+        { temperature: 0.2, responseMimeType: 'application/json', responseSchema: skema });
+
+      let h;
+      try { h = JSON.parse(teks); } catch (e) { throw new Error('Jawaban layanan deteksi tidak dapat dibaca.'); }
+
+      // Validasi ulang: nama harus dari daftar, porsi dibulatkan ke pilihan
+      // yang ada di aplikasi, duplikat digabung.
+      const gabung = new Map();
+      (h.makanan || []).forEach((x) => {
+        if (!x || nama.indexOf(x.nama) === -1) return;
+        const p = +x.porsi || 1;
+        const porsi = PORSI.reduce((a, b) => (Math.abs(b - p) < Math.abs(a - p) ? b : a));
+        const yakin = typeof x.yakin === 'number' ? Math.max(0, Math.min(1, x.yakin)) : null;
+        const ada = gabung.get(x.nama);
+        if (ada) ada.porsi = Math.min(3, ada.porsi + porsi);
+        else gabung.set(x.nama, { nama: x.nama, porsi, yakin });
+      });
+      return {
+        makanan: Array.from(gabung.values()),
+        lainnya: (h.lainnya || []).filter((x) => typeof x === 'string').map((x) => x.slice(0, 60)).slice(0, 10),
+        bukanMakanan: !!h.bukan_makanan
+      };
+    },
+
+    /**
+     * Wawasan TeleCare AI untuk Beranda.
+     * @param {object} ringkasan  angka gizi/vital pasien, tanpa nama & email
+     * @returns {{judul:string, isi:string}}
+     */
+    async wawasan(ringkasan) {
+      const k = await fbKlien();
+      const S = k.aiM.Schema;
+      const prompt =
+        'Anda adalah "TeleCare AI", asisten edukasi kesehatan di aplikasi pemantauan TeleCare (Indonesia). ' +
+        'Berdasarkan ringkasan data pengguna berikut (JSON), tulis satu wawasan singkat yang personal.\n' +
+        JSON.stringify(ringkasan || {}).slice(0, 4000) + '\n\n' +
+        'Aturan:\n' +
+        '- Bahasa Indonesia yang hangat dan mudah dipahami, sapa dengan "Anda".\n' +
+        '- "judul": maksimal 8 kata. "isi": 2–3 kalimat, maksimal 60 kata.\n' +
+        '- Kaitkan asupan gizi hari ini dengan tujuan kesehatannya (mis. bulking, turun berat, gula stabil) ' +
+        'dan target hariannya, serta detak jantung/SpO₂ bila ada. Beri satu saran praktis (mis. makanan yang perlu ditambah).\n' +
+        '- Hanya gunakan angka yang ada di data; jangan mengarang angka. Bila data kosong, ajak mencatat makanan atau mengukur dengan TeleBand.\n' +
+        '- Jangan mendiagnosis penyakit atau menyarankan obat. Bila detak jantung < 50 atau > 100 bpm saat istirahat, ' +
+        'atau SpO₂ < 94%, sarankan ukur ulang dan hubungi tenaga kesehatan bila ada keluhan.\n' +
+        '- Tekanan darah dan glukosa TeleBand adalah estimasi eksperimental; jangan dijadikan dasar kesimpulan.';
+      const teks = await panggilAI([prompt], {
+        temperature: 0.6, responseMimeType: 'application/json',
+        responseSchema: S.object({ properties: { judul: S.string(), isi: S.string() } })
+      });
+      let o;
+      try { o = JSON.parse(teks); } catch (e) { throw new Error('Jawaban layanan AI tidak dapat dibaca.'); }
+      const judul = String(o.judul || '').trim().slice(0, 80);
+      const isi = String(o.isi || '').trim().slice(0, 600);
+      if (!judul || !isi) throw new Error('Jawaban kosong.');
+      return { judul, isi };
+    }
+  };
+
   TC.FB = FB;
-  TC.Chat = Chat;
-  TC.RTC = RTC;
+  TC.ReadingsDB = ReadingsDB;
+  TC.PatientsDB = PatientsDB;
+  TC.DeteksiDB = DeteksiDB;
 })(window.TC);

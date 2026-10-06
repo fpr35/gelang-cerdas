@@ -1,13 +1,13 @@
 /* ============================================================
    TeleCare App — push.js
-   Peringatan eskalasi: penilaian ambang di perangkat, notifikasi
-   sistem operasi lewat service worker, dan pendaftaran FCM bila
-   VAPID key sudah diisi.
+   Peringatan eskalasi: penilaian ambang di perangkat dan notifikasi
+   sistem operasi lewat service worker. (Push dari server tidak ada:
+   butuh paket Blaze.)
 
    Pembagiannya:
      Escalation — aturan ambang murni, tanpa efek samping. Dapat
                   diuji langsung dengan angka.
-     Push       — izin, penampilan notifikasi, token FCM.
+     Push       — izin dan penampilan notifikasi.
 
    CATATAN KLINIS: ambang di bawah adalah heuristik penyaring untuk
    purwarupa, bukan kriteria diagnostik dan bukan alat kesehatan.
@@ -250,65 +250,13 @@
       if (Push._lepas) { Push._lepas(); Push._lepas = null; }
     },
 
-    /* ---------------- Web Push (standar browser, bukan FCM) ---------------- */
-
-    /** Ubah kunci publik VAPID (base64url) jadi format byte yang diminta PushManager. */
-    _urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-      const raw = atob(base64);
-      const arr = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-      return arr;
-    },
-
-    webPushSiap() {
-      return !!(cfg().vapidKey && 'PushManager' in window);
-    },
-
-    /**
-     * Mendaftarkan perangkat lewat Web Push API standar, lalu menyimpan
-     * langganannya (endpoint + kunci) ke tabel push_subscriptions di
-     * Supabase — supaya Edge Function tahu ke mana harus mengirim.
-     * Mengembalikan null bila VAPID key belum diisi — bukan galat.
-     */
-    async daftarWebPush() {
-      if (!Push.webPushSiap()) return null;
-      if (Push.permission() !== 'granted') return null;
-      if (!TC.FB) return null;
-      try {
-        const reg = await Push.registrasi();
-        if (!reg) return null;
-
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: Push._urlBase64ToUint8Array(cfg().vapidKey)
-          });
-        }
-
-        await TC.FB.ensureAuth();
-        if (!TC.FB.sb || !TC.FB.uid) return null;
-
-        const json = sub.toJSON();
-        const { error } = await TC.FB.sb.from('push_subscriptions').upsert({
-          user_id: TC.FB.uid,
-          endpoint: json.endpoint,
-          p256dh: json.keys.p256dh,
-          auth_key: json.keys.auth,
-          role: (TC.Store && TC.Store.role) ? TC.Store.role() : null,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-        if (error) throw error;
-
-        Push.subscription = sub;
-        return sub;
-      } catch (e) {
-        console.warn('[TeleCare] pendaftaran push gagal:', e.message);
-        return null;
-      }
-    },
+    /* ---------------- Push dari server ----------------
+       Tidak tersedia: mengirim push butuh server (Cloud Functions, paket
+       Blaze), sedangkan project memakai paket gratis Spark. Peringatan
+       eskalasi tetap tampil sebagai notifikasi LOKAL (dihitung di perangkat).
+       Fungsi ini dipertahankan agar pemanggil lama tidak perlu diubah. */
+    webPushSiap() { return false; },
+    async daftarWebPush() { return null; },
 
     /** Ringkasan keadaan untuk ditampilkan di Pengaturan. */
     status() {
@@ -316,17 +264,13 @@
       return {
         didukung: Push.supported(),
         izin: p,
-        vapidDiisi: !!cfg().vapidKey,
-        subscription: Push.subscription || null,
         ringkasan: !Push.supported()
           ? 'Peramban ini tidak mendukung notifikasi.'
           : p === 'denied'
             ? 'Notifikasi diblokir untuk situs ini — ubah dari pengaturan peramban.'
             : p !== 'granted'
               ? 'Izin notifikasi belum diberikan.'
-              : (cfg().vapidKey
-                  ? 'Notifikasi aktif, termasuk push dari server.'
-                  : 'Notifikasi lokal aktif. Push dari server belum dikonfigurasi (VAPID key kosong).')
+              : 'Notifikasi aktif di perangkat ini.'
       };
     }
   };

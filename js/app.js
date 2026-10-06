@@ -2,7 +2,7 @@
    TeleCare — app.js
    Navigasi, animasi reveal, dan seluruh logika dashboard:
    EKG sintetis, sparkline, tren 24 jam.
-   Sumber data: Firebase Realtime DB (bila ada) → fallback simulasi.
+   Sumber data: simulasi lokal (berlabel di indikator status).
    ============================================================ */
 (function () {
   'use strict';
@@ -402,8 +402,10 @@
     el.pill.classList.toggle('is-offline', !!offline);
   }
 
-  /* ---------------- 13. FIREBASE (opsional) ---------------- */
-  // js/firebase-init.js memancarkan event ini jika Realtime DB berisi data.
+  /* ---------------- 13. SUMBER DATA LANGSUNG (opsional) ---------------- */
+  // Dulu js/firebase-init.js (Realtime DB project lama) memancarkan event ini.
+  // Kini tidak ada pemancarnya, jadi dashboard selalu berlabel "SIMULASI LOKAL";
+  // pengait dibiarkan bila kelak ada sumber data langsung untuk landing page.
   window.addEventListener('telecare:vitals', (e) => {
     const d = e.detail || {};
     vitals.source = 'db';

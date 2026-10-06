@@ -122,10 +122,11 @@
    * Sesi lokal yang tidak boleh dipakai lagi, atau null bila sah:
    *   - peran yang disembunyikan (dokter, admin platform);
    *   - akun tamu, sejak akun tamu ditiadakan;
-   *   - admin yang tidak masuk lewat /masuk/admin, atau yang sesi Supabase-nya
-   *     sudah bukan akun admin itu (keluar, kedaluwarsa, berganti akun).
-   * Ini hanya penjaga tampilan — perlindungan data sesungguhnya ada di RLS
-   * server (saya_admin() pada tabel facilities).
+   *   - admin yang tidak masuk lewat /masuk/admin, atau yang sesi Firebase-nya
+   *     sudah bukan akun admin itu (keluar, kedaluwarsa, berganti akun);
+   *   - akun Google yang sesi Firebase-nya sudah berakhir atau milik akun lain.
+   * Ini hanya penjaga tampilan — perlindungan data sesungguhnya ada di aturan
+   * Firestore (firestore.rules).
    */
   function sesiTidakSah() {
     const u = Store.user();
@@ -137,10 +138,17 @@
     if (u.demo && !TC.FITUR.akunTamu) {
       return { pesan: 'Akun tamu sudah tidak tersedia. Silakan masuk dengan akun Anda.', ke: '/masuk' };
     }
+    // Sesi Firebase baru bisa dinilai setelah statusnya diketahui (settled).
+    // Firebase gagal dimuat (luring) → tidak dinilai: aplikasi tetap terbuka.
+    const fb = TC.FB;
+    const dinilai = fb && fb.ready && fb.settled && fb.uidKini;
+    const uidKini = dinilai ? fb.uidKini() : undefined;
     if (role === 'admin-faskes' && !TC.FITUR.simulasi) {
-      const fb = TC.FB;
-      const beda = fb && fb.uid && u.adminUid && fb.uid !== u.adminUid;
-      if (!u.adminUid || beda) return { pesan: 'Sesi admin berakhir. Silakan masuk kembali.', ke: '/masuk/admin' };
+      const salah = dinilai && uidKini !== u.adminUid;
+      if (!u.adminUid || salah) return { pesan: 'Sesi admin berakhir. Silakan masuk kembali.', ke: '/masuk/admin' };
+    }
+    if (role === 'pasien' && u.googleUid && dinilai && uidKini !== u.googleUid) {
+      return { pesan: 'Sesi Google berakhir. Silakan masuk kembali.', ke: '/masuk' };
     }
     return null;
   }
@@ -166,7 +174,7 @@
     const MAKS_CATATAN = 400;
     let timer = null;
     let antre = Promise.resolve();
-    // Akun Supabase yang datanya sudah pernah ditarik pada pemuatan ini.
+    // Akun Firebase yang datanya sudah pernah ditarik pada pemuatan ini.
     // Sebelum itu perangkat TIDAK boleh mengirim: profil kosong perangkat
     // baru akan menimpa profil yang benar di server.
     const sudahTarik = {};
@@ -198,7 +206,7 @@
       return o;
     }
 
-    /** Sesi Supabase harus milik akun lokal yang sedang masuk (akun Google). */
+    /** Sesi Firebase harus milik akun lokal yang sedang masuk (akun Google). */
     function akunCocok(fb, u) {
       return !(u && u.googleUid && fb && fb.uid !== u.googleUid);
     }
@@ -587,7 +595,7 @@
 
     window.addEventListener('hashchange', Router.render);
     // Juga saat berpindah layar: setelah masuk lewat Google (pengalihan),
-    // sesi lokal baru terbentuk SESUDAH sesi Supabase siap, jadi tarikan
+    // sesi lokal baru terbentuk SESUDAH sesi Firebase siap, jadi tarikan
     // pertama pada onStatus terlewati.
     window.addEventListener('hashchange', () => tarikHasil(false));
 
@@ -606,13 +614,13 @@
     }
     Router.render();
 
-    // Sesi Supabase diketahui belakangan (asinkron). Bila ternyata tidak cocok
+    // Sesi Firebase diketahui belakangan (asinkron). Bila ternyata tidak cocok
     // dengan sesi admin lokal, layar digambar ulang agar penjaga sesi bekerja.
     if (TC.FB) TC.FB.onStatus(() => { if (Store.user() && sesiTidakSah()) Router.render(); });
 
     // Data pasien disalin ke server agar terlihat di dasbor admin: pendaftaran
     // (tabel patients), profil, dan riwayat makanan.
-    // Dipicu saat sesi Supabase siap dan setiap kali data tersimpan (dijeda 4 dtk).
+    // Dipicu saat sesi Firebase siap dan setiap kali data tersimpan (dijeda 4 dtk).
     if (TC.FB && TC.PatientsDB) {
       TC.FB.onStatus(() => sinkronPasien.jadwalkan(0));
       Store.onSave(() => sinkronPasien.jadwalkan(4000));
@@ -620,7 +628,7 @@
 
     // Sesi pasien yang ternyata memakai akun admin (email sama, masuk lewat
     // Google) diakhiri: admin hanya boleh masuk lewat /masuk/admin. Dicek sekali
-    // per akun Supabase; sesi anonim tidak mungkin admin.
+    // per akun Firebase.
     let adminDicek = null;
     if (TC.FB) TC.FB.onStatus((fb) => {
       if (!fb.uid || fb.anonymous || fb.uid === adminDicek || !Store.user() || !Store.is('pasien')) return;
@@ -636,21 +644,27 @@
 
     // Data yang dicatat perangkat lain (akun yang sama) ditarik dari server —
     // hasil ukur TeleBand, profil & target gizi, dan catatan makanan: saat
-    // sesi Supabase siap, saat berpindah layar, dan saat tab kembali aktif.
+    // sesi Firebase siap, saat berpindah layar, dan saat tab kembali aktif.
     // Sesi anonim dilewati — user_id-nya berbeda di tiap perangkat.
-    let tarikTerakhir = 0;
+    // Jeda dihitung PER AKUN: akun yang baru masuk harus langsung ditarik
+    // walau akun sebelumnya baru saja ditarik (pengirimannya tertahan sampai itu).
+    const tarikTerakhir = {};
     function tarikHasil(paksa) {
       const fb = TC.FB, u = Store.user();
       if (!fb || !fb.uid || fb.anonymous || !u || !Store.is('pasien')) return;
       if (!sinkronPasien.akunCocok(fb, u)) return;
-      if (!paksa && Date.now() - tarikTerakhir < 30000) return;
-      tarikTerakhir = Date.now();
+      const uid = fb.uid;
+      // Jeda 5 menit: setiap dokumen yang dibaca memotong kuota gratis
+      // Firestore. Tarikan pertama (sesudah masuk) tetap langsung berjalan.
+      if (!paksa && Date.now() - (tarikTerakhir[uid] || 0) < 300000) return;
+      tarikTerakhir[uid] = Date.now();
       const ukur = TC.Readings.tarik().catch((e) => {
         console.warn('[TeleCare] gagal menarik hasil ukur:', (e && e.message) || e);
         return 0;
       });
       const data = sinkronPasien.tarik().catch((e) => {
         console.warn('[TeleCare] gagal menarik profil & catatan makanan:', (e && e.message) || e);
+        tarikTerakhir[uid] = 0;   // boleh dicoba lagi tanpa menunggu jeda (pengiriman tertahan sampai berhasil)
         return null;
       });
       Promise.all([ukur, data]).then(([n, h]) => {

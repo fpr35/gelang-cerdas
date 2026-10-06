@@ -37,7 +37,7 @@
       const s = SLIDES_AKTIF[i];
       const terakhir = i === SLIDES_AKTIF.length - 1;
       // Tombol kembali ke landing page (akar situs). Tautan relatif "../" dari
-      // /app/ selalu menuju "/", baik lokal maupun di Vercel.
+      // /app/ selalu menuju "/", baik lokal maupun di Firebase Hosting.
       setView(`<div class="onb">
         <div class="onb__top">
           <a class="topbar__back" href="../" aria-label="Kembali ke halaman utama TeleCare"
@@ -174,7 +174,7 @@
   /* ---------------- MASUK DENGAN GOOGLE ---------------- */
   function googleSignIn(btn) {
     if (!TC.FB || !TC.FB.googleAvailable()) {
-      toast('Layanan masuk (Supabase Auth) belum siap. Coba muat ulang halaman.', 'err');
+      toast('Layanan masuk belum siap. Periksa koneksi internet lalu muat ulang halaman.', 'err');
       return;
     }
     const label = btn ? btn.innerHTML : '';
@@ -187,12 +187,20 @@
     }).catch((err) => {
       if (btn) { btn.classList.remove('is-disabled'); btn.innerHTML = label; }
       console.warn('[TeleCare] Google Sign-In:', err);
+      // Pengguna menutup jendela Google sendiri: bukan galat.
+      if (err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request')) {
+        toast('Masuk dibatalkan.');
+        return;
+      }
+      const kode = (err && err.code) || '';
+      const pengaturan = kode === 'auth/operation-not-allowed' || kode === 'auth/configuration-not-found' ||
+        kode === 'auth/unauthorized-domain';
       sheet(`
         <h3>Masuk dengan Google belum bisa</h3>
         <p class="sub">${esc(TC.FB.authError(err))}</p>
-        <div class="note note--i">${icon('info')}
-          <div><b>Cara mengaktifkan</b>Buka Supabase Dashboard → Authentication → Sign In / Providers →
-          aktifkan penyedia <b>Google</b>, lalu simpan. Setelah itu tombol ini langsung berfungsi.</div></div>
+        ${pengaturan ? `<div class="note note--i">${icon('info')}
+          <div><b>Untuk pengelola aplikasi</b>Buka Firebase Console → Authentication → Sign-in method →
+          aktifkan <b>Google</b>, dan pastikan domain situs ada di Settings → Authorized domains.</div></div>` : ''}
         <button class="btn btn--primary btn--block mt" data-close>Mengerti</button>`);
     });
   }
@@ -247,8 +255,8 @@
 
   /* ---------------- MASUK ADMIN ----------------
      Halaman terpisah di /masuk/admin, sengaja tanpa tautan dari layar mana
-     pun. Memakai akun Supabase Auth sungguhan yang terdaftar di tabel
-     `admins`; bukan akun lokal. */
+     pun. Memakai akun Firebase Auth (email + kata sandi) yang punya dokumen
+     di koleksi `admins`; bukan akun lokal. */
   function viewLoginAdmin() {
     setTopbar('');
     setView(`<div class="auth">
@@ -309,10 +317,10 @@
         Router.navigate('/faskes', true);
         toast('Masuk sebagai admin.');
       } catch (err) {
-        const pesan = /invalid login credentials/i.test((err && err.message) || '') ? 'Email atau kata sandi salah.'
-          : err && err.code === 'BUKAN_ADMIN' ? 'Akun ini bukan akun admin.'
-          : err && (err.code === 'PGRST202' || err.code === '42883') ? 'Server belum siap: jalankan migrasi 20260927_admins.sql.'
-          : (err && err.message) || 'Gagal masuk.';
+        const kode = (err && err.code) || '';
+        const pesan = kode === 'BUKAN_ADMIN' ? 'Akun ini bukan akun admin.'
+          : /^auth\//.test(kode) ? TC.FB.authError(err)
+          : TC.FB.pesanGalat(err);
         toast(pesan, 'err');
         btn.classList.remove('is-disabled'); btn.textContent = 'Masuk';
       }

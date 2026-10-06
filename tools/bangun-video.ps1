@@ -104,7 +104,7 @@ function Rantai-Hias {
     "drawbox=x=196:y=74:w=6:h=60:color=$AKSEN@1:t=fill"
     "drawtext=fontfile='$FONT_B':text='$j':fontsize=52:fontcolor=0xF2FBFF:x=222:y=68"
     "drawtext=fontfile='$FONT_R':text='$s':fontsize=27:fontcolor=0x86CFF0:x=224:y=136"
-    "drawtext=fontfile='$FONT_M':text='telecare-id.web.app':fontsize=23:fontcolor=0x3E7EA6:x=1920-tw-248:y=1028"
+    "drawtext=fontfile='$FONT_M':text='app-telecare.web.app':fontsize=23:fontcolor=0x3E7EA6:x=1920-tw-248:y=1028"
   )
   if ($Nomor) {
     $n = Aman-Teks $Nomor
@@ -402,7 +402,7 @@ $PROMO = @(
 
 # Tutorial: setiap halaman, keterangan berisi langkah yang harus dilakukan.
 $TUTORIAL = @(
-  @{ bagian = 'Mulai'; b1 = 'Cara Memakai'; b2 = 'TeleCare dari nol sampai konsultasi'; b3 = 'Buka telecare-id.web.app lalu pilih peran' }
+  @{ bagian = 'Mulai'; b1 = 'Cara Memakai'; b2 = 'TeleCare dari nol sampai konsultasi'; b3 = 'Buka app-telecare.web.app lalu pilih peran' }
   @{ nama = 'landing'; judul = 'Halaman Depan'; sub = 'Tekan Buka Aplikasi untuk masuk ke purwarupa' }
 
   @{ bagian = 'Peran Pasien'; b1 = 'Pasien'; b2 = 'Memantau tubuh dan berkonsultasi'; b3 = 'Masuk dengan peran Pasien' }
@@ -453,7 +453,7 @@ $TUTORIAL = @(
   @{ nama = 'admin-kalibrasi'; judul = 'Kalibrasi Sensor'; sub = 'Setel gain dan offset tiap parameter per jenis perangkat' }
   @{ nama = 'admin-kalibrasi'; judul = 'Kalibrasi Dua Titik'; sub = 'Masukkan dua pasang nilai acuan lalu biarkan sistem menghitung' }
 
-  @{ bagian = 'Selesai'; b1 = 'Selesai'; b2 = 'Purwarupa terbuka untuk dicoba'; b3 = 'telecare-id.web.app' }
+  @{ bagian = 'Selesai'; b1 = 'Selesai'; b2 = 'Purwarupa terbuka untuk dicoba'; b3 = 'app-telecare.web.app' }
 )
 
 # ---------------------------------------------------------------- promo
@@ -465,7 +465,7 @@ function Bangun-Promo {
   $intro = Join-Path $klipDir 'promo-00-intro.mp4'
   if (-not $LewatiKlip -or -not (Test-Path $intro)) {
     Buat-Kartu -Baris1 'TeleCare' -Baris2 'Telemedisin dan pemantauan vital' `
-      -Baris3 'Purwarupa terbuka - telecare-id.web.app' `
+      -Baris3 'Purwarupa terbuka - app-telecare.web.app' `
       -Gambar (Join-Path $akar 'assets\img\render-hero-duo.png') -Durasi 3.6 -Keluaran $intro
   }
   $klip.Add(@{ berkas = $intro; durasi = 3.6 })
@@ -491,7 +491,7 @@ function Bangun-Promo {
 
   $outro = Join-Path $klipDir 'promo-99-outro.mp4'
   if (-not $LewatiKlip -or -not (Test-Path $outro)) {
-    Buat-Kartu -Baris1 'Coba Sekarang' -Baris2 'telecare-id.web.app' `
+    Buat-Kartu -Baris1 'Coba Sekarang' -Baris2 'app-telecare.web.app' `
       -Baris3 'Empat peran - satu tautan - tanpa pemasangan' -Durasi 3.6 -Keluaran $outro
   }
   $klip.Add(@{ berkas = $outro; durasi = 3.6 })
