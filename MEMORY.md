@@ -378,6 +378,38 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     "sensor belum menempel", sesuai `TC_ST_TAK_MENEMPEL` di tc_proto.h), data.js (desc TeleBand),
     views-home.js (penjelasan glukosa), views-profile.js (langkah kalibrasi TD). Teks TeleRing
     (cincin, tersembunyi) tetap menyebut jari — memang benar untuk cincin.
+44. **Gambar hero landing page "gepeng"** (6 Okt, laporan user). Render TeleBand 1200×1200 tampil
+    558×1200 di desktop: `.hero__product` (css/style.css) punya `width:100%` tanpa `height:auto`,
+    jadi tingginya memakai atribut `height="1200"` — gambar tertarik memanjang dan area hero setinggi
+    1200 px (judul terdorong ke bawah). Ditambah `height:auto` → 558×558 (desktop), 350×350 (HP 390 px),
+    diperiksa di Edge headless. Sekalian dihapus penukar "video hero biru" di skrip tema index.html:
+    hero kini `<img>`, sehingga `hero.load()` selalu melempar TypeError di konsol.
+    Pelajaran: setiap `<img width height>` yang lebarnya diatur CSS wajib `height:auto`.
+45. **Tombol ukur TeleBand keluar layar di HP** (6 Okt, laporan user). "Mulai ukur" dan "Stop ukur"
+    berdampingan di `.duo` (±150 px per kolom di HP) dan `.btn` bawaannya `nowrap`, jadi label
+    "✓ Data cukup — stop" menembus keluar. Kini satu tombol selebar kartu pada satu waktu
+    (`.tb-aksi`, yang lain `hidden`): Mulai ukur → Stop ukur → "✓ Selesai & simpan hasil" (biru)
+    saat data cukup; petunjuk ikut. `.tb-aksi .btn` boleh turun baris di layar sangat sempit.
+    Diuji di Edge 390 & 320 px, tiga keadaan (alat ditiru di halaman): tombol di dalam kartu,
+    tanpa gulir horizontal, tanpa galat.
+46. **Deploy baru tidak terlihat di HP selama ±1 hari** (6 Okt). User masih melihat tombol lama
+    setelah `firebase deploy`: firebase.json (warisan Firebase lama) memberi `**/*.js|css`
+    `Cache-Control: public, max-age=86400`, dan `jaringanDulu()` di sw.js memakai `fetch(req)`
+    biasa yang boleh dijawab cache HTTP. Kini JS/CSS `no-cache` (revalidasi ETag → 304), gambar
+    tetap 1 hari, video/GLB 7 hari; `jaringanDulu` memakai `new Request(req, { cache: 'no-cache' })`
+    agar HP yang sudah menyimpan JS lama langsung dapat versi baru setelah sw `v41-firebase` aktif.
+    Juga tercatat: Vercel masih ter-deploy dari push `fecc848` (kode Firebase, tanpa perbaikan #45)
+    sampai project Vercel dihapus.
+47. **Hero landing masih gepeng di HP user setelah deploy** (6 Okt). Server sudah benar (#44,
+    `no-cache`), tetapi HP menyimpan `css/style.css` lama dengan max-age 1 hari dan landing page tidak
+    diurus service worker (scope `/app/`). Solusi: penanda versi `?v=20261006` pada 3 CSS + 3 JS di
+    index.html (HTML-nya `no-cache`, jadi alamat baru langsung dipakai). **Aturan: naikkan `?v=`
+    setiap kali CSS/JS landing berubah.** Diuji Edge 412 & 1366 px: hero persegi, tanpa galat.
+48. **Tautan "Lewati ke konten utama" disembunyikan** (6 Okt, perintah Team Lead lewat user: "jangan
+    hapus permanen"). Tautan aksesibilitas ini muncul saat fokus keyboard (`:focus-visible`), mis.
+    setelah pintasan saat mengubah ukuran jendela/DevTools. Kini `<a class="skip-link" … hidden>` di
+    index.html (berkomentar); hapus `hidden` untuk memunculkannya kembali. Gaya di css/fx.css §9 tetap.
+    Diuji Edge: Tab pertama langsung ke logo, tautan tidak tampil.
 
 ---
 

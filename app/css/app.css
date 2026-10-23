@@ -374,6 +374,9 @@ ul{margin:0;padding:0;list-style:none}
 .vital__src.is-eks{color:var(--amber-700)}
 
 /* Layar TeleBand */
+/* Tombol ukur TeleBand: satu tombol selebar kartu; di layar sangat sempit teks
+   boleh turun baris alih-alih keluar layar (.btn bawaannya nowrap). */
+.tb-aksi .btn{white-space:normal;text-align:center;line-height:1.25;min-width:0}
 .tb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 @media(min-width:620px){.tb-grid{grid-template-columns:repeat(4,1fr)}}
 .tb-grid>div{background:var(--canvas);border-radius:12px;padding:10px 12px}

@@ -49,7 +49,16 @@
         ]
       },
       {
-        "source": "**/*.@(js|css|png|jpg|svg|woff2)",
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|webp|svg|woff2)",
         "headers": [
           {
             "key": "Cache-Control",

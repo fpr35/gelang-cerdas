@@ -208,7 +208,9 @@ section{position:relative}
 
 .hero__stage{position:relative;aspect-ratio:1/1;display:grid;place-items:center}
 .hero__product{
-  width:100%;filter:drop-shadow(0 40px 70px rgba(0,0,0,.55));
+  /* height:auto wajib: tanpa itu tinggi memakai atribut height="1200" di HTML
+     sementara lebarnya mengikuti kolom, sehingga render tertarik memanjang. */
+  width:100%;height:auto;filter:drop-shadow(0 40px 70px rgba(0,0,0,.55));
   animation:floaty 7s var(--ease) infinite;
 }
 @keyframes floaty{0%,100%{transform:translateY(-10px)}50%{transform:translateY(12px)}}

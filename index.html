@@ -37,21 +37,18 @@
       if (v.indexOf('assets/3d/biru/') < 0 && /assets\/3d\/(ikon|ikon-anim|ilustrasi)\//.test(v))
         el.setAttribute(a, v.replace('assets/3d/', 'assets/3d/biru/'));
     });
-    // loop hero versi biru
-    var hero = document.getElementById('heroProduct');
-    if (hero) {
-      hero.querySelectorAll('source').forEach(function (so) {
-        so.setAttribute('src', so.getAttribute('src').replace('hero-loop.', 'hero-loop-biru.'));
-      });
-      if (hero.poster) hero.poster = hero.poster.replace('assets/3d/ilustrasi/', 'assets/3d/biru/ilustrasi/');
-      hero.load();
-    }
+    // (Penukar video hero versi biru dihapus: hero kini gambar render TeleBand,
+    // bukan <video>, sehingga hero.load() selalu melempar TypeError.)
   });
 })();
 </script>
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/fx.css">
-<link rel="stylesheet" href="css/neu.css">
+<!-- ?v=… pada CSS/JS landing: naikkan (mis. tanggal) setiap kali berkas itu berubah.
+     Peramban yang dulu menerima Cache-Control 1 hari memakai salinan lama tanpa
+     bertanya; alamat baru memaksanya mengunduh ulang. (Halaman /app/ tidak perlu:
+     service worker-nya selalu memeriksa server.) -->
+<link rel="stylesheet" href="css/style.css?v=20261006">
+<link rel="stylesheet" href="css/fx.css?v=20261006">
+<link rel="stylesheet" href="css/neu.css?v=20261006">
 </head>
 <body>
 
@@ -171,7 +168,10 @@
 </defs>
 </svg>
 
-<a class="skip-link" href="#urgensi">Lewati ke konten utama</a>
+<!-- Tautan "Lewati ke konten utama" (aksesibilitas keyboard/pembaca layar) DISEMBUNYIKAN atas
+     permintaan Team Lead (6 Okt 2026) — tampak muncul tiba-tiba saat fokus keyboard. Jangan
+     dihapus: hapus atribut `hidden` untuk memunculkannya kembali (gaya di css/fx.css §9). -->
+<a class="skip-link" href="#urgensi" hidden>Lewati ke konten utama</a>
 
 <!-- ══════════════ NAVBAR ══════════════ -->
 <header class="nav" id="nav">
@@ -1357,8 +1357,8 @@
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
 }}
 </script>
-<script src="js/app.js"></script>
-<script src="js/transitions.js"></script>
-<script type="module" src="js/three-scenes.js"></script>
+<script src="js/app.js?v=20261006"></script>
+<script src="js/transitions.js?v=20261006"></script>
+<script type="module" src="js/three-scenes.js?v=20261006"></script>
 </body>
 </html>

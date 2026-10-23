@@ -14,7 +14,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = 'v40-firebase';
+const VERSION = 'v41-firebase';
 const CACHE = `telecare-app-${VERSION}`;
 
 // Kerangka aplikasi. Urutan skrip mengikuti app/index.html.
@@ -185,7 +185,10 @@ self.addEventListener('fetch', (event) => {
  */
 async function jaringanDulu(req) {
   try {
-    const res = await fetch(req);
+    // cache: 'no-cache' = selalu tanya server (ETag → 304 bila sama). Tanpa ini
+    // fetch() bisa dijawab cache HTTP peramban — server dulu memberi JS/CSS
+    // max-age 1 hari, sehingga HP tetap memakai kode lama sehari setelah deploy.
+    const res = await fetch(new Request(req, { cache: 'no-cache' }));
     if (res && res.ok) simpan(req, res.clone());
     return res;
   } catch (e) {

@@ -77,9 +77,9 @@
             <div class="card__head">${icon('heart')}<h3>Pengukuran</h3>
               <span class="push"></span><span id="tbState" class="chip"></span></div>
             <div id="tbLive"></div>
-            <div class="duo mt">
+            <div class="tb-aksi mt">
               <button class="btn btn--primary btn--block" data-mulai>${icon('heart')} Mulai ukur</button>
-              <button class="btn btn--ghost btn--block" data-stop>Stop ukur</button>
+              <button class="btn btn--ghost btn--block" data-stop hidden>Stop ukur</button>
             </div>
             <p class="tiny muted mt" id="tbPetunjuk"></p>
           </div>` : ''}
@@ -183,13 +183,16 @@
           ${l && l.berhenti ? '<p class="tiny muted mt">Angka terakhir sebelum pengukuran dihentikan. Hasil resminya ada di daftar di bawah.</p>' : ''}`;
       }
 
+      // Satu tombol selebar layar pada satu waktu: dulu dua tombol berdampingan
+      // (setengah lebar), dan label "Data cukup — stop" menembus keluar layar HP.
       const mulai = $('[data-mulai]'), stop = $('[data-stop]');
-      if (mulai) mulai.disabled = mengukur;
+      if (mulai) { mulai.hidden = mengukur; mulai.disabled = mengukur; }
       if (stop) {
+        stop.hidden = !mengukur;
         stop.disabled = !mengukur;
         const cukup = !!(l && l.cukup && mengukur);
         stop.className = 'btn btn--block ' + (cukup ? 'btn--primary' : 'btn--ghost');
-        stop.innerHTML = cukup ? icon('check') + ' Data cukup — stop' : 'Stop ukur';
+        stop.innerHTML = cukup ? icon('check') + ' Selesai &amp; simpan hasil' : 'Stop ukur';
       }
       const pet = $('#tbPetunjuk');
       if (pet) {
@@ -198,7 +201,7 @@
             '(sisi dalam pergelangan, segaris ibu jari), tekan Mulai ukur, lalu tahan tangan diam.'
           : (l && l.state === 1 ? 'Sensor belum menempel di kulit. Kencangkan tali dan pastikan sensor tepat di titik denyut nadi pergelangan.'
             : l && l.state === 5 ? 'Sensor tidak terdeteksi di alat — periksa perangkat kerasnya.'
-            : l && l.cukup ? 'Data sudah cukup. Tekan stop untuk menyimpan hasil.'
+            : l && l.cukup ? 'Data sudah cukup. Tekan "Selesai & simpan hasil".'
             : 'Tahan tangan tetap diam dan rileks sampai kemajuan penuh.');
       }
 
