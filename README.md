@@ -47,6 +47,26 @@ tools/cek-deploy.ps1        bandingkan berkas lokal dengan yang tersaji di Fireb
 tools/tangkap-layar.ps1 · bangun-video.ps1 · bangun-capcut.ps1   video showcase
 ```
 
+## Panduan penggunaan (pasien & admin)
+
+| Berkas | Isi | Tayang? |
+| --- | --- | --- |
+| [panduan/index.html](panduan/index.html) | Panduan pasien: mengisi daya, memakai di pergelangan, menyambung, mengukur, fitur aplikasi, keselamatan | Ya — `/panduan/`, ditautkan dari menu landing & Profil aplikasi |
+| `panduan/panduan-telecare.pdf` | PDF dari halaman yang sama (tombol "Unduh PDF") | Ya |
+| [docs/panduan-admin.html](docs/panduan-admin.html) | Panduan admin (memuat alamat `/app/#/masuk/admin`) | **Tidak** (`docs/**` dikecualikan di firebase.json) |
+| `build/Panduan-Admin-TeleCare.pdf` | PDF panduan admin — dibagikan langsung ke admin | Tidak (folder `build/` tidak dilacak Git) |
+
+Gambar layar diambil otomatis dengan **data contoh bernama fiktif** dan Firebase produksi diblokir; ilustrasi
+gelang masih gambar berlabel (belum foto asli). Membuat ulang gambar + PDF setelah aplikasi atau panduan berubah:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\buat-panduan.ps1            # gambar + PDF
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\buat-panduan.ps1 -HanyaPdf  # PDF saja
+```
+
+Isi web dan PDF berasal dari satu sumber (gaya cetak A4 di `panduan/panduan.css`). Naikkan `?v=` pada
+`panduan.css` di `panduan/index.html` setiap kali CSS-nya berubah.
+
 ## Menjalankan secara lokal
 
 ```bash

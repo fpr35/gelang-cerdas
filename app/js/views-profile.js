@@ -87,6 +87,9 @@
         <a class="row" href="#/tentang"><span class="row__ico">${icon('info')}</span>
           <div><b>Tentang TeleCare</b><small>Batasan penggunaan dan sumber data</small></div>
           ${icon('chev', 'chev')}</a>
+        ${PASIEN ? `<a class="row" href="../panduan/" target="_blank" rel="noopener"><span class="row__ico">${icon('doc')}</span>
+          <div><b>Panduan Penggunaan</b><small>Cara mengisi daya, memakai, dan mengukur dengan TeleBand</small></div>
+          ${icon('chev', 'chev')}</a>` : ''}
         <button class="row" data-switch ${TC.FITUR.gantiPeran ? '' : 'hidden'}><span class="row__ico">${icon('swap')}</span>
           <div><b>Ganti peran</b><small>${TC.FITUR.simulasi ? 'Mode purwarupa · lihat aplikasi dari sudut pandang lain' : 'Pasien atau dokter'}</small></div>
           ${icon('chev', 'chev')}</button>

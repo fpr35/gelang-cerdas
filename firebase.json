@@ -22,7 +22,8 @@
       "*.blend1",
       "*.log",
       "**/*.py",
-      "**/*.md"
+      "**/*.md",
+      "docs/**"
     ],
     "cleanUrls": true,
     "headers": [

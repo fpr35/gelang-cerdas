@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panduan Admin — TeleCare</title>
+<!-- RAHASIA TERBATAS: berkas ini sengaja TIDAK ditayangkan di situs (firebase.json mengecualikan docs/).
+     Keluarannya, build/Panduan-Admin-TeleCare.pdf, dibagikan langsung kepada admin. -->
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../panduan/panduan.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
+  <symbol id="i-awas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.4 21.4 20H2.6Z"/><path d="M12 9.6v4.2M12 17h.01"/></symbol>
+</defs></svg>
+
+<section class="sampul">
+  <div class="sampul__isi">
+    <div>
+      <span class="label">Panduan untuk Admin · Terbatas</span>
+      <h1>Memantau Pengguna TeleCare</h1>
+      <p>Cara masuk ke dasbor admin, membaca status triase, membuka data lengkap pengguna, mengunduh laporan, dan menghapus data.
+        Dokumen ini hanya untuk admin — jangan disebarkan.</p>
+    </div>
+    <img src="../assets/img/render-teleband.webp" width="1200" height="1200" alt="" style="height:auto">
+  </div>
+</section>
+
+<div class="tata" style="grid-template-columns:1fr">
+  <main>
+
+  <section class="bab" id="peran">
+    <h2><span class="no">1</span> Peran admin</h2>
+    <p class="lead">Admin memantau <b>semua pengguna (pasien)</b> TeleCare dari satu dasbor. Pasien muncul otomatis setelah mereka masuk
+      ke aplikasi dengan akun Google — admin tidak perlu mendaftarkan atau mengundang mereka.</p>
+    <div class="fitur">
+      <div><b>Yang bisa dilihat</b><p>Hasil ukur TeleBand, profil &amp; tujuan kesehatan, target dan capaian gizi, serta riwayat makanan setiap pasien.</p></div>
+      <div><b>Yang bisa dilakukan</b><p>Menandai pasien untuk tindak lanjut, mengunduh laporan CSV, dan menghapus seluruh data seorang pasien.</p></div>
+      <div><b>Yang tidak bisa</b><p>Mengubah hasil ukur atau catatan pasien, dan memakai akun admin sebagai pasien.</p></div>
+    </div>
+    <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+      <div><b>Data kesehatan bersifat pribadi</b>
+        <p>Buka dasbor hanya di perangkat Anda sendiri, keluar setelah selesai, dan jangan membagikan tangkapan layar atau berkas laporan
+          kepada pihak yang tidak berwenang.</p></div></div>
+  </section>
+
+  <section class="bab" id="masuk">
+    <h2><span class="no">2</span> Masuk sebagai admin</h2>
+    <div class="berdampingan" style="grid-template-columns:1fr 1fr">
+      <div>
+        <ol class="langkah">
+          <li>Buka alamat khusus admin: <code>https://app-telecare.web.app/app/#/masuk/admin</code>
+            <br><small>Alamat ini sengaja tidak ditautkan dari halaman mana pun. Simpan sebagai bookmark.</small></li>
+          <li>Masukkan <b>email</b> dan <b>kata sandi</b> akun admin, lalu tekan <b>Masuk</b>.</li>
+          <li>Dasbor admin terbuka di halaman <b>Ringkasan</b>.</li>
+        </ol>
+        <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+          <div><b>Akun admin dibuat oleh pengelola sistem</b>
+            <p>Admin tidak bisa mendaftar sendiri. Lupa kata sandi atau perlu akun admin baru? Hubungi pengelola sistem TeleCare.
+              Akun Google pasien tidak dapat dipakai di halaman ini, dan akun admin tidak dapat dipakai sebagai pasien.</p></div></div>
+      </div>
+      <figure><img class="layar layar--lebar" src="img/a01-masuk-admin.jpg" width="2560" height="1600" alt="Halaman masuk admin"><figcaption>Halaman masuk admin</figcaption></figure>
+    </div>
+    <p>Di layar lebar (laptop/komputer) menu ada di samping kiri: <b>Ringkasan</b>, <b>Pengguna</b>, <b>Perangkat</b>, <b>Notifikasi</b>.
+      Di HP, menu ada di bilah bawah, ditambah <b>Profil</b> untuk pengaturan dan tombol <b>Keluar</b>.</p>
+  </section>
+
+  <section class="bab" id="ringkasan">
+    <h2><span class="no">3</span> Ringkasan</h2>
+    <figure class="gambar--satu"><img class="layar layar--lebar" src="img/a02-ringkasan.jpg" width="2560" height="1600" alt="Ringkasan dasbor admin"><figcaption>Ringkasan — data contoh (nama fiktif)</figcaption></figure>
+    <ul>
+      <li><b>Pengguna</b> — jumlah pasien terdaftar. <b>Perlu perhatian</b> — jumlah pasien berstatus Waspada atau Kritis.</li>
+      <li><b>Status triase pengguna</b> — komposisi Normal / Waspada / Kritis, dihitung dari <b>hasil ukur TeleBand terakhir</b> tiap pasien.
+        Pasien yang belum pernah mengukur disebut terpisah.</li>
+      <li><b>Hasil ukur 7 hari terakhir</b> — jumlah pengukuran per hari dari semua pasien.</li>
+      <li><b>Perlu tindak lanjut</b> — daftar pasien Waspada/Kritis, yang paling mendesak di atas. Klik untuk membuka detailnya.</li>
+      <li><b>Laporan pengguna</b> — tombol <b>Unduh laporan</b> menyimpan berkas CSV (bisa dibuka di Excel/Google Sheets).</li>
+    </ul>
+
+    <h3>Arti status triase</h3>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Status</th><th>Hasil ukur terakhir</th></tr>
+      <tr><td><b style="color:#C8412D">Kritis</b></td><td>SpO₂ &lt; 90%, <b>atau</b> detak jantung &gt; 130 atau &lt; 45 bpm</td></tr>
+      <tr><td><b style="color:#B7790A">Waspada</b></td><td>SpO₂ &lt; 94%, <b>atau</b> detak jantung &gt; 110 atau &lt; 50 bpm</td></tr>
+      <tr><td><b style="color:#049A5B">Normal</b></td><td>Di luar dua kondisi di atas</td></tr>
+      <tr><td><b>Belum ada data</b></td><td>Pasien belum pernah mengirim hasil ukur</td></tr>
+    </table></div>
+    <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+      <div><b>Triase adalah penyaring awal, bukan diagnosis</b>
+        <p>Status hanya memakai detak jantung dan SpO₂. Tensi dan glukosa TeleBand adalah estimasi eksperimental dan tidak dipakai.
+          Satu hasil ukur bisa keliru karena gerakan atau posisi sensor — konfirmasi ke pasien dan, bila perlu, rujuk ke tenaga kesehatan.</p></div></div>
+  </section>
+
+  <section class="bab" id="pengguna">
+    <h2><span class="no">4</span> Pengguna</h2>
+    <figure class="gambar--satu"><img class="layar layar--lebar" src="img/a04-pengguna.jpg" width="2560" height="1600" alt="Daftar pengguna"><figcaption>Daftar pengguna — data contoh</figcaption></figure>
+    <ul>
+      <li>Semua pasien, diurutkan dari status paling mendesak. Setiap baris menampilkan detak jantung, SpO₂, dan kapan hasil terakhir diukur.</li>
+      <li>Kotak <b>Cari</b> menyaring berdasarkan <b>nama atau email</b>.</li>
+      <li>Klik nama untuk membuka <b>detail pengguna</b>. Ikon tempat sampah = <b>hapus data</b> (lihat <a href="#hapus">Bagian 7</a>).</li>
+    </ul>
+  </section>
+
+  <section class="bab" id="detail">
+    <h2><span class="no">5</span> Detail pengguna</h2>
+    <figure class="gambar--satu"><img class="layar layar--lebar" src="img/a05-detail.jpg" width="2560" height="1600" alt="Detail pengguna"><figcaption>Detail pengguna — data contoh</figcaption></figure>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Bagian</th><th>Isi</th></tr>
+      <tr><td><b>Kepala</b></td><td>Nama, tanggal terdaftar, email, status triase, dan kapan hasil ukur terakhir.</td></tr>
+      <tr><td><b>EKG · Irama Jantung</b></td><td>Belum tersedia — TeleBand belum mengukur EKG.</td></tr>
+      <tr><td><b>Aktivitas terakhir</b></td><td>Kapan pasien terakhir membuka aplikasi dan apa yang terakhir ia makan.</td></tr>
+      <tr><td><b>Profil &amp; tujuan kesehatan</b></td><td>Tujuan, aktivitas, jenis kelamin, usia, tinggi/berat, IMT, dan target gizi harian
+        (dihitung dari profil atau diketik sendiri oleh pasien).</td></tr>
+      <tr><td><b>Capaian gizi hari ini</b></td><td>Kalori, karbohidrat, protein, lemak yang sudah dimakan dibanding target.</td></tr>
+      <tr><td><b>Riwayat makanan</b></td><td>10 catatan makanan terakhir beserta gizinya (tanpa foto).</td></tr>
+      <tr><td><b>Hasil ukur TeleBand</b></td><td>Angka terakhir, grafik rata-rata detak jantung harian 7 hari, dan 10 hasil terbaru dengan statusnya.</td></tr>
+      <tr><td><b>Penandaan eskalasi</b></td><td>Tombol <b>Tandai eskalasi</b> untuk mencatat bahwa pasien perlu ditindaklanjuti.</td></tr>
+    </table></div>
+    <figure class="gambar--satu"><img class="layar layar--lebar" src="img/a06-detail-hasil.jpg" width="2560" height="1600" alt="Hasil ukur di detail pengguna"><figcaption>Hasil ukur dan tren di detail pengguna</figcaption></figure>
+    <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+      <div><b>Penandaan eskalasi hanya tersimpan di peramban ini</b>
+        <p>Tanda eskalasi tidak dikirim ke server dan tidak terlihat oleh admin lain atau di perangkat lain. Catat tindak lanjut penting di
+          sistem pencatatan resmi Anda.</p></div></div>
+  </section>
+
+  <section class="bab" id="perangkat">
+    <h2><span class="no">6</span> Perangkat</h2>
+    <figure class="gambar--satu"><img class="layar layar--lebar" src="img/a07-perangkat.jpg" width="2560" height="1600" alt="Perangkat"><figcaption>Inventaris TeleBand — data contoh</figcaption></figure>
+    <p>Daftar setiap TeleBand (berdasarkan nomor seri) yang pernah mengirim hasil ukur: nomor unit, versi firmware, kapan terakhir dipakai,
+      jumlah hasil, dan siapa pemakainya. Berguna untuk melacak gelang yang lama tidak dipakai. Angka di atasnya: jumlah TeleBand
+      terpakai, yang aktif 7 hari terakhir, dan jumlah hasil 7 hari.</p>
+  </section>
+
+  <section class="bab" id="hapus">
+    <h2><span class="no">7</span> Menghapus data pengguna</h2>
+    <ol class="langkah">
+      <li>Di <b>Pengguna</b> tekan ikon tempat sampah pada baris pasien, atau di detail pengguna tekan <b>Hapus data pengguna</b>.</li>
+      <li>Baca konfirmasinya, lalu tekan <b>Hapus permanen</b>.</li>
+    </ol>
+    <div class="kotak kotak--bahaya"><svg><use href="#i-awas"/></svg>
+      <div><b>Tidak dapat dibatalkan</b>
+        <p>Profil, seluruh riwayat makanan, dan seluruh hasil ukur pasien itu dihapus dari server. Akun Google pasien sendiri tidak terhapus:
+          bila ia membuka aplikasi lagi, ia terdaftar kembali, dan profil yang masih tersimpan di HP-nya dapat terkirim ulang.
+          Hapus hanya atas permintaan pasien atau sesuai kebijakan pengelolaan data.</p></div></div>
+  </section>
+
+  <section class="bab" id="laporan">
+    <h2><span class="no">8</span> Laporan CSV</h2>
+    <p>Tombol <b>Unduh laporan</b> (Ringkasan) menghasilkan berkas <code>laporan-pengguna-TTTTBBHH.csv</code> (mis. <code>laporan-pengguna-20261023.csv</code>) berisi satu baris per pasien:</p>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Kolom</th><th>Isi</th></tr>
+      <tr><td>Nama, Terdaftar, Status</td><td>Identitas dan status triase saat laporan dibuat</td></tr>
+      <tr><td>Hasil terakhir, Detak (bpm), SpO2 (%)</td><td>Hasil ukur TeleBand terakhir</td></tr>
+      <tr><td>TD estimasi, Glukosa estimasi</td><td>Estimasi eksperimental — jangan dipakai untuk keputusan klinis</td></tr>
+      <tr><td>Hasil ukur 30 hari</td><td>Jumlah pengukuran 30 hari terakhir (kepatuhan memakai gelang)</td></tr>
+      <tr><td>Penandaan eskalasi (perangkat ini)</td><td>Jumlah tanda eskalasi yang dibuat di peramban ini</td></tr>
+    </table></div>
+    <p>Simpan berkas laporan di tempat yang aman; berkas ini memuat data kesehatan pasien.</p>
+  </section>
+
+  <section class="bab" id="selesai">
+    <h2><span class="no">9</span> Keluar &amp; kebiasaan aman</h2>
+    <ul>
+      <li>Keluar setelah selesai: <b>Profil → Keluar</b>. Anda kembali ke halaman masuk admin.</li>
+      <li>Data di dasbor diperbarui setiap kali halaman dibuka; setelah ada perubahan, tunggu sekitar 1 menit lalu buka ulang halamannya.</li>
+      <li>Jangan memakai akun admin di perangkat umum, dan jangan menyimpan kata sandi di peramban milik orang lain.</li>
+    </ul>
+  </section>
+
+  <section class="bab" id="masalah">
+    <h2><span class="no">10</span> Bila ada masalah</h2>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Pesan / gejala</th><th>Penyebab &amp; solusi</th></tr>
+      <tr><td>“Email atau kata sandi salah.”</td><td>Periksa penulisan. Masih gagal? Minta pengelola sistem mengatur ulang kata sandi.</td></tr>
+      <tr><td>“Akun ini bukan akun admin.”</td><td>Akun belum didaftarkan sebagai admin. Hubungi pengelola sistem.</td></tr>
+      <tr><td>“Sesi admin berakhir. Silakan masuk kembali.”</td><td>Sesi kedaluwarsa atau sudah keluar di tempat lain. Masuk lagi.</td></tr>
+      <tr><td>“Akses ditolak server.”</td><td>Akun tidak berhak membuka data itu, atau ada masalah konfigurasi server. Hubungi pengelola sistem.</td></tr>
+      <tr><td>“Server tidak terjangkau.”</td><td>Periksa koneksi internet, lalu buka ulang halaman.</td></tr>
+      <tr><td>Pasien tidak muncul di daftar</td><td>Pasien belum pernah masuk ke aplikasi dengan akun Google. Minta ia membuka aplikasi sekali.</td></tr>
+      <tr><td>Hasil ukur pasien tidak ada / tidak bertambah</td><td>Hasilnya mungkin masih <i>menunggu kirim</i> di HP atau gelang pasien (tanpa internet), atau gelang belum disambungkan ke aplikasi.</td></tr>
+      <tr><td>Angka di dasbor belum berubah</td><td>Tunggu sekitar 1 menit, lalu buka ulang halaman.</td></tr>
+    </table></div>
+  </section>
+
+  <p class="kaki">TeleCare — Panduan Admin · Penelitian Health 5.0 · Program Studi Fisika, FMIPA Universitas Sebelas Maret · Oktober 2026<br>
+    Dokumen terbatas — hanya untuk admin TeleCare.</p>
+  </main>
+</div>
+</body>
+</html>

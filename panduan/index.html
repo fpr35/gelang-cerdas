@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panduan Penggunaan — TeleBand &amp; Aplikasi TeleCare</title>
+<meta name="description" content="Cara memakai gelang TeleBand dan aplikasi TeleCare: mengisi daya, memakai di pergelangan, menyambungkan lewat Bluetooth, mengukur, dan fitur-fitur aplikasi.">
+<meta name="theme-color" content="#1E6FD9">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%231E6FD9'/><path d='M5 17h5l2.4-6 3.6 12 2.8-8 1.8 2H27' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- ?v=…: naikkan setiap kali panduan.css berubah (lihat catatan cache di index.html akar). -->
+<link rel="stylesheet" href="panduan.css?v=20261023c">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
+  <symbol id="i-awas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.4 21.4 20H2.6Z"/><path d="M12 9.6v4.2M12 17h.01"/></symbol>
+  <symbol id="i-cek" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.4 2.8 2.8L16.4 9"/></symbol>
+  <symbol id="i-unduh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v12M7 11l5 5 5-5M4.5 20.5h15"/></symbol>
+  <symbol id="i-panah" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6.6 18.4 12 13 17.4"/></symbol>
+</defs></svg>
+
+<header class="kepala">
+  <div class="kepala__isi">
+    <a class="merek" href="../">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="2" y1="2" x2="46" y2="46"><stop stop-color="#0B3A8C"/><stop offset=".55" stop-color="#1E6FD9"/><stop offset="1" stop-color="#3FB6F5"/></linearGradient></defs>
+        <rect x="2" y="2" width="44" height="44" rx="13" fill="url(#lg)"/><path d="M13 24.5h4.6l2.6-6.6 3.8 13 2.9-8.6 1.9 2.2H35" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>TeleCare<small>Panduan Penggunaan</small></span>
+    </a>
+    <a class="tombol tombol--garis" href="panduan-telecare.pdf" download><svg><use href="#i-unduh"/></svg><span>Unduh PDF</span></a>
+    <a class="tombol tombol--utama" href="../app/"><span>Buka Aplikasi</span><svg><use href="#i-panah"/></svg></a>
+  </div>
+</header>
+
+<section class="sampul">
+  <div class="sampul__isi">
+    <div>
+      <span class="label">Panduan untuk Pengguna</span>
+      <h1>Memakai TeleBand &amp; Aplikasi TeleCare</h1>
+      <p>Langkah demi langkah dari mengisi daya gelang, memakainya di pergelangan tangan, menyambungkannya
+        ke aplikasi lewat Bluetooth, mengukur detak jantung dan SpO₂, sampai memakai fitur-fitur aplikasi.</p>
+      <div class="sampul__aksi">
+        <a class="tombol tombol--putih" href="../app/">Buka Aplikasi <svg><use href="#i-panah"/></svg></a>
+        <a class="tombol tombol--garis" href="panduan-telecare.pdf" download><svg><use href="#i-unduh"/></svg> Unduh versi PDF</a>
+      </div>
+    </div>
+    <img src="../assets/img/render-teleband.webp" width="1200" height="1200" alt="Render 3D gelang TeleBand" style="height:auto">
+  </div>
+</section>
+
+<div class="tata">
+  <nav class="daftar" aria-label="Daftar isi">
+    <b>Daftar isi</b>
+    <ol>
+      <li><a href="#mulai">Sebelum mulai</a></li>
+      <li><a href="#kenali">Kenali TeleBand</a></li>
+      <li><a href="#cas">Mengisi daya</a></li>
+      <li><a href="#pakai">Memakai di pergelangan</a></li>
+      <li><a href="#aplikasi">Membuka aplikasi</a></li>
+      <li><a href="#sambung">Menyambungkan TeleBand</a></li>
+      <li><a href="#ukur">Mengukur</a></li>
+      <li><a href="#fitur">Fitur aplikasi</a></li>
+      <li><a href="#selesai">Selesai memakai</a></li>
+      <li><a href="#aman">Keselamatan &amp; batasan</a></li>
+      <li><a href="#privasi">Data &amp; privasi</a></li>
+      <li><a href="#masalah">Bila ada masalah</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- ===================== 1 ===================== -->
+  <section class="bab" id="mulai">
+    <h2><span class="no">1</span> Sebelum mulai</h2>
+    <p class="lead">Siapkan hal-hal berikut. Semuanya cukup sekali saja di awal.</p>
+    <div class="fitur">
+      <div><b>Gelang TeleBand</b><p>Sudah terisi daya. Lihat <a href="#cas">Bagian 3</a>.</p></div>
+      <div><b>HP Android atau laptop</b><p>Dengan peramban <b>Google Chrome</b> atau <b>Microsoft Edge</b> versi terbaru.</p></div>
+      <div><b>Akun Google</b><p>Untuk masuk ke aplikasi. Data Anda tersimpan pada akun ini.</p></div>
+      <div><b>Bluetooth &amp; internet</b><p>Bluetooth untuk menyambung ke gelang, internet untuk menyimpan hasil ke server.</p></div>
+      <div><b>Kabel USB-A ke USB-C + adaptor biasa</b><p>Untuk mengisi daya. Jangan memakai pengisi daya cepat (fast charging).</p></div>
+    </div>
+    <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+      <div><b>iPhone dan iPad tidak bisa menyambung ke TeleBand</b>
+        <p>Safari dan semua peramban di iPhone/iPad tidak mendukung Bluetooth dari situs web. Di iPhone Anda tetap bisa
+        masuk, mencatat makanan, dan melihat riwayat, tetapi <b>pengukuran harus dilakukan dari HP Android atau laptop</b>
+        (atau langsung dari tombol gelang, lalu dikirim saat tersambung ke HP Android/laptop).</p></div></div>
+  </section>
+
+  <!-- ===================== 2 ===================== -->
+  <section class="bab" id="kenali">
+    <h2><span class="no">2</span> Kenali TeleBand</h2>
+    <p class="lead">TeleBand adalah gelang pintar dengan layar sentuh kecil dan sensor optik di bagian belakang yang membaca
+      denyut nadi di pergelangan tangan.</p>
+
+    <div class="gambar">
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 340 300" role="img" aria-label="Bagian depan TeleBand: layar, tombol PWR, tombol BOOT, port USB-C">
+          <rect x="120" y="0" width="100" height="56" rx="10" fill="#1E6FD9"/><rect x="120" y="244" width="100" height="56" rx="10" fill="#1E6FD9"/>
+          <rect x="96" y="44" width="148" height="212" rx="30" fill="#1B2638"/>
+          <rect x="108" y="58" width="124" height="184" rx="20" fill="#2E3E57"/>
+          <text x="170" y="128" fill="#fff" font-family="Plus Jakarta Sans,sans-serif" font-size="34" font-weight="800" text-anchor="middle">09:41</text>
+          <text x="170" y="152" fill="#9FC3F2" font-family="Plus Jakarta Sans,sans-serif" font-size="12" text-anchor="middle">Jum, 23 Okt</text>
+          <rect x="178" y="70" width="40" height="16" rx="5" fill="none" stroke="#9FC3F2" stroke-width="2"/><rect x="181" y="73" width="26" height="10" rx="2" fill="#5BD69A"/>
+          <rect x="244" y="96" width="10" height="34" rx="4" fill="#3FB6F5"/>
+          <rect x="244" y="150" width="10" height="34" rx="4" fill="#9FB3CC"/>
+          <rect x="152" y="252" width="36" height="9" rx="4" fill="#9FB3CC"/>
+          <g font-family="Plus Jakarta Sans,sans-serif" font-size="13" font-weight="700" fill="#13223A">
+            <path d="M256 113h34" stroke="#1E6FD9" stroke-width="1.6"/><text x="294" y="117">PWR</text>
+            <path d="M256 167h34" stroke="#1E6FD9" stroke-width="1.6"/><text x="294" y="171">BOOT</text>
+            <path d="M190 262 228 286" stroke="#1E6FD9" stroke-width="1.6"/><text x="232" y="292">USB-C</text>
+            <path d="M108 120H52" stroke="#1E6FD9" stroke-width="1.6"/><text x="6" y="116">Layar</text><text x="6" y="132" font-weight="500" font-size="11">sentuh</text>
+            <path d="M198 78 214 34" stroke="#1E6FD9" stroke-width="1.6"/><text x="218" y="30" font-size="12">baterai</text>
+          </g>
+        </svg>
+        <figcaption>Tampak depan. <span class="tanda-ilustrasi">Ilustrasi</span><br>Perhatikan tulisan PWR dan BOOT di dekat
+          tombol pada unit Anda.</figcaption>
+      </figure>
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 340 300" role="img" aria-label="Bagian belakang TeleBand: jendela sensor">
+          <rect x="120" y="0" width="100" height="56" rx="10" fill="#1E6FD9"/><rect x="120" y="244" width="100" height="56" rx="10" fill="#1E6FD9"/>
+          <rect x="96" y="44" width="148" height="212" rx="30" fill="#2B3A52"/>
+          <rect x="132" y="112" width="76" height="76" rx="20" fill="#121A27"/>
+          <circle cx="156" cy="150" r="9" fill="#E2543F"/><circle cx="184" cy="150" r="9" fill="#5B4A73"/>
+          <circle cx="170" cy="150" r="54" fill="none" stroke="#3FB6F5" stroke-width="2" stroke-dasharray="5 5"/>
+          <g font-family="Plus Jakarta Sans,sans-serif" font-size="13" font-weight="700" fill="#13223A">
+            <path d="M214 120 262 84" stroke="#1E6FD9" stroke-width="1.6"/><text x="236" y="70">Jendela sensor</text>
+            <text x="236" y="86" font-weight="500" font-size="11">harus menempel di kulit</text>
+          </g>
+        </svg>
+        <figcaption>Tampak belakang: sensor cahaya merah &amp; inframerah (MAX30102). <span class="tanda-ilustrasi">Ilustrasi</span></figcaption>
+      </figure>
+    </div>
+
+    <h3>Tombol</h3>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Tindakan</th><th>Hasilnya</th></tr>
+      <tr><td>Tahan <kbd>PWR</kbd> ±3 detik</td><td>Gelang <b>menyala</b> atau <b>mati</b></td></tr>
+      <tr><td>Tekan <kbd>PWR</kbd> sekali</td><td>Layar menyala atau padam (gelang tetap hidup) — untuk menghemat baterai</td></tr>
+      <tr><td>Tekan <kbd>PWR</kbd> dua kali cepat</td><td>Menampilkan <b>nomor unit</b> gelang (berguna bila ada beberapa gelang)</td></tr>
+      <tr><td>Tekan <kbd>BOOT</kbd></td><td><b>Mulai mengukur</b> — layar pindah ke halaman angka</td></tr>
+      <tr><td>Tekan <kbd>BOOT</kbd> lagi</td><td><b>Berhenti mengukur</b> — hasil disimpan di gelang dan dikirim ke aplikasi</td></tr>
+    </table></div>
+
+    <h3>Tanda di layar gelang</h3>
+    <div class="gambar">
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 160 170" role="img" aria-label="Layar jam dengan persen baterai">
+          <rect x="16" y="6" width="128" height="158" rx="24" fill="#1B2638"/><rect x="26" y="16" width="108" height="138" rx="16" fill="#2E3E57"/>
+          <rect x="88" y="26" width="34" height="14" rx="4" fill="none" stroke="#9FC3F2" stroke-width="2"/><rect x="91" y="29" width="22" height="8" rx="2" fill="#5BD69A"/>
+          <text x="80" y="98" fill="#fff" font-family="Plus Jakarta Sans,sans-serif" font-size="28" font-weight="800" text-anchor="middle">09:41</text>
+        </svg>
+        <figcaption><b>Jam &amp; baterai</b><br>Tampilan utama saat gelang menyala.</figcaption>
+      </figure>
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 160 170" role="img" aria-label="Ikon petir saat mengisi daya">
+          <rect x="16" y="6" width="128" height="158" rx="24" fill="#1B2638"/><rect x="26" y="16" width="108" height="138" rx="16" fill="#2E3E57"/>
+          <path d="M86 40 60 92h20l-8 40 30-56H80l6-36Z" fill="#FFD23F"/>
+        </svg>
+        <figcaption><b>Ikon petir</b><br>Gelang sedang mengisi daya.</figcaption>
+      </figure>
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 160 170" role="img" aria-label="Pita hijau di tepi layar saat data cukup">
+          <rect x="16" y="6" width="128" height="158" rx="24" fill="#1B2638"/><rect x="26" y="16" width="108" height="138" rx="16" fill="#2E3E57" stroke="#2BD27E" stroke-width="7"/>
+          <text x="80" y="80" fill="#fff" font-family="Plus Jakarta Sans,sans-serif" font-size="26" font-weight="800" text-anchor="middle">76</text>
+          <text x="80" y="98" fill="#9FC3F2" font-family="Plus Jakarta Sans,sans-serif" font-size="11" text-anchor="middle">bpm · SpO₂ 97%</text>
+        </svg>
+        <figcaption><b>Pita hijau di tepi layar</b><br>Data sudah cukup — pengukuran boleh dihentikan.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== 3 ===================== -->
+  <section class="bab" id="cas">
+    <h2><span class="no">3</span> Mengisi daya</h2>
+    <p class="lead">TeleBand memakai baterai Li-Po <b>1500 mAh</b> dan diisi lewat port <b>USB-C</b> di gelang.</p>
+
+    <figure class="ilustrasi gambar--satu" style="margin:14px 0">
+      <svg viewBox="0 0 680 150" role="img" aria-label="Adaptor 5 volt, kabel USB-A ke USB-C, TeleBand">
+        <rect x="10" y="38" width="96" height="74" rx="14" fill="#fff" stroke="#9FB3CC" stroke-width="2"/>
+        <text x="58" y="72" font-family="Plus Jakarta Sans,sans-serif" font-size="18" font-weight="800" fill="#13223A" text-anchor="middle">5 V</text>
+        <text x="58" y="92" font-family="Plus Jakarta Sans,sans-serif" font-size="11" fill="#6B7C93" text-anchor="middle">adaptor biasa</text>
+        <rect x="106" y="62" width="30" height="26" rx="3" fill="#C9D4E2"/><rect x="110" y="68" width="22" height="14" rx="2" fill="#7A8CA6"/>
+        <text x="121" y="112" font-family="Plus Jakarta Sans,sans-serif" font-size="11" font-weight="700" fill="#13223A" text-anchor="middle">USB-A</text>
+        <path d="M136 75 C 240 75, 300 40, 400 75" fill="none" stroke="#1B2638" stroke-width="6" stroke-linecap="round"/>
+        <rect x="400" y="65" width="34" height="20" rx="8" fill="#C9D4E2"/>
+        <text x="417" y="112" font-family="Plus Jakarta Sans,sans-serif" font-size="11" font-weight="700" fill="#13223A" text-anchor="middle">USB-C</text>
+        <rect x="446" y="20" width="80" height="110" rx="18" fill="#1B2638"/><rect x="454" y="28" width="64" height="94" rx="12" fill="#2E3E57"/>
+        <path d="M489 46 474 76h11l-5 26 18-34h-11l3-22Z" fill="#FFD23F"/>
+        <g font-family="Plus Jakarta Sans,sans-serif" font-size="13" fill="#13223A">
+          <text x="548" y="62" font-weight="800">± 3 jam</text><text x="548" y="80">dari kosong</text>
+          <text x="548" y="100" fill="#6B7C93" font-size="11">ikon petir = mengisi</text>
+        </g>
+      </svg>
+      <figcaption>Rangkaian yang aman: adaptor biasa 5 V → kabel USB-A ke USB-C → TeleBand. <span class="tanda-ilustrasi">Ilustrasi</span></figcaption>
+    </figure>
+
+    <h3>Pengisi daya yang aman</h3>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th></th><th>Boleh dipakai</th><th>Jangan dipakai</th></tr>
+      <tr><td><b>Kabel</b></td><td><span class="ok">✓</span> <b>USB-A ke USB-C</b> (ujung besar persegi panjang ke ujung kecil lonjong)</td>
+        <td><span class="tidak">✗</span> Kabel <b>USB-C ke USB-C</b> (kedua ujung lonjong) — gelang tidak terisi dengan aman</td></tr>
+      <tr><td><b>Adaptor</b></td><td><span class="ok">✓</span> Adaptor HP <b>biasa</b> dengan port USB-A, keluaran <b>5 V</b> (tertulis mis. <code>5V ⎓ 1A</code> atau <code>5V ⎓ 2A</code>)<br>
+        <span class="ok">✓</span> Port USB-A di laptop/komputer</td>
+        <td><span class="tidak">✗</span> Pengisi daya <b>cepat</b> (fast charging): bertuliskan <b>PD</b>, <b>QC</b>/Quick Charge, <b>SuperVOOC</b>, <b>Dash</b>, <b>Turbo</b>, atau keluaran 9 V / 12 V / 20 V<br>
+        <span class="tidak">✗</span> Pengisi daya laptop USB-C</td></tr>
+    </table></div>
+
+    <h3>Langkah mengisi daya</h3>
+    <ol class="langkah">
+      <li><b>Lepaskan gelang dari pergelangan</b> dan pastikan port USB-C <b>kering dan bersih</b> (lap bila berkeringat atau basah).</li>
+      <li><b>Colokkan</b> ujung USB-C ke gelang, ujung USB-A ke adaptor biasa, lalu adaptor ke stopkontak.</li>
+      <li>Pastikan muncul <b>ikon petir</b> di layar gelang. Tidak muncul? Cabut lalu colokkan lagi dengan mantap.</li>
+      <li>Tunggu sampai penuh — sekitar <b>3 jam</b> dari kosong. Menjelang penuh, persen naik lebih lambat; itu normal.</li>
+      <li><b>Cabut</b> setelah penuh, lalu pakai kembali gelang.</li>
+    </ol>
+
+    <div class="kotak kotak--bahaya"><svg><use href="#i-awas"/></svg>
+      <div><b>Demi keselamatan</b>
+        <p>Jangan mengisi daya di atas kasur, bantal, atau di bawah terik matahari. Hentikan pengisian dan <b>jangan pakai gelang</b>
+          bila terasa sangat panas, menggembung, berbau, atau berasap — hubungi tim TeleCare.</p></div></div>
+    <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+      <div><b>Berapa lama baterai bertahan?</b>
+        <p>Tergantung pemakaian — seberapa sering mengukur, berapa lama layar menyala, dan berapa lama tersambung Bluetooth.
+          Untuk menghemat: padamkan layar dengan menekan <kbd>PWR</kbd> sekali, dan matikan gelang (tahan <kbd>PWR</kbd>) bila tidak dipakai.</p></div></div>
+  </section>
+
+  <!-- ===================== 4 ===================== -->
+  <section class="bab" id="pakai">
+    <h2><span class="no">4</span> Memakai di pergelangan tangan</h2>
+    <p class="lead">Sensor membaca denyut nadi dari pembuluh darah di pergelangan. Letak yang tepat membuat angka jauh lebih akurat.</p>
+
+    <div class="berdampingan">
+      <div>
+        <ol class="langkah">
+          <li><b>Pakai di pergelangan tangan</b>, bukan di jari. Sensor TeleBand disetel khusus untuk pergelangan.</li>
+          <li><b>Letakkan sensor tepat di titik denyut nadi</b>: sisi dalam pergelangan (sisi telapak tangan), segaris dengan ibu jari,
+            sedikit di bawah lipatan pergelangan — tempat denyut nadi terasa bila diraba dengan dua jari.</li>
+          <li><b>Kencangkan tali</b> sampai sensor menempel rapat di kulit tetapi tetap nyaman — tidak boleh bergeser, tidak boleh menjepit.</li>
+          <li>Pastikan <b>kulit bersih dan kering</b> di bawah sensor.</li>
+        </ol>
+        <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+          <div><b>Jangan mengukur dengan menempelkan jari ke sensor</b>
+            <p>Perhitungan SpO₂ di gelang dikoreksi untuk pergelangan tangan. Bila sensor ditempel ke jari, angka SpO₂ menjadi salah
+              (biasanya selalu tampil 100%).</p></div></div>
+      </div>
+      <figure class="ilustrasi">
+        <svg viewBox="0 0 250 340" role="img" aria-label="Pergelangan tangan, telapak menghadap atas, dengan sensor TeleBand di titik denyut nadi sisi ibu jari">
+          <path d="M92 340V170c0-12 4-22 10-30l14-62c3-10 15-9 15 2v56l5-80c1-11 15-11 15 0l2 80 7-72c1-11 15-10 15 1l-2 76 10-56c2-10 15-8 14 2l-8 84c-2 18-6 30-12 42v126Z" fill="#F2C9A8" stroke="#D99D78" stroke-width="2"/>
+          <path d="M92 212c-14-6-28-20-36-36-6-12 6-21 15-13l21 21" fill="#F2C9A8" stroke="#D99D78" stroke-width="2"/>
+          <rect x="86" y="246" width="116" height="40" rx="12" fill="#1E6FD9" opacity=".92"/>
+          <rect x="98" y="250" width="44" height="32" rx="9" fill="#1B2638"/>
+          <circle cx="120" cy="266" r="8" fill="#E2543F"/>
+          <circle cx="120" cy="266" r="22" fill="none" stroke="#E2543F" stroke-width="2.4" stroke-dasharray="5 4"/>
+          <g font-family="Plus Jakarta Sans,sans-serif" font-weight="800">
+            <path d="M98 266H40v38" fill="none" stroke="#E2543F" stroke-width="2"/>
+            <text x="4" y="322" font-size="17" fill="#C8412D">Titik denyut nadi</text>
+            <text x="20" y="150" font-size="16" fill="#3E5068">Ibu jari</text>
+            <path d="M52 156 62 170" stroke="#3E5068" stroke-width="2"/>
+          </g>
+        </svg>
+        <figcaption>Telapak menghadap atas: sensor menempel di titik denyut nadi, sisi dalam pergelangan, segaris ibu jari.
+          <span class="tanda-ilustrasi">Ilustrasi</span></figcaption>
+      </figure>
+    </div>
+
+    <h3>Saat mengukur</h3>
+    <ul>
+      <li>Duduk tenang <b>1–2 menit</b> sebelum mulai, tangan diletakkan di meja atau paha.</li>
+      <li><b>Jangan bergerak dan jangan berbicara</b> selama pengukuran — gerakan membuat sinyal kacau.</li>
+      <li>Hindari mengukur sesaat setelah olahraga, minum kopi, atau merokok bila ingin angka istirahat.</li>
+    </ul>
+
+    <h3>Air dan keringat</h3>
+    <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+      <div><b>Belum ada pengujian ketahanan air resmi</b>
+        <p>Keringat dan cipratan ringan (mencuci tangan, gerimis) umumnya aman. <b>Jangan direndam</b>, jangan dipakai mandi atau
+          berenang, dan selalu pastikan port USB-C <b>kering</b> sebelum mengisi daya.</p></div></div>
+  </section>
+
+  <!-- ===================== 5 ===================== -->
+  <section class="bab" id="aplikasi">
+    <h2><span class="no">5</span> Membuka aplikasi TeleCare</h2>
+    <p class="lead">Aplikasi TeleCare berjalan di peramban — tidak perlu mengunduh dari Play Store.</p>
+
+    <div class="berdampingan">
+      <div>
+        <ol class="langkah">
+          <li><b>Buka alamat</b> <code>https://app-telecare.web.app/app/</code> di <b>Chrome</b> atau <b>Edge</b>.</li>
+          <li>Pada layar pembuka, tekan <b>Mulai Sekarang</b>.</li>
+          <li>Tekan <b>Masuk dengan Google</b>, lalu pilih akun Google Anda.
+            <br><small>Selalu masuk dengan akun Google yang sama — data Anda melekat pada akun itu.</small></li>
+        </ol>
+      </div>
+      <figure><img class="layar" src="img/p01-masuk.jpg" width="780" height="1688" alt="Layar masuk aplikasi TeleCare" loading="lazy"><figcaption>Layar masuk</figcaption></figure>
+    </div>
+
+    <div class="berdampingan">
+      <div>
+        <h3 style="margin-top:0">Lengkapi data diri (sekali saja)</h3>
+        <p>Saat pertama kali masuk, aplikasi meminta <b>nama panggilan, jenis kelamin, usia, tinggi, berat badan, tingkat aktivitas,</b>
+          dan <b>tujuan kesehatan</b>. Data ini dipakai untuk menghitung target gizi harian Anda.</p>
+        <p>Tekan <b>Simpan &amp; Lanjut</b>. Anda bisa melewatinya (<b>Lewati dulu</b>) dan mengisinya kapan saja di <b>Profil</b>.</p>
+        <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+          <div><b>Membuka di HP atau laptop lain?</b>
+            <p>Masuk saja dengan akun Google yang sama — profil, catatan makanan, dan hasil ukur Anda ikut muncul. Langkah Lengkapi Data
+              otomatis dilewati.</p></div></div>
+      </div>
+      <figure><img class="layar" src="img/p02-lengkapi.jpg" width="780" height="1688" alt="Layar Lengkapi Data" loading="lazy"><figcaption>Lengkapi data diri</figcaption></figure>
+    </div>
+
+    <h3>Pasang di layar utama HP (disarankan)</h3>
+    <p>Supaya terasa seperti aplikasi biasa: di Chrome Android tekan menu <b>⋮</b> → <b>Instal aplikasi</b> atau
+      <b>Tambahkan ke layar utama</b>. Ikon TeleCare akan muncul di layar utama HP.</p>
+  </section>
+
+  <!-- ===================== 6 ===================== -->
+  <section class="bab" id="sambung">
+    <h2><span class="no">6</span> Menyambungkan TeleBand</h2>
+    <p class="lead">Penyambungan dilakukan dari aplikasi, <b>bukan</b> dari menu Bluetooth di pengaturan HP.</p>
+
+    <div class="berdampingan">
+      <div>
+        <ol class="langkah">
+          <li><b>Nyalakan TeleBand</b> (tahan <kbd>PWR</kbd> ±3 detik) dan <b>aktifkan Bluetooth</b> di HP/laptop.</li>
+          <li>Di aplikasi, buka layar TeleBand: ketuk <b>kartu perangkat</b> di Beranda, atau <b>Aksi cepat → Ukur</b>,
+            atau <b>Profil → Status Perangkat → TeleBand</b>.</li>
+          <li>Tekan <b>Sambungkan TeleBand</b> (atau <b>Pindai &amp; sambungkan TeleBand</b>).</li>
+          <li>Muncul daftar dari peramban. Pilih <b>TeleCare-…</b> lalu tekan <b>Sambungkan / Pasangkan</b>.
+            <br><small>Ada beberapa gelang? Tekan <kbd>PWR</kbd> dua kali cepat di gelang untuk melihat nomor unitnya, lalu pilih nama yang
+            berakhiran nomor itu.</small></li>
+          <li>Saat pertama kali, HP menampilkan permintaan <b>pairing/penyandingan</b> — <b>setujui</b>. Bila Android meminta izin
+            <b>Perangkat di sekitar</b> atau <b>Lokasi</b> untuk Bluetooth, izinkan juga.</li>
+          <li>Tersambung! Kartu menunjukkan <b>tersambung</b>, baterai gelang, jumlah hasil yang tersimpan di gelang, dan
+            <b>Jam alat: OK</b> — jam gelang disetel otomatis dari HP.</li>
+        </ol>
+      </div>
+      <figure><img class="layar" src="img/p06-teleband-sambung.jpg" width="780" height="1688" alt="Layar TeleBand belum tersambung" loading="lazy"><figcaption>Sebelum tersambung</figcaption></figure>
+    </div>
+
+    <div class="gambar">
+      <figure><img class="layar" src="img/p05-pindai.jpg" width="780" height="1688" alt="Layar Pindai Perangkat" loading="lazy"><figcaption>Pindai &amp; sambungkan</figcaption></figure>
+      <figure><img class="layar" src="img/p07-teleband-siap.jpg" width="780" height="1688" alt="TeleBand tersambung" loading="lazy"><figcaption>Sudah tersambung</figcaption></figure>
+    </div>
+
+    <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+      <div><b>Satu gelang hanya bisa tersambung ke satu HP pada satu waktu</b>
+        <p>Bila TeleBand tidak muncul di daftar, kemungkinan masih tersambung ke HP atau tab lain. Putuskan dulu di sana, atau matikan
+          lalu nyalakan lagi gelangnya.</p></div></div>
+  </section>
+
+  <!-- ===================== 7 ===================== -->
+  <section class="bab" id="ukur">
+    <h2><span class="no">7</span> Mengukur</h2>
+    <p class="lead">Ada dua cara: dari aplikasi (angka tampil langsung di HP) atau dari tombol di gelang (tanpa HP).</p>
+
+    <h3>A. Mengukur dari aplikasi</h3>
+    <div class="berdampingan">
+      <div>
+        <ol class="langkah">
+          <li>Pastikan gelang terpasang benar (<a href="#pakai">Bagian 4</a>) dan tersambung (<a href="#sambung">Bagian 6</a>).</li>
+          <li>Di layar TeleBand, tekan <b>Mulai ukur</b>. Tahan tangan diam.</li>
+          <li>Angka muncul dan <b>tampak redup</b> selama sinyal belum stabil, lalu menjadi tegas. Batang <b>Kemajuan</b> terisi.</li>
+          <li>Saat kemajuan penuh, tertulis <b>data cukup</b> dan tombol berubah menjadi <b>✓ Selesai &amp; simpan hasil</b>. Tekan tombol itu.
+            <br><small>Biasanya butuh beberapa puluh detik sampai sekitar dua menit.</small></li>
+          <li>Hasil masuk ke daftar <b>Hasil pengukuran</b> dengan tanda <b>di server</b> — artinya sudah tersimpan aman di akun Anda.</li>
+        </ol>
+        <p>Bila ingin membatalkan, tekan <b>Stop ukur</b> kapan saja.</p>
+      </div>
+      <figure><img class="layar" src="img/p09-teleband-cukup.jpg" width="780" height="1688" alt="Data cukup, tombol Selesai dan simpan hasil" loading="lazy"><figcaption>Data cukup — tekan “Selesai &amp; simpan hasil”</figcaption></figure>
+    </div>
+    <div class="gambar">
+      <figure><img class="layar" src="img/p08-teleband-mengukur.jpg" width="780" height="1688" alt="Sedang mengukur" loading="lazy"><figcaption>Sedang mengukur (angka masih redup)</figcaption></figure>
+      <figure><img class="layar" src="img/p10-teleband-hasil.jpg" width="780" height="1688" alt="Daftar hasil pengukuran" loading="lazy"><figcaption>Daftar hasil — “di server” berarti tersimpan</figcaption></figure>
+    </div>
+
+    <h3>B. Mengukur dari tombol gelang (tanpa HP)</h3>
+    <ol class="langkah">
+      <li>Pakai gelang dengan benar, lalu tekan <kbd>BOOT</kbd>. Layar pindah ke halaman angka.</li>
+      <li>Tahan tangan diam sampai muncul <b>pita hijau</b> di tepi layar (data cukup).</li>
+      <li>Tekan <kbd>BOOT</kbd> lagi. Hasil <b>tersimpan di gelang</b>.</li>
+      <li>Lain kali gelang tersambung ke aplikasi, hasil itu <b>terkirim otomatis</b> dan muncul di daftar dengan keterangan
+        <i>dimulai dari tombol di jam</i>. Bisa juga dengan menekan <b>Sinkron</b> di layar TeleBand.</li>
+    </ol>
+    <div class="kotak kotak--awas"><svg><use href="#i-awas"/></svg>
+      <div><b>Gelang menampung hingga 64 hasil</b>
+        <p>Bila penuh, hasil paling lama tertimpa. Sambungkan gelang ke aplikasi secara rutin supaya hasilnya terkirim. Hasil baru dihapus
+          dari gelang <b>setelah</b> server memastikan hasil itu tersimpan.</p></div></div>
+
+    <h3>C. Tanpa internet</h3>
+    <p>Mengukur tetap bisa. Hasil ditandai <b>menunggu kirim</b> dan tetap disimpan di gelang maupun di HP. Begitu internet kembali, hasil
+      terkirim otomatis — atau tekan <b>Kirim sekarang</b>. Tidak ada hasil yang hilang atau tercatat dua kali.</p>
+
+    <h3>Arti angka</h3>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Ukuran</th><th>Keterangan</th><th>Rentang acuan umum</th></tr>
+      <tr><td><b>Detak jantung</b> (bpm)</td><td>Diukur langsung oleh sensor</td><td>60–100 bpm saat istirahat</td></tr>
+      <tr><td><b>SpO₂</b> (%)</td><td>Kadar oksigen dalam darah, diukur langsung oleh sensor</td><td>95–100%</td></tr>
+      <tr><td><b>Tensi</b>* (mmHg)</td><td><b>Estimasi eksperimental</b> — bukan pengukuran tensimeter</td><td>&lt; 120/80 mmHg</td></tr>
+      <tr><td><b>Glukosa</b>* (mg/dL)</td><td><b>Estimasi eksperimental</b> — bukan pengukuran gula darah</td><td>tidak untuk dinilai</td></tr>
+    </table></div>
+    <p><small>* Ditandai bintang di aplikasi. Lihat <a href="#aman">Bagian 10</a>.</small></p>
+  </section>
+
+  <!-- ===================== 8 ===================== -->
+  <section class="bab" id="fitur">
+    <h2><span class="no">8</span> Fitur aplikasi</h2>
+    <p class="lead">Navigasi utama ada di bilah bawah: <b>Beranda</b>, <b>Analisis</b>, tombol kamera <b>Catat</b> di tengah,
+      <b>Riwayat</b>, dan <b>Profil</b>.</p>
+
+    <h3>Beranda</h3>
+    <div class="berdampingan">
+      <div>
+        <ul>
+          <li><b>Kartu perangkat</b> — status TeleBand (tersambung/baterai). Ketuk untuk membuka layar TeleBand dan mengukur.</li>
+          <li><b>Vital terkini</b> — detak jantung, SpO₂, tensi*, dan glukosa* dari TeleBand yang sedang tersambung. Setiap kartu memberi
+            label asal angka: <i>dari TeleBand</i>, <i>estimasi eksperimental</i>, atau <i>belum diukur</i>. Tanda “—” berarti belum ada
+            pengukuran saat ini. Ketuk kartu untuk melihat grafik dan penjelasannya.</li>
+          <li><b>EKG · Irama Jantung</b> — belum tersedia. Kartu ini akan terisi setelah TeleBand mendukung pengukuran EKG.</li>
+          <li><b>Ringkasan Hari Ini</b> — capaian target kalori, karbohidrat, protein, dan lemak dari makanan yang Anda catat hari ini.</li>
+          <li><b>Aksi cepat</b> — Ukur, Catat Makan, Perangkat, Riwayat.</li>
+          <li><b>Makanan Terakhir</b>, <b>Wawasan TeleCare AI</b> (saran singkat dari data Anda), dan <b>Bacaan untuk Anda</b>.</li>
+        </ul>
+      </div>
+      <figure><img class="layar" src="img/p03-beranda.jpg" width="780" height="1688" alt="Beranda" loading="lazy"><figcaption>Beranda</figcaption></figure>
+    </div>
+    <div class="gambar">
+      <figure><img class="layar" src="img/p04-beranda-bawah.jpg" width="780" height="1688" alt="Beranda bagian bawah" loading="lazy"><figcaption>Kartu EKG &amp; Ringkasan Hari Ini</figcaption></figure>
+      <figure><img class="layar" src="img/p21-detail-vital.jpg" width="780" height="1688" alt="Detail detak jantung" loading="lazy"><figcaption>Detail vital: grafik hasil tersimpan</figcaption></figure>
+    </div>
+
+    <h3>Catat makanan</h3>
+    <div class="berdampingan">
+      <div>
+        <ol class="langkah">
+          <li>Tekan tombol kamera <b>Catat</b> di tengah bilah bawah.</li>
+          <li><b>Foto piring dari atas</b> (atau pilih dari galeri). Tidak ingin memotret? Tekan <b>Lewati</b>.</li>
+          <li>Aplikasi mengenali makanan secara otomatis dan menampilkannya sebagai <b>usulan</b>. Periksa setiap baris: tekan <b>Ubah</b>
+            untuk mengganti jenis atau porsi (½ sampai 3 porsi), atau menghapusnya. Tambahkan yang terlewat dengan <b>Tambah makanan</b>.</li>
+          <li>Bila makan sudah lewat, ubah <b>Waktu makan</b>.</li>
+          <li>Tekan <b>Simpan ke riwayat makanan</b>.</li>
+        </ol>
+        <div class="kotak kotak--info"><svg><use href="#i-info"/></svg>
+          <div><b>Daftar makanan masih terbatas</b>
+            <p>Gizi dihitung dari basis data makanan aplikasi (nasi, lauk, sayur, minuman, dan hidangan umum Indonesia). Makanan yang terlihat
+              di foto tetapi tidak ada di daftar ditampilkan terpisah — pilih padanan yang paling mirip. Foto hanya dipakai untuk dikenali dan
+              <b>tidak disimpan di server</b>.</p></div></div>
+      </div>
+      <figure><img class="layar" src="img/p11-catat.jpg" width="780" height="1688" alt="Catat makanan" loading="lazy"><figcaption>Usulan dari foto — periksa dan ubah bila perlu</figcaption></figure>
+    </div>
+    <div class="gambar">
+      <figure><img class="layar" src="img/p12-catat-penilaian.jpg" width="780" height="1688" alt="Penilaian gizi" loading="lazy"><figcaption>Rincian gizi &amp; penilaian sesuai tujuan Anda</figcaption></figure>
+      <figure><img class="layar" src="img/p13-rincian.jpg" width="780" height="1688" alt="Rincian makanan" loading="lazy"><figcaption>Rincian catatan (bisa dihapus dari sini)</figcaption></figure>
+    </div>
+
+    <h3>Analisis</h3>
+    <div class="berdampingan">
+      <div>
+        <ul>
+          <li>Tab <b>Vital</b>: rata-rata detak jantung dan SpO₂ <b>per hari</b> selama 7 hari terakhir, dihitung dari semua hasil ukur
+            TeleBand, plus ringkasan pola pekan ini.</li>
+          <li>Tab <b>Gizi</b>: asupan kalori 7 hari dibanding target, dan komposisi karbohidrat, protein, lemak.</li>
+        </ul>
+        <p>Semakin rutin Anda mengukur dan mencatat makanan, semakin jelas trennya.</p>
+      </div>
+      <figure><img class="layar" src="img/p14-analisis.jpg" width="780" height="1688" alt="Analisis" loading="lazy"><figcaption>Analisis — tren 7 hari</figcaption></figure>
+    </div>
+
+    <h3>Riwayat</h3>
+    <div class="gambar">
+      <figure><img class="layar" src="img/p15-riwayat.jpg" width="780" height="1688" alt="Riwayat makanan" loading="lazy"><figcaption><b>Makanan</b>: per hari, dengan total dibanding target</figcaption></figure>
+      <figure><img class="layar" src="img/p16-riwayat-hasil.jpg" width="780" height="1688" alt="Riwayat hasil ukur" loading="lazy"><figcaption><b>Hasil Ukur</b>: semua pengukuran TeleBand</figcaption></figure>
+    </div>
+
+    <h3>Profil &amp; tujuan kesehatan</h3>
+    <div class="berdampingan">
+      <div>
+        <ul>
+          <li><b>Informasi Pribadi</b> — nama, usia, tinggi, berat, aktivitas, beserta Indeks Massa Tubuh (IMT).</li>
+          <li><b>Tujuan Kesehatan</b> — pilih <i>Menjaga berat badan</i>, <i>Menurunkan berat badan</i>, <i>Menjaga kestabilan gula darah</i>,
+            <i>Menambah massa otot</i>, atau <i>Bulking</i>. Target harian dihitung otomatis dari profil Anda (langkah perhitungannya
+            ditampilkan), atau ketik target sendiri.</li>
+          <li><b>Status Perangkat</b> — gelang yang pernah tersambung dan pintasan ke layar TeleBand.</li>
+          <li><b>Kalibrasi Tekanan Darah</b> — catat hasil tensimeter lengan sebagai acuan.</li>
+          <li><b>Riwayat Lengkap</b>, <b>Notifikasi</b>, <b>Pengaturan</b>, <b>Tentang TeleCare</b>, <b>Panduan Penggunaan</b>, dan <b>Keluar</b>.</li>
+        </ul>
+      </div>
+      <figure><img class="layar" src="img/p17-profil.jpg" width="780" height="1688" alt="Profil" loading="lazy"><figcaption>Profil</figcaption></figure>
+    </div>
+    <div class="gambar">
+      <figure><img class="layar" src="img/p18-tujuan.jpg" width="780" height="1688" alt="Tujuan kesehatan" loading="lazy"><figcaption>Capaian target hari ini</figcaption></figure>
+      <figure><img class="layar" src="img/p19-tujuan-dasar.jpg" width="780" height="1688" alt="Dasar perhitungan target" loading="lazy"><figcaption>Dasar perhitungan target</figcaption></figure>
+    </div>
+
+    <h3>Pengaturan &amp; peringatan</h3>
+    <div class="berdampingan">
+      <div>
+        <ul>
+          <li><b>Tema</b> warna biru atau hijau.</li>
+          <li><b>Peringatan eskalasi</b> — aplikasi memberi tahu bila hasil ukur TeleBand berada di luar batas berikut
+            (saat aplikasi terbuka dan sedang mengukur). Tekan <b>Izinkan notifikasi</b> agar peringatan tampil sebagai notifikasi HP.</li>
+          <li><b>Unduh data saya</b> (berkas JSON) dan <b>Hapus semua data lokal</b> (hanya di peramban itu; salinan di server tetap ada).</li>
+        </ul>
+        <div class="tabel-wrap"><table class="tabel">
+          <tr><th>Ukuran</th><th>Waspada</th><th>Kritis</th></tr>
+          <tr><td>Detak jantung</td><td>&gt; 110 atau &lt; 50 bpm</td><td>&gt; 130 atau &lt; 45 bpm</td></tr>
+          <tr><td>SpO₂</td><td>&lt; 94%</td><td>&lt; 90%</td></tr>
+        </table></div>
+        <p><small>Tensi dan glukosa estimasi tidak memicu peringatan.</small></p>
+      </div>
+      <figure><img class="layar" src="img/p20-pengaturan.jpg" width="780" height="1688" alt="Pengaturan" loading="lazy"><figcaption>Pengaturan</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- ===================== 9 ===================== -->
+  <section class="bab" id="selesai">
+    <h2><span class="no">9</span> Selesai memakai</h2>
+    <ol class="langkah">
+      <li>Pastikan hasil pengukuran sudah bertanda <b>di server</b>.</li>
+      <li>Di layar TeleBand, tekan <b>Putuskan</b> (atau cukup tutup aplikasi).</li>
+      <li><b>Matikan gelang</b> bila tidak dipakai: tahan <kbd>PWR</kbd> ±3 detik. Isi daya bila baterai tinggal sedikit.</li>
+      <li>Memakai HP/laptop bersama orang lain? Keluar dari akun: <b>Profil → Keluar</b>. Data Anda tetap aman di server dan muncul lagi
+        saat Anda masuk dengan akun Google yang sama.</li>
+    </ol>
+  </section>
+
+  <!-- ===================== 10 ===================== -->
+  <section class="bab" id="aman">
+    <h2><span class="no">10</span> Keselamatan &amp; batasan</h2>
+    <div class="kotak kotak--bahaya"><svg><use href="#i-awas"/></svg>
+      <div><b>TeleCare bukan alat medis</b>
+        <p>Angka dari TeleBand adalah perkiraan sensor untuk membantu memantau gaya hidup. Jangan dipakai untuk mendiagnosis penyakit,
+          mengubah dosis obat, atau menunda pemeriksaan ke tenaga kesehatan.</p></div></div>
+    <ul>
+      <li><b>Tensi dan glukosa</b> dari TeleBand adalah <b>estimasi eksperimental</b> yang belum tervalidasi. Untuk keputusan apa pun,
+        gunakan tensimeter dan alat cek gula darah.</li>
+      <li><b>Suhu tubuh</b> tidak diukur, dan <b>EKG</b> belum tersedia.</li>
+      <li>Ukur di <b>pergelangan</b>, bukan di jari (lihat <a href="#pakai">Bagian 4</a>).</li>
+    </ul>
+    <div class="kotak kotak--bahaya"><svg><use href="#i-awas"/></svg>
+      <div><b>Keadaan darurat</b>
+        <p>Bila mengalami nyeri dada, sesak napas berat, pingsan, atau keluhan berat lainnya, <b>segera ke IGD terdekat atau hubungi
+          119</b> — jangan menunggu hasil pengukuran.</p></div></div>
+  </section>
+
+  <!-- ===================== 11 ===================== -->
+  <section class="bab" id="privasi">
+    <h2><span class="no">11</span> Data &amp; privasi</h2>
+    <ul>
+      <li>Profil (nama panggilan, email, jenis kelamin, usia, tinggi, berat, aktivitas, tujuan &amp; target gizi), catatan makanan
+        (tanpa foto), dan hasil ukur TeleBand disimpan di <b>server TeleCare</b> supaya bisa dibuka dari perangkat lain.</li>
+      <li>Yang dapat membacanya hanya <b>Anda</b> dan <b>admin TeleCare</b> yang memantau kesehatan pengguna.</li>
+      <li>Foto makanan hanya dikirim sesaat ke layanan AI untuk dikenali dan <b>tidak disimpan</b>. Wawasan TeleCare AI hanya menerima
+        ringkasan angka, tanpa nama dan email.</li>
+      <li>Hindari membagikan tangkapan layar aplikasi di ruang publik — layar memuat data kesehatan pribadi Anda.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 12 ===================== -->
+  <section class="bab" id="masalah">
+    <h2><span class="no">12</span> Bila ada masalah</h2>
+    <div class="tabel-wrap"><table class="tabel">
+      <tr><th>Masalah</th><th>Coba ini</th></tr>
+      <tr><td>Gelang tidak menyala</td><td>Isi daya minimal 15 menit (pastikan ikon petir muncul), lalu tahan <kbd>PWR</kbd> ±3 detik.</td></tr>
+      <tr><td>Ikon petir tidak muncul saat dicas</td><td>Pakai kabel <b>USB-A ke USB-C</b> dan adaptor biasa 5 V (bukan fast charging). Cabut–colok dengan mantap; pastikan port kering.</td></tr>
+      <tr><td>Tombol <b>Sambungkan TeleBand</b> tidak ada / “Web Bluetooth tidak tersedia”</td><td>Buka lewat <b>Chrome atau Edge</b> di HP Android atau laptop. iPhone/iPad tidak didukung.</td></tr>
+      <tr><td><b>TeleCare-…</b> tidak muncul di daftar</td><td>Pastikan gelang menyala dan Bluetooth HP aktif; dekatkan gelang. Putuskan dari HP/tab lain. Matikan lalu nyalakan gelang.</td></tr>
+      <tr><td>Gagal menyambung / pairing gagal</td><td>Tutup aplikasi, matikan–nyalakan Bluetooth HP dan gelang, lalu coba lagi. Bila gelang pernah “dilupakan” di pengaturan Bluetooth HP, sambungkan ulang dari aplikasi.</td></tr>
+      <tr><td>Angka tidak muncul / tertulis “sensor belum menempel”</td><td>Kencangkan tali; pastikan sensor tepat di titik denyut nadi pergelangan dan kulit kering.</td></tr>
+      <tr><td>Kemajuan lama tidak penuh</td><td>Tahan tangan diam, jangan berbicara, letakkan tangan di atas meja. Geser sedikit posisi sensor bila perlu.</td></tr>
+      <tr><td>SpO₂ selalu 100%</td><td>Kemungkinan diukur di jari. Pakai di pergelangan (<a href="#pakai">Bagian 4</a>).</td></tr>
+      <tr><td>Hasil bertanda <b>menunggu kirim</b></td><td>Periksa internet, lalu tekan <b>Kirim sekarang</b>. Hasil tetap aman di gelang dan HP.</td></tr>
+      <tr><td>Data tidak muncul di HP lain</td><td>Pastikan masuk dengan <b>akun Google yang sama</b>. Tutup lalu buka lagi aplikasi.</td></tr>
+      <tr><td>Deteksi makanan gagal / “sedang sibuk”</td><td>Coba lagi beberapa saat kemudian, atau tambahkan makanan sendiri dengan <b>Tambah makanan</b>.</td></tr>
+      <tr><td>Tampilan aplikasi terasa versi lama</td><td>Tutup tab lalu buka lagi aplikasi; aplikasi memperbarui dirinya sendiri.</td></tr>
+    </table></div>
+  </section>
+
+  <p class="kaki">TeleCare — Penelitian Health 5.0 · Program Studi Fisika, FMIPA Universitas Sebelas Maret<br>
+    <a href="../">Situs penelitian</a> · <a href="../app/">Buka aplikasi</a> · Panduan versi Oktober 2026</p>
+  </main>
+</div>
+</body>
+</html>

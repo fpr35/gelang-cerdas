@@ -410,6 +410,28 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     setelah pintasan saat mengubah ukuran jendela/DevTools. Kini `<a class="skip-link" … hidden>` di
     index.html (berkomentar); hapus `hidden` untuk memunculkannya kembali. Gaya di css/fx.css §9 tetap.
     Diuji Edge: Tab pertama langsung ke logo, tautan tidak tampil.
+49. **Panduan penggunaan pasien (web + PDF) & admin (PDF terbatas)** (23 Okt, permintaan user setelah
+    diskusi). Keputusan user: untuk pasien & admin; web sekaligus PDF; pakai gambar; Bahasa Indonesia;
+    panduan admin TIDAK di web publik (alamat `/masuk/admin` tetap tersembunyi). Fakta alat dari user:
+    port USB-C di papan; **hanya kabel USB-A ke USB-C + adaptor biasa 5 V — tidak aman dengan fast
+    charging/USB-C ke USB-C**; Li-Po 1500 mAh (±3 jam dari kosong menurut catatan firmware); ikon
+    petir saat dicas; firmware tidak berubah sejak 25 Sep (salinan kini di
+    `D:\Data_C_Fito\joki\gelang-cerdas\New folder\TeleCare`); daya tahan baterai "tergantung pemakaian";
+    **belum ada uji ketahanan air resmi** → ditulis "keringat & cipratan ringan, jangan direndam".
+    - `panduan/index.html` + `panduan/panduan.css` (gaya cetak A4) → `/panduan/`, `panduan-telecare.pdf`
+      (±3 MB, 21 hlm). `docs/panduan-admin.html` → `build/Panduan-Admin-TeleCare.pdf` (±1,4 MB, 12 hlm);
+      `docs/**` dikecualikan di firebase.json. Tautan: menu landing "Panduan" (+ menu HP), Profil →
+      "Panduan Penggunaan" (hanya pasien, `target=_blank`). sitemap ditambah. sw.js `v42-firebase`.
+    - `tools/buat-panduan.ps1` → `tools/panduan/ambil-gambar.mjs` (28 tangkapan layar, data contoh
+      fiktif, Firebase diblokir lewat host-resolver; status TeleBand & DB admin ditiru di halaman) dan
+      `tools/panduan/buat-pdf.mjs` (CDP printToPDF, memaksa gambar lazy termuat, nomor halaman).
+    - Pelajaran: (1) `<img width height>` + CSS lebar wajib `height:auto` (bug yang sama dengan #44 —
+      PDF sempat 62 hlm); (2) tangkapan layar JPEG, bukan WebP: Chromium menyalin JPEG ke PDF apa adanya
+      sedangkan WebP dijadikan gambar tanpa kompresi (PDF sempat 10,7 MB); (3) `b:first-child` cocok
+      dengan elemen `<b>` pertama walau didahului teks — memakai `.kotak > div > b`.
+    - **Ilustrasi gelang masih gambar berlabel (bertanda "Ilustrasi"), letak tombol PWR/BOOT di gambar
+      BELUM diverifikasi** — ganti dengan foto asli (depan, samping tombol, port USB-C, ikon petir,
+      terpasang di pergelangan) lalu jalankan ulang tools\buat-panduan.ps1.
 
 ---
 
