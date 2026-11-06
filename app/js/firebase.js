@@ -591,10 +591,10 @@
         '- Bahasa Indonesia yang hangat dan mudah dipahami, sapa dengan "Anda".\n' +
         '- "judul": maksimal 8 kata. "isi": 2–3 kalimat, maksimal 60 kata.\n' +
         '- Kaitkan asupan gizi hari ini dengan tujuan kesehatannya (mis. bulking, turun berat, gula stabil) ' +
-        'dan target hariannya, serta detak jantung/SpO₂ bila ada. Beri satu saran praktis (mis. makanan yang perlu ditambah).\n' +
+        'dan target hariannya, serta detak jantung/SpO₂ atau status kelelahan fisik (fatigue) bila ada. Beri satu saran praktis (mis. makanan yang perlu ditambah atau istirahat/hidrasi bila terdeteksi kelelahan).\n' +
         '- Hanya gunakan angka yang ada di data; jangan mengarang angka. Bila data kosong, ajak mencatat makanan atau mengukur dengan TeleBand.\n' +
-        '- Jangan mendiagnosis penyakit atau menyarankan obat. Bila detak jantung < 50 atau > 100 bpm saat istirahat, ' +
-        'atau SpO₂ < 94%, sarankan ukur ulang dan hubungi tenaga kesehatan bila ada keluhan.\n' +
+        '- Jangan mendiagnosis penyakit atau menyarankan obat. Bila status kelelahan fisik tinggi atau detak jantung > 100 bpm saat istirahat, ' +
+        'atau SpO₂ < 94%, sarankan istirahat cukup, hindari stres/kafein berlebih, ukur ulang dan hubungi tenaga kesehatan bila ada keluhan.\n' +
         '- Tekanan darah dan glukosa TeleBand adalah estimasi eksperimental; jangan dijadikan dasar kesimpulan.';
       const teks = await panggilAI([prompt], {
         temperature: 0.6, responseMimeType: 'application/json',

@@ -131,6 +131,13 @@
               <div><span>Tensi${TANDA}</span><b>${x.sis != null && x.dia != null ? esc(x.sis) + '/' + esc(x.dia) : '—'}</b></div>
               <div><span>Glukosa${TANDA}</span><b>${x.glukosa != null ? esc(x.glukosa) + ' mg/dL' : '—'}</b></div>
             </div>
+            ${x.bpm != null ? `
+              <div style="margin-top:7px;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface);border-radius:10px;border:1px solid var(--line)">
+                <span class="tiny muted" style="font-weight:700">Kelelahan Fisik (Fatigue):</span>
+                <span class="chip ${TC.Fatigue.nilai(x.bpm).chipCls}" style="font-size:.64rem;padding:2px 7px">
+                  ${icon(TC.Fatigue.nilai(x.bpm).id === 'normal' ? 'check' : 'alert')} ${esc(TC.Fatigue.nilai(x.bpm).label)}
+                </span>
+              </div>` : ''}
             <p class="tiny muted" style="margin-top:7px">${esc(x.durasi)} dtk · dimulai dari
               ${x.sumber === 'web' ? 'aplikasi' : 'tombol di jam'} · unit ${esc(x.serial.slice(-6))} · id ${esc(x.idAlat)}</p>
           </div>`).join('')}</div>
@@ -180,6 +187,13 @@
             <div><span>Tensi${TANDA}</span>${angka(tampil && l.sis != null && l.dia != null ? l.sis + '/' + l.dia : null, 'mmHg', sem)}</div>
             <div><span>Glukosa${TANDA}</span>${angka(tampil ? l.glukosa : null, 'mg/dL', sem)}</div>
           </div>
+          ${tampil && l.bpm != null && !sem ? `
+            <div style="margin-top:9px;padding:7px 11px;background:var(--surface);border-radius:12px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line)">
+              <span class="small" style="font-weight:700">Kelelahan Fisik (Fatigue):</span>
+              <span class="chip ${TC.Fatigue.nilai(l.bpm).chipCls}" style="font-size:.68rem">
+                ${icon(TC.Fatigue.nilai(l.bpm).id === 'normal' ? 'check' : 'alert')} ${esc(TC.Fatigue.nilai(l.bpm).label)}
+              </span>
+            </div>` : ''}
           ${l && l.berhenti ? '<p class="tiny muted mt">Angka terakhir sebelum pengukuran dihentikan. Hasil resminya ada di daftar di bawah.</p>' : ''}`;
       }
 

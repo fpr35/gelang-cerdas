@@ -115,6 +115,13 @@
   // bila suatu saat ada perangkat yang benar-benar memasoknya.
   const tampilSuhu = () => SIM() || TC.Vitals.sourceOf('temp') === 'device';
 
+  function fatigueChip(bpm) {
+    if (bpm == null) return '';
+    const f = TC.Fatigue.nilai(bpm);
+    if (!f || f.id === 'none') return '';
+    return `<span class="chip ${f.chipCls}" style="font-size:.62rem;margin-top:4px;padding:2px 7px;align-self:flex-start">${icon(f.id === 'normal' ? 'check' : 'alert')} Fatigue: ${esc(f.singkat)}</span>`;
+  }
+
   function vitalsGrid() {
     const v = TC.Vitals.snapshot();
     return `<div class="vital-grid">
@@ -123,6 +130,7 @@
         <span class="vital__lab">Detak jantung</span>
         <span class="vital__val" data-v="hr">${angka(v.hr, 'bpm')}</span>
         <span data-src="hr">${srcLabel('hr')}</span>
+        <span data-fatigue="hr">${fatigueChip(v.hr)}</span>
         <canvas data-spark="hr"></canvas></button>
       <button class="vital vital--spo" data-vital="spo2">
         ${TC.i3d('oksigen', 'vital__ico')}
@@ -175,6 +183,8 @@
       const el = $(`[data-src="${k}"]`, root);
       if (el) el.innerHTML = srcLabel(k);
     });
+    const fEl = $('[data-fatigue="hr"]', root);
+    if (fEl) fEl.innerHTML = fatigueChip(v.hr);
     paintSparks(root);
   }
 
@@ -395,6 +405,7 @@
     // detik saat mengukur dan akan memicu panggilan AI berulang.
     const r = TC.Readings.list().find((x) => x.bpm != null || x.spo2 != null);
     const v = r ? { hr: r.bpm, spo2: r.spo2, at: r.waktu || r.diterima } : null;
+    const fStatus = v && v.hr != null ? TC.Fatigue.nilai(v.hr).label : null;
     const awal = new Date(); awal.setHours(0, 0, 0, 0);
     const rhr = TC.weekTrend().map((d) => d.rhr).filter((x) => typeof x === 'number');
     return {
@@ -406,7 +417,7 @@
       makananHariIni: Store.state.meals.filter((m) => m.at >= awal.getTime())
         .flatMap((m) => m.items.map((i) => i.n)).slice(0, 12),
       vitalTerakhir: v && (v.hr != null || v.spo2 != null)
-        ? { detakJantungBpm: v.hr, spo2Persen: v.spo2, waktu: v.at ? new Date(v.at).toISOString().slice(0, 16) : null } : null,
+        ? { detakJantungBpm: v.hr, spo2Persen: v.spo2, statusKelelahanFisik: fStatus, waktu: v.at ? new Date(v.at).toISOString().slice(0, 16) : null } : null,
       detakRataRataHarian7Hari: rhr
     };
   }
@@ -566,6 +577,21 @@
           : `<span class="chip">sambungkan TeleBand untuk mengukur</span>`}
       </div>
 
+      ${params.kind === 'hr' && v.hr != null ? `
+        <div class="card mt">
+          <div class="card__head">${icon('sparkle')}<h3>Kelelahan Fisik (Fatigue)</h3>
+            <span class="push"></span>
+            <span class="chip ${TC.Fatigue.nilai(v.hr).chipCls}">
+              ${icon(TC.Fatigue.nilai(v.hr).id === 'normal' ? 'check' : 'alert')} ${esc(TC.Fatigue.nilai(v.hr).label)}
+            </span>
+          </div>
+          <p class="small" style="color:var(--ink-2);margin-top:6px">${esc(TC.Fatigue.nilai(v.hr).desc)}</p>
+          <div class="note note--i mt" style="margin-top:10px">${icon('info')}
+            <div><b>Saran Pemulihan:</b> ${esc(TC.Fatigue.nilai(v.hr).saran)}</div>
+          </div>
+          <p class="tiny muted" style="margin-top:8px">Ambang acuan: Bugar (&lt;85 bpm), Kelelahan Ringan (85–100 bpm), Kelelahan Tinggi (&gt;100 bpm). Berbasis elevasi detak jantung istirahat (resting cardiovascular strain).</p>
+        </div>` : ''}
+
       ${eksperimental || eksAlat ? `<div class="note note--w mt">${icon('alert')}
         <div><b>Estimasi eksperimental, bukan alat medis</b>Angka ini tidak diukur langsung.
         Firmware alat menyatakan modelnya belum tervalidasi. Jangan dipakai untuk keputusan kesehatan.</div></div>` : ''}
@@ -698,7 +724,25 @@
               <div class="tag">${icon('sparkle')} Pola pekan ini</div>
               <h5>${esc(weekSummaryTitle(week))}</h5>
               <p>${esc(weekSummaryBody(week))}</p>
-            </div>` : ''}`;
+            </div>` : ''}
+
+          <div class="card mt">
+            <div class="card__head">${icon('sparkle')}<h3>Kelelahan Fisik (Fatigue) 7 Hari Terakhir</h3></div>
+            <p class="small muted">Evaluasi tingkat keletihan harian berdasarkan rata-rata detak jantung istirahat.</p>
+            <div class="stack--sm stack mt" style="margin-top:10px">
+              ${week.map((d) => {
+                if (!d.ada || d.rhr == null) return '';
+                const f = TC.Fatigue.nilai(d.rhr);
+                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border-radius:12px;border:1px solid var(--line)">
+                  <div><b>${esc(d.label)}</b> <small class="muted">· rata-rata ${d.rhr} bpm</small></div>
+                  <span class="chip ${f.chipCls}" style="font-size:.68rem">
+                    ${icon(f.id === 'normal' ? 'check' : 'alert')} ${esc(f.label)}
+                  </span>
+                </div>`;
+              }).join('') || '<p class="small muted tc" style="padding:10px">Belum ada pengukuran detak jantung sepekan ini.</p>'}
+            </div>
+            <p class="tiny muted mt">Detak jantung istirahat yang konsisten tinggi di atas normal mengindikasikan beban fisik yang menumpuk.</p>
+          </div>`;
 
         TC.lineChart($('#cRhr'), [{ data: week.map((d) => d.rhr), color: '#1E6FD9', fill: true, dots: true }],
           { xLabels: labels });

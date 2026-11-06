@@ -5,7 +5,14 @@ selesai** — supaya siapa pun (termasuk sesi kerja berikutnya) bisa melanjutkan
 menebak-nebak. Untuk cara memakai dan menjalankan proyek, lihat [README.md](README.md);
 berkas ini khusus soal *progres* dan *alasan di balik keputusan*.
 
-**Diperbarui:** 5 Oktober 2026
+**Diperbarui:** 27 Oktober 2026
+
+---
+
+> [!CAUTION]
+> ### ⚠️ ATURAN MUTLAK DEPLOY (PERINTAH TEGAS USER — 27 OKT 2026)
+> **DILARANG KERAS MELAKUKAN DEPLOY (`firebase deploy`, dll.) TANPA IZIN EKSPLISIT DARI USER!**  
+> **HANYA USER YANG BERHAK MELAKUKAN ATAU MENGIZINKAN DEPLOY! SEMUA AI AGENT DILARANG MELAKUKAN DEPLOY SECARA OTOMATIS / MANDIRI!**
 
 ---
 
@@ -432,6 +439,25 @@ Urut dari yang paling awal. Butir 1–16 terjadi di era Firebase.
     - **Ilustrasi gelang masih gambar berlabel (bertanda "Ilustrasi"), letak tombol PWR/BOOT di gambar
       BELUM diverifikasi** — ganti dengan foto asli (depan, samping tombol, port USB-C, ikon petir,
       terpasang di pergelangan) lalu jalankan ulang tools\buat-panduan.ps1.
+50. **Fitur Deteksi Kelelahan Fisik (Fatigue) Berbasis Detak Jantung untuk Pasien & Admin** (27 Okt, permintaan user).
+    - Menilai tingkat kelelahan fisik (*cardiovascular strain / fatigue*) secara deterministik dari detak jantung istirahat (*resting HR*) hasil ukur TeleBand:
+      * `< 85 bpm`: Bugar (Normal) (`chip--g`)
+      * `85–100 bpm` (atau baseline +12 bpm): Kelelahan Ringan (Mild Fatigue) (`chip--a`)
+      * `> 100 bpm` (atau baseline +20 bpm): Kelelahan Tinggi (High Fatigue) (`chip--r`)
+    - Tanpa perubahan skema database Firestore (dihitung *on-the-fly* di `engine.js` via `TC.Fatigue`), 100% aman dan patuh aturan `firestore.rules` tanpa perlu redeploy security rules.
+    - **Fitur untuk Pasien:**
+      * Beranda (`app/js/views-home.js`): chip fatigue di kartu Detak Jantung (`vitalsGrid()`), kartu edukasi tingkat keletihan & rekomendasi pemulihan di detail vital HR (`viewVital('hr')`), evaluasi keletihan 7 hari terakhir di Analisis Vital (`viewAnalysis()`), dan data fatigue diumpankan ke Gemini AI di `ringkasanWawasan()`.
+      * TeleBand (`app/js/views-teleband.js`): badge fatigue pada kotak pengukuran stabil terkini (`paint()`) dan riwayat kartu pengukuran (`daftarHasilHtml()`).
+    - **Fitur untuk Admin & Tenaga Medis:**
+      * Klinik & Faskes (`app/js/views-roles.js`): badge status fatigue di baris pasien (`barisPasienNyata()`, `barisPenggunaAdmin()`), kartu ringkasan KPI distribusi kelelahan anggota unit (`viewFacilityNyata()`), kartu evaluasi klinis fatigue & kolom riwayat ukur di detail pasien (`viewPatientDetailNyata()`), serta kolom `Kelelahan Fisik (Fatigue)` pada ekspor CSV laporan unit (`laporanUnit()`).
+    - Promp Gemini AI (`app/js/firebase.js`): instruksi edukasi dan saran istirahat/pemulihan bila terdeteksi status kelelahan fisik tinggi.
+    - Service Worker dinaikkan ke `v43-firebase` (`app/sw.js`).
+51. **Penambahan Informasi Fitur Kelelahan Fisik (Fatigue) di Landing Page & Aturan Mutlak Deploy** (27 Okt, permintaan user).
+    - Landing page (`index.html`):
+      * Spesifikasi TeleBand: ditambahkan *Kelelahan (Fatigue)* pada fitur detak jantung & PPG 4-kanal.
+      * Fitur aplikasi: ditambahkan kartu *Deteksi Kelelahan Fisik (Fatigue)* yang menjelaskan evaluasi otomatis (Bugar, Kelelahan Ringan, Kelelahan Tinggi) untuk pasien & admin.
+      * Alur TAHAP 03: ditambahkan tag *Kelelahan Fisik (Fatigue)* pada analisis & triase.
+    - **ATURAN MUTLAK DEPLOY:** Dicatat secara permanen di `MEMORY.md` dan `README.md` bahwa **semua AI agent dilarang keras melakukan perintah `firebase deploy` tanpa izin eksplisit langsung dari user.** Hanya user yang berhak melakukan atau memerintahkan deploy.
 
 ---
 

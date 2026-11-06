@@ -4,6 +4,11 @@
 
 Situs profil penelitian + aplikasi web — HTML, CSS, dan JavaScript native (tanpa framework, tanpa langkah build).
 Seluruh layanan server memakai **Firebase paket Spark (gratis)**.
+> [!CAUTION]
+> ### ⚠️ ATURAN MUTLAK DEPLOY (PERINTAH TEGAS USER — 27 OKT 2026)
+> **DILARANG KERAS MELAKUKAN DEPLOY (`firebase deploy`, dll.) TANPA IZIN EKSPLISIT DARI USER!**  
+> **HANYA USER YANG BERHAK MELAKUKAN ATAU MENGIZINKAN DEPLOY! SEMUA AI AGENT DILARANG MELAKUKAN DEPLOY SECARA OTOMATIS / MANDIRI!**
+
 
 | Layanan Firebase | Dipakai untuk |
 | --- | --- |

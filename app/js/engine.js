@@ -1732,12 +1732,14 @@
       const hari = (hasil || []).filter((x) => x.t >= t0 && x.t < t1);
       const bpm = hari.map((x) => x.bpm).filter((v) => typeof v === 'number');
       const spo2 = hari.map((x) => x.spo2).filter((v) => typeof v === 'number');
+      const rhr = bpm.length ? Math.round(rerata(bpm)) : null;
       out.push({
         label: TC.DAYS[d.getDay()].slice(0, 3),
         ada: bpm.length + spo2.length > 0,
         n: hari.length,
-        rhr: bpm.length ? Math.round(rerata(bpm)) : null,
+        rhr,
         spo2: spo2.length ? Math.round(rerata(spo2)) : null,
+        fatigue: Fatigue.nilai(rhr),
         stress: null, steps: 0,
         sumber: hari.length ? 'device' : null
       });
@@ -1775,6 +1777,61 @@
     if ((sp != null && sp < 94) || (hr != null && (hr > 110 || hr < 50))) return 'warn';
     return 'ok';
   }
+
+  /* ============================================================
+     7. KELELAHAN FISIK (FATIGUE) BERBASIS DETAK JANTUNG
+     ============================================================
+     Menilai tingkat kelelahan fisik (fatigue / cardiovascular strain)
+     dari detak jantung istirahat (resting HR) hasil ukur TeleBand.
+     Ambang batas:
+       < 85 bpm   : Bugar (Normal)
+       85–100 bpm : Kelelahan Ringan (Mild Fatigue)
+       > 100 bpm  : Kelelahan Tinggi (High Fatigue)
+     Bila baselineRhr (rata-rata 7 hari) diketahui, elevasi +12 bpm
+     dan +20 bpm di atas baseline ikut memicu status ringan dan tinggi.
+     ============================================================ */
+  const Fatigue = (function () {
+    const STATUS = {
+      none: {
+        id: 'none', level: -1, label: 'Belum Ada Data', singkat: 'Belum diukur',
+        desc: 'Belum ada hasil pengukuran detak jantung untuk menilai tingkat kelelahan fisik.',
+        chipCls: '', color: 'var(--muted)', saran: 'Sambungkan TeleBand untuk mulai mengukur.'
+      },
+      normal: {
+        id: 'normal', level: 0, label: 'Bugar (Normal)', singkat: 'Bugar',
+        desc: 'Detak jantung istirahat berada dalam rentang optimal. Beban fisiologis normal, tubuh siap beraktivitas.',
+        chipCls: 'chip--g', color: 'var(--ok, #049A5B)',
+        saran: 'Kondisi fisik optimal. Pertahankan hidrasi dan pola tidur teratur.'
+      },
+      ringan: {
+        id: 'ringan', level: 1, label: 'Kelelahan Ringan (Mild Fatigue)', singkat: 'Kelelahan Ringan',
+        desc: 'Detak jantung istirahat di atas rentang optimal (85–100 bpm atau elevasi di atas baseline). Mengindikasikan pemulihan belum tuntas atau beban aktivitas mulai menumpuk.',
+        chipCls: 'chip--a', color: 'var(--warn, #D97706)',
+        saran: 'Ambil jeda istirahat 15–20 menit, penuhi hidrasi air putih, dan hindari tugas fisik berat sesaat.'
+      },
+      tinggi: {
+        id: 'tinggi', level: 2, label: 'Kelelahan Tinggi (High Fatigue)', singkat: 'Kelelahan Tinggi',
+        desc: 'Detak jantung istirahat tinggi (>100 bpm atau elevasi signifikan). Mengindikasikan beban kardiovaskular berat (severe cardiovascular strain), kelelahan fisik akumulatif, atau kurang tidur ekstrem.',
+        chipCls: 'chip--r', color: 'var(--crit, #E2543F)',
+        saran: 'Hentikan aktivitas fisik berat segera, duduk rileks di tempat sejuk, minum air, dan ukur ulang setelah 15 menit. Lapor ke pengawas atau tenaga kesehatan bila disertai pusing/lemas.'
+      }
+    };
+
+    function nilai(bpm, baselineRhr) {
+      if (bpm == null || typeof bpm !== 'number' || bpm <= 0) return STATUS.none;
+      const b = typeof baselineRhr === 'number' && baselineRhr > 0 ? baselineRhr : null;
+      if (bpm > 100 || (b && (bpm - b) >= 20)) return STATUS.tinggi;
+      if (bpm >= 85 || (b && (bpm - b) >= 12)) return STATUS.ringan;
+      return STATUS.normal;
+    }
+
+    function dariHasil(x, baselineRhr) {
+      if (!x) return STATUS.none;
+      return nilai(x.bpm, baselineRhr);
+    }
+
+    return { STATUS, nilai, dariHasil };
+  })();
 
   function weekTrend() {
     if (!TC.FITUR.simulasi) return trenDariHasil(hasilLokal());
@@ -1823,4 +1880,5 @@
   TC.hasilLokal = hasilLokal;
   TC.hasilDariBaris = hasilDariBaris;
   TC.statusHasil = statusHasil;
+  TC.Fatigue = Fatigue;
 })(window.TC);

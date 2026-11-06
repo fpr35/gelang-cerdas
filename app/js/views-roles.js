@@ -112,14 +112,22 @@
   function barisPasienNyata(p, dasar) {
     const r = p.terakhir;
     const x = (v, u) => (v == null ? '—' : v + u);
+    const f = r && r.bpm != null ? TC.Fatigue.nilai(r.bpm) : null;
     return `<a class="row" href="${dasar || '#/klinik/pasien/'}${esc(p.id)}">
       <span class="avatar" style="background:${metaStatus(p.status).color}">${esc(initials(p.nama))}</span>
-      <div style="min-width:0">
+      <div style="min-width:0;flex:1">
         <b>${esc(p.nama)}</b>
         <small>${r ? `${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')} · ${esc(relTime(r.t))}`
           : 'Belum ada hasil ukur TeleBand'}</small>
+        ${f && f.id !== 'none' && f.id !== 'normal' ? `
+          <div style="margin-top:3px;display:flex;align-items:center;gap:5px">
+            <span class="tiny muted" style="font-weight:700">Fatigue:</span>
+            <span class="chip ${f.chipCls}" style="font-size:.6rem;padding:2px 6px">
+              ${icon('alert')} ${esc(f.singkat)}
+            </span>
+          </div>` : ''}
       </div>
-      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
         ${chipStatus(p.status)}${icon('chev', 'chev')}</span>
     </a>`;
   }
@@ -302,6 +310,21 @@
             <span class="vital__src is-eks">estimasi eksperimental</span></div>
         </div>
 
+        ${r && r.bpm != null ? `
+          <div class="card mt">
+            <div class="card__head">${icon('sparkle')}<h3>Kelelahan Fisik (Fatigue)</h3>
+              <span class="push"></span>
+              <span class="chip ${TC.Fatigue.nilai(r.bpm).chipCls}">
+                ${icon(TC.Fatigue.nilai(r.bpm).id === 'normal' ? 'check' : 'alert')} ${esc(TC.Fatigue.nilai(r.bpm).label)}
+              </span>
+            </div>
+            <p class="small" style="color:var(--ink-2);margin-top:6px">${esc(TC.Fatigue.nilai(r.bpm).desc)}</p>
+            <div class="note note--i mt" style="margin-top:10px">${icon('info')}
+              <div><b>Indikasi Pemantauan Klinis / Admin:</b> ${esc(TC.Fatigue.nilai(r.bpm).saran)}</div>
+            </div>
+            <p class="tiny muted" style="margin-top:8px">Evaluasi kelelahan fisik didasarkan pada elevasi detak jantung istirahat (cardiovascular strain). Nilai acuan: Bugar (&lt;85 bpm), Kelelahan Ringan (85–100 bpm), Kelelahan Tinggi (&gt;100 bpm).</p>
+          </div>` : ''}
+
         <div class="card mt">
           <div class="card__head">${icon('chart')}<h3>Rata-rata detak jantung harian · 7 hari</h3>
             <span class="push"></span><span class="chip">${tren.filter((d) => d.ada).length} hari berdata</span></div>
@@ -312,12 +335,28 @@
 
         <div class="section-title">${icon('doc')} Hasil ukur terbaru
           <span class="push"></span><span class="chip">${hasil.length}</span></div>
-        ${hasil.length ? `<div class="list">${hasil.slice(0, 10).map((h) => `
-          <div class="row"><span class="row__ico">${icon('heart')}</span>
-            <div style="min-width:0"><b>${x(h.bpm)} bpm · SpO₂ ${x(h.spo2)}%</b>
-              <small>${esc(shortDate(new Date(h.t)))} · ${esc(hhmm(new Date(h.t)))} ·
-                TD ${h.sis != null && h.dia != null ? h.sis + '/' + h.dia : '—'} · glukosa ${x(h.glukosa)} (estimasi)</small></div>
-            <span style="margin-left:auto">${chipStatus(TC.statusHasil(h))}</span></div>`).join('')}</div>`
+        ${hasil.length ? `<div class="stack--sm stack">${hasil.slice(0, 10).map((h) => {
+          const f = h.bpm != null ? TC.Fatigue.nilai(h.bpm) : null;
+          return `
+          <div class="card card--flat">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <b>${x(h.bpm)} bpm · SpO₂ ${x(h.spo2)}%</b>
+              <span class="push" style="margin-left:auto"></span>
+              ${chipStatus(TC.statusHasil(h))}
+            </div>
+            <p class="tiny muted" style="margin-top:4px">
+              ${esc(shortDate(new Date(h.t)))} · ${esc(hhmm(new Date(h.t)))} ·
+              TD ${h.sis != null && h.dia != null ? h.sis + '/' + h.dia : '—'} · glukosa ${x(h.glukosa)} (estimasi)
+            </p>
+            ${f && f.id !== 'none' ? `
+              <div style="margin-top:7px;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface);border-radius:10px;border:1px solid var(--line)">
+                <span class="tiny muted" style="font-weight:700">Kelelahan Fisik (Fatigue):</span>
+                <span class="chip ${f.chipCls}" style="font-size:.64rem;padding:2px 7px">
+                  ${icon(f.id === 'normal' ? 'check' : 'alert')} ${esc(f.label)}
+                </span>
+              </div>` : ''}
+          </div>`;
+        }).join('')}</div>`
           : `<div class="card"><p class="small muted tc" style="padding:14px">Pasien belum mengirim hasil ukur TeleBand.</p></div>`}
 
         ${FASKES ? '' : `<div class="section-title">${icon('doc')} Catatan klinis
@@ -550,6 +589,11 @@
       if (!d.unit) { formUnitBaru(); return; }
       const { unit, anggota, nakes, rows } = d;
       const hitung = (st) => anggota.filter((a) => a.status === st).length;
+      const hitungFatigue = (fid) => anggota.filter((a) => {
+        if (!a.terakhir || a.terakhir.bpm == null) return fid === 'none';
+        const f = TC.Fatigue.nilai(a.terakhir.bpm);
+        return f && (f.id === fid || (fid === 'ringan' && f.id === 'mild') || (fid === 'tinggi' && f.id === 'high') || (fid === 'mild' && f.id === 'ringan') || (fid === 'high' && f.id === 'tinggi'));
+      }).length;
       const perhatian = anggota.filter((a) => a.status === 'warn' || a.status === 'crit')
         .sort((a, b) => URUT_STATUS[a.status] - URUT_STATUS[b.status]);
       // Jumlah hasil ukur per hari, 7 hari terakhir.
@@ -586,6 +630,27 @@
             (hitung('none') ? `<p class="tiny muted mt">${hitung('none')} ${L.anggota} belum punya hasil ukur.</p>` : '')
             : `<p class="small muted">${L.kosong}</p>`}
           <p class="tiny muted mt">Dari hasil ukur TeleBand terakhir tiap ${L.anggota}.</p>
+        </div>
+
+        <div class="card mt">
+          <div class="card__head">${icon('sparkle')}<h3>Kelelahan Fisik (Fatigue)</h3>
+            <span class="push"></span><span class="chip">${anggota.length} orang</span></div>
+          <p class="small muted">Distribusi tingkat kelelahan fisik anggota dari hasil detak jantung istirahat terakhir.</p>
+          <div class="grid3 mt" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+            <div style="background:var(--surface);padding:10px 6px;border-radius:12px;border:1px solid var(--line)">
+              <b style="font-size:1.15rem;color:var(--green-600);display:block">${hitungFatigue('normal')}</b>
+              <span class="tiny muted">Bugar (&lt;85)</span>
+            </div>
+            <div style="background:var(--surface);padding:10px 6px;border-radius:12px;border:1px solid var(--line)">
+              <b style="font-size:1.15rem;color:var(--amber-600);display:block">${hitungFatigue('ringan')}</b>
+              <span class="tiny muted">Ringan (85–100)</span>
+            </div>
+            <div style="background:var(--surface);padding:10px 6px;border-radius:12px;border:1px solid var(--line)">
+              <b style="font-size:1.15rem;color:var(--red-600);display:block">${hitungFatigue('tinggi')}</b>
+              <span class="tiny muted">Tinggi (&gt;100)</span>
+            </div>
+          </div>
+          ${hitungFatigue('none') ? `<p class="tiny muted mt">${hitungFatigue('none')} ${L.anggota} belum memiliki data detak jantung.</p>` : ''}
         </div>
 
         <div class="card mt">
@@ -640,13 +705,15 @@
     tulis(['Sumber: hasil ukur TeleBand anggota di server. Tekanan darah & glukosa = estimasi eksperimental.']);
     tulis([]);
     tulis(['Nama', GLOBAL ? 'Terdaftar' : 'Anggota sejak', 'Status', 'Hasil terakhir', 'Detak (bpm)', 'SpO2 (%)',
-           'TD estimasi', 'Glukosa estimasi', 'Hasil ukur 30 hari', 'Penandaan eskalasi (perangkat ini)']);
+           'Kelelahan Fisik (Fatigue)', 'TD estimasi', 'Glukosa estimasi', 'Hasil ukur 30 hari', 'Penandaan eskalasi (perangkat ini)']);
     anggota.forEach((a) => {
       const r = a.terakhir;
+      const f = r && r.bpm != null ? TC.Fatigue.nilai(r.bpm).label : '';
       tulis([
         a.nama, shortDate(new Date(a.sejak)), metaStatus(a.status).t,
         r ? shortDate(new Date(r.t)) + ' ' + hhmm(new Date(r.t)) : '',
         r ? r.bpm : '', r ? r.spo2 : '',
+        f,
         r && r.sis != null && r.dia != null ? r.sis + '/' + r.dia : '', r ? r.glukosa : '',
         a.hasil.filter((h) => h.t >= batas30).length,
         Store.escalationsFor(a.id).length
@@ -697,14 +764,22 @@
   function barisPenggunaAdmin(a) {
     const r = a.terakhir;
     const x = (v, u) => (v == null ? '—' : v + u);
+    const f = r && r.bpm != null ? TC.Fatigue.nilai(r.bpm) : null;
     return `<div class="row">
       <a href="#/faskes/anggota/${esc(a.id)}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:inherit">
         <span class="avatar" style="background:${metaStatus(a.status).color}">${esc(initials(a.nama))}</span>
-        <span style="min-width:0">
+        <span style="min-width:0;flex:1">
           <b>${esc(a.nama)}</b>
           <small>${r ? `${x(r.bpm, ' bpm')} · SpO₂ ${x(r.spo2, '%')} · ${esc(relTime(r.t))}` : 'Belum ada hasil ukur TeleBand'}</small>
+          ${f && f.id !== 'none' && f.id !== 'normal' ? `
+            <div style="margin-top:3px;display:flex;align-items:center;gap:5px">
+              <span class="tiny muted" style="font-weight:700">Fatigue:</span>
+              <span class="chip ${f.chipCls}" style="font-size:.6rem;padding:2px 6px">
+                ${icon('alert')} ${esc(f.singkat)}
+              </span>
+            </div>` : ''}
         </span>
-        <span style="margin-left:auto">${chipStatus(a.status)}</span>
+        <span style="margin-left:auto;flex-shrink:0">${chipStatus(a.status)}</span>
       </a>
       <button class="icon-btn" data-hapus="${esc(a.id)}" data-nama="${esc(a.nama)}"
         aria-label="Hapus data ${esc(a.nama)}" title="Hapus data pengguna">${icon('trash')}</button>
